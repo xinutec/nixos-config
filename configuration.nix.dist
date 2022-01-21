@@ -3,6 +3,7 @@
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
 { imports = [ machines/amun.nix ];
+  node = (import ./network.nix).nodes.amun;
   # Set passwords for system users (mkpasswd -m sha-512).
   users.users.pippijn.hashedPassword = null;
 }

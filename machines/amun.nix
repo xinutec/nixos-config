@@ -9,7 +9,7 @@ let net = import ../network.nix; in
   imports =
     [ # Include the results of the hardware scan.
       ../hardware-configuration.nix
-      (import ../base-configuration.nix { config = config; pkgs = pkgs; node = net.amun; })
+      ../base-configuration.nix
       <home-manager/nixos>
     ];
 
@@ -20,13 +20,11 @@ let net = import ../network.nix; in
     kubernetes-helm
   ];
 
-  networking.dhcpcd.extraConfig = "static ip6_address=${net.amun.ipv6}";
-
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
     wg0 = {
       # Determines the IP address and subnet of the server's end of the tunnel interface.
-      ips = [ "${net.amun.vpn}/24" ];
+      ips = [ "${config.node.vpn}/24" ];
 
       # The port that WireGuard listens to. Must be accessible by the client.
       listenPort = 51820;
@@ -54,7 +52,7 @@ let net = import ../network.nix; in
         { # isis
           publicKey = "F0NoDNdlJzcKh0JCNsVKPvof3SXQEpWwMsCF9zHCbTs=";
           # List of IPs assigned to this peer within the tunnel subnet. Used to configure routing.
-          allowedIPs = [ "10.100.0.2/32" ];
+          allowedIPs = [ "${net.nodes.isis.vpn}/32" ];
         }
       ];
     };

@@ -1,9 +1,13 @@
-{ config, pkgs, node, ... }:
+# Edit this configuration file to define what should be installed on
+# your system.  Help is available in the configuration.nix(5) man page
+# and in the NixOS manual (accessible by running ‘nixos-help’).
 
-let
-  k8sSubnet = "10.42.0.0/24";
-in
+{ config, pkgs, ... }:
+
+let net = import ./network.nix; in
 {
+  imports = [ ./options.nix ];
+
   boot.loader.grub = {
     # Use the GRUB 2 boot loader.
     enable = true;
@@ -25,16 +29,17 @@ in
   networking = {
     enableIPv6 = true;
     useDHCP = true;
+    dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
    
     # Resolve hostnames in domain.
     search = [ "xinutec.org" ];
-    hostName = node.name; # Define your hostname.
+    hostName = config.node.name; # Define your hostname.
    
     # enable NAT
     nat = {
       enable = true;
       externalInterface = "eth0";
-      internalInterfaces = [ "wg0" ];
+      internalInterfaces = builtins.attrNames config.networking.wireguard.interfaces;
     };
    
     firewall = {
@@ -42,10 +47,10 @@ in
 #     enable = false;
       allowedTCPPorts = [ 25 80 443 993 6697 7005 ];
       allowedUDPPorts = [ ];
-      trustedInterfaces = [ "wg0" ];
+      trustedInterfaces = config.networking.nat.internalInterfaces;
       extraCommands = ''
-        iptables -A nixos-fw -p tcp --source ${k8sSubnet} -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${k8sSubnet} -j nixos-fw-accept
+        iptables -A nixos-fw -p tcp --source ${net.cluster} -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${net.cluster} -j nixos-fw-accept
         iptables -A nixos-fw -p tcp --source 188.165.200.180/32 -j nixos-fw-accept
         iptables -A nixos-fw -p udp --source 188.165.200.180/32 -j nixos-fw-accept
       '';
