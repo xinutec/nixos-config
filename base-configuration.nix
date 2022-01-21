@@ -56,8 +56,10 @@ let net = import ./network.nix; in
       extraCommands = ''
         iptables -A nixos-fw -p tcp --source ${net.cluster} -j nixos-fw-accept
         iptables -A nixos-fw -p udp --source ${net.cluster} -j nixos-fw-accept
-        iptables -A nixos-fw -p tcp --source 188.165.200.180/32 -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source 188.165.200.180/32 -j nixos-fw-accept
+        iptables -A nixos-fw -p tcp --source ${net.nodes.amun.ipv4}/32 -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${net.nodes.amun.ipv4}/32 -j nixos-fw-accept
+        iptables -A nixos-fw -p tcp --source ${net.nodes.isis.ipv4}/32 -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${net.nodes.isis.ipv4}/32 -j nixos-fw-accept
       '';
     };
   };

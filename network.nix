@@ -4,6 +4,7 @@
 {
   cluster = "10.42.0.0/24";
   vpn = "10.100.0.0/24";
+  vpnPort = 51820;
 
   nodes = {
     amun = {
