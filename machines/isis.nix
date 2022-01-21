@@ -11,8 +11,6 @@ let net = import ../network.nix; in
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-    git
-    vim
   ];
 
   # Enable WireGuard
