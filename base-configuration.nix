@@ -6,7 +6,12 @@
 
 let net = import ./network.nix; in
 {
-  imports = [ ./options.nix ];
+  imports =
+    [ # Include the results of the hardware scan.
+      ./hardware-configuration.nix
+      ./options.nix
+      <home-manager/nixos>
+    ];
 
   boot.loader.grub = {
     # Use the GRUB 2 boot loader.
