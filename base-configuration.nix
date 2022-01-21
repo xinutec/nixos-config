@@ -64,6 +64,24 @@ let net = import ./network.nix; in
     };
   };
 
+  networking.wireguard.interfaces = {
+    # "wg0" is the network interface name. You can name the interface arbitrarily.
+    wg0 = {
+      # Determines the IP address and subnet of the server's end of the tunnel interface.
+      ips = [ "${config.node.vpn}/24" ];
+
+      # The port that WireGuard listens to. Must be accessible by the client.
+      listenPort = net.vpnPort;
+
+      # Path to the private key file.
+      #
+      # Note: The private key can also be included inline via the privateKey option,
+      # but this makes the private key world-readable; thus, using privateKeyFile is
+      # recommended.
+      privateKeyFile = "/root/wireguard-keys/private";
+    };
+  };
+
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
