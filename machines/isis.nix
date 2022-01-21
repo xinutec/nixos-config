@@ -43,7 +43,7 @@ let net = import ../network.nix; in
     enable = true;
     role = "agent";
     tokenFile = "/root/node-token";
-    serverAddr = "https://${net.nodes.amun.name}:6443";
+    serverAddr = "https://${net.nodes.amun.name}:${net.k8sApiPort}";
   };
 
   fileSystems."/export" = {

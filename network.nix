@@ -3,6 +3,8 @@
 # See options.nix for the schema for nodes below.
 {
   cluster = "10.42.0.0/24";
+  k8sApiPort = 6443;
+
   vpn = "10.100.0.0/24";
   vpnPort = 51820;
 

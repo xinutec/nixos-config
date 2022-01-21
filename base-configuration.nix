@@ -53,13 +53,17 @@ let net = import ./network.nix; in
       allowedTCPPorts = [ 25 80 443 993 6697 7005 ];
       allowedUDPPorts = [ ];
       trustedInterfaces = config.networking.nat.internalInterfaces;
-      extraCommands = ''
-        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport 6443 -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${net.cluster} --dport 6443 -j nixos-fw-accept
-        iptables -A nixos-fw -p tcp --source ${net.nodes.amun.ipv4}/32 -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${net.nodes.amun.ipv4}/32 -j nixos-fw-accept
-        iptables -A nixos-fw -p tcp --source ${net.nodes.isis.ipv4}/32 -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${net.nodes.isis.ipv4}/32 -j nixos-fw-accept
+      extraCommands = with builtins; concatStringsSep "\n" (map (node: ''
+        # Allow the node hosts to talk freely to each other using their public
+	# IP address. All services are running in containers, so this just lets
+	# Kubernetes, Wireguard, and host users to set up connections.
+        iptables -A nixos-fw -p tcp --source ${node.ipv4}/32 -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${node.ipv4}/32 -j nixos-fw-accept
+      '') (attrValues net.nodes)) + ''
+        # Allow containers to access the API, but don't give them full access
+	# to all internal ports.
+        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${toString net.k8sApiPort} -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${toString net.k8sApiPort} -j nixos-fw-accept
       '';
     };
   };
