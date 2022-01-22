@@ -53,8 +53,10 @@ in
     firewall = {
       # Or disable the firewall altogether.
 #     enable = false;
-      allowedTCPPorts = [ 25 80 443 993 7005 ];
-      allowedUDPPorts = [ ];
+      # No need for explicitly allowing ports here. Kubernetes takes care of
+      # opening ports as needed.
+#     allowedTCPPorts = [ ];
+#     allowedUDPPorts = [ ];
       trustedInterfaces = config.networking.nat.internalInterfaces;
       extraCommands = with builtins; concatStringsSep "\n" (map (node: ''
         # Allow the node hosts to talk freely to each other using their public
