@@ -53,7 +53,7 @@ in
     firewall = {
       # Or disable the firewall altogether.
 #     enable = false;
-      allowedTCPPorts = [ 25 80 443 993 6697 7005 7776 ];
+      allowedTCPPorts = [ 25 80 443 993 7005 ];
       allowedUDPPorts = [ ];
       trustedInterfaces = config.networking.nat.internalInterfaces;
       extraCommands = with builtins; concatStringsSep "\n" (map (node: ''

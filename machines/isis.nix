@@ -13,6 +13,8 @@ let net = import ../network.nix; in
   environment.systemPackages = with pkgs; [
   ];
 
+  networking.firewall.allowedTCPPorts = [ 6697 7005 7776 ];
+
   # Enable WireGuard
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
