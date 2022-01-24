@@ -41,6 +41,10 @@ in
    
     # Resolve hostnames in domain.
     search = [ "xinutec.org" ];
+    nameservers = [
+      "10.43.0.10"     # kube-dns.kube-system.svc.cluster.local
+      "213.186.33.99"  # cdns.ovh.net
+    ];
     hostName = config.node.name; # Define your hostname.
    
     # enable NAT

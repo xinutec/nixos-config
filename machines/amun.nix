@@ -49,7 +49,7 @@ let net = import ../network.nix; in
   services.k3s = {
     enable = true;
     role = "server";
-    extraFlags = "--no-deploy traefik";
+    extraFlags = "--disable servicelb,traefik";
   };
 
   services.nfs.server = {
