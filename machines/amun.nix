@@ -49,7 +49,7 @@ let net = import ../network.nix; in
   services.k3s = {
     enable = true;
     role = "server";
-    extraFlags = "--disable servicelb,traefik";
+    extraFlags = "--disable servicelb,traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
   };
 
   services.nfs.server = {
