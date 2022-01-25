@@ -43,7 +43,8 @@ let net = import ../network.nix; in
     enable = true;
     role = "agent";
     tokenFile = "/root/node-token";
-    serverAddr = "https://${net.nodes.amun.name}:${toString net.k8sApiPort}";
+    serverAddr = "https://${net.nodes.amun.vpn}:${toString net.k8sApiPort}";
+    extraFlags = "--node-ip ${config.node.vpn} --flannel-iface=wg0";
   };
 
   fileSystems."/export" = {
