@@ -55,20 +55,17 @@ in
     };
    
     firewall = {
-      # Or disable the firewall altogether.
-#     enable = false;
+      enable = true;
+
       # No need for explicitly allowing ports here. Kubernetes takes care of
-      # opening ports as needed.
-#     allowedTCPPorts = [ ];
-#     allowedUDPPorts = [ ];
+      # opening ports as needed. We only need 10250 (kubelet) and the Wireguard port.
+      allowedTCPPorts = [ 10250 net.vpnPort ];
+      allowedUDPPorts = [ ];
+
+      # Allow traffic to flow freely inside the VPN.
       trustedInterfaces = config.networking.nat.internalInterfaces;
-      extraCommands = with builtins; concatStringsSep "\n" (map (node: ''
-        # Allow the node hosts to talk freely to each other using their public
-        # IP address. All services are running in containers, so this just lets
-        # Kubernetes, Wireguard, and host users to set up connections.
-        iptables -A nixos-fw -p tcp --source ${node.ipv4}/32 -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${node.ipv4}/32 -j nixos-fw-accept
-      '') (attrValues net.nodes)) + ''
+
+      extraCommands = ''
         # Allow containers to access the API, but don't give them full access
         # to all internal ports.
         iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${toString net.k8sApiPort} -j nixos-fw-accept
