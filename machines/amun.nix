@@ -34,14 +34,11 @@ let net = import ../network.nix; in
         ${pkgs.iptables}/bin/iptables -t nat -D POSTROUTING -s ${net.vpn} -o eth0 -j MASQUERADE
       '';
 
-      peers = [
-        # List of allowed peers.
-        { # isis
-          publicKey = "F0NoDNdlJzcKh0JCNsVKPvof3SXQEpWwMsCF9zHCbTs=";
-          # List of IPs assigned to this peer within the tunnel subnet. Used to configure routing.
-          allowedIPs = [ "${net.nodes.isis.vpn}/32" ];
-        }
-      ];
+      # List of allowed peers.
+      peers = builtins.map (node: {
+        publicKey = "${node.publicKey}";
+        allowedIPs = [ "${node.vpn}/32" ];
+      }) [ net.nodes.isis ];
     };
   };
 

@@ -29,6 +29,8 @@ in
 
   virtualisation.docker.enable = true;
 
+  programs.mosh.enable = true;
+
   programs.neovim = {
     enable = true;
     viAlias = true;
