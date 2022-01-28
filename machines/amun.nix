@@ -58,4 +58,11 @@ let net = import ../network.nix; in
     device = "/export/home";
     options = [ "bind" ];
   };
+
+  virtualisation.oci-containers.containers = {
+    toktok = {
+      image = "xinutec/toktok:latest";
+      ports = ["2223:22"];
+    };
+  };
 }
