@@ -62,7 +62,11 @@ let net = import ../network.nix; in
   virtualisation.oci-containers.containers = {
     toktok = {
       image = "xinutec/toktok:latest";
-      ports = ["2223:22"];
+      ports = [ "2223:22" ];
+      volumes = [
+        "/home/pippijn/code/kubes/vps/toktok/toktok-stack:/src/workspace"
+        "/home/pippijn/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
+      ];
     };
   };
 }
