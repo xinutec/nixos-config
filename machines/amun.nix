@@ -64,7 +64,7 @@ let net = import ../network.nix; in
       image = "xinutec/toktok:latest";
       ports = [ "2223:22" ];
       volumes = [
-        "/home/pippijn/code/kubes/vps/toktok/toktok-stack:/src/workspace"
+        "/home/pippijn/code/kubes/vps/toktok/workspace:/src/workspace"
         "/home/pippijn/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
       ];
     };

@@ -27,7 +27,10 @@ in
   boot.cleanTmpDir = true;
   zramSwap.enable = true;
 
-  virtualisation.docker.enable = true;
+  virtualisation.docker = {
+    enable = true;
+    extraOptions = "--config-file=${pkgs.writeText "daemon.json" (builtins.toJSON { ipv6 = true; "fixed-cidr-v6" = "fd00::/80"; })}";
+  };
 
   programs.mosh.enable = true;
 
