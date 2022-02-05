@@ -37,10 +37,9 @@ let
       };
     };
   };
-in
-{
+in {
   options.node = mkOption {
     type = nodeModule;
-    description = "The type of computer we're using.";
+    description = "The current machine node configuration.";
   };
 }

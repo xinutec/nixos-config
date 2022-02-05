@@ -4,14 +4,9 @@
 
 { config, pkgs, ... }:
 
-let net = import ../network.nix; in
-{
+let net = import ../network.nix;
+in {
   imports = [ ../base-configuration.nix ];
-
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
-  environment.systemPackages = with pkgs; [
-  ];
 
   # Enable WireGuard
   networking.wireguard.interfaces = {
@@ -29,7 +24,8 @@ let net = import ../network.nix; in
           allowedIPs = [ net.vpn ];
 
           # Set this to the server IP and port.
-          endpoint = "${net.nodes.amun.ipv4}:${toString net.vpnPort}"; # ToDo: route to endpoint not automatically configured https://wiki.archlinux.org/index.php/WireGuard#Loop_routing https://discourse.nixos.org/t/solved-minimal-firewall-setup-for-wireguard-client/7577
+          # TODO: route to endpoint not automatically configured https://wiki.archlinux.org/index.php/WireGuard#Loop_routing https://discourse.nixos.org/t/solved-minimal-firewall-setup-for-wireguard-client/7577
+          endpoint = "${net.nodes.amun.ipv4}:${toString net.vpnPort}";
 
           # Send keepalives every 25 seconds. Important to keep NAT tables alive.
           persistentKeepalive = 25;

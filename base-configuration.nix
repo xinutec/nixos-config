@@ -7,14 +7,13 @@
 let
   net = import ./network.nix;
   sshKeys = import ./ssh-keys.nix;
-in
-{
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      ./options.nix
-      <home-manager/nixos>
-    ];
+in {
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    ./options.nix
+    <home-manager/nixos>
+  ];
 
   boot.loader.grub = {
     # Use the GRUB 2 boot loader.
@@ -29,7 +28,12 @@ in
 
   virtualisation.docker = {
     enable = true;
-    extraOptions = "--config-file=${pkgs.writeText "daemon.json" (builtins.toJSON { ipv6 = true; "fixed-cidr-v6" = "fd00::/80"; })}";
+    extraOptions = "--config-file=${
+        pkgs.writeText "daemon.json" (builtins.toJSON {
+          ipv6 = true;
+          "fixed-cidr-v6" = "fd00::/80";
+        })
+      }";
   };
 
   programs.mosh.enable = true;
@@ -43,22 +47,23 @@ in
     enableIPv6 = true;
     useDHCP = true;
     dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
-   
+
     # Resolve hostnames in domain.
     search = [ "xinutec.org" ];
     nameservers = [
-      "10.43.0.10"     # kube-dns.kube-system.svc.cluster.local
-      "213.186.33.99"  # cdns.ovh.net
+      "10.43.0.10" # kube-dns.kube-system.svc.cluster.local
+      "213.186.33.99" # cdns.ovh.net
     ];
     hostName = config.node.name; # Define your hostname.
-   
+
     # enable NAT
     nat = {
       enable = true;
       externalInterface = "eth0";
-      internalInterfaces = builtins.attrNames config.networking.wireguard.interfaces;
+      internalInterfaces =
+        builtins.attrNames config.networking.wireguard.interfaces;
     };
-   
+
     firewall = {
       enable = true;
 
@@ -73,8 +78,12 @@ in
       extraCommands = ''
         # Allow containers to access the API, but don't give them full access
         # to all internal ports.
-        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${toString net.k8sApiPort} -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${toString net.k8sApiPort} -j nixos-fw-accept
+        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${
+          toString net.k8sApiPort
+        } -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
+          toString net.k8sApiPort
+        } -j nixos-fw-accept
       '';
     };
   };
