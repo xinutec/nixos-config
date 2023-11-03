@@ -15,6 +15,7 @@
       ipv6 = "2001:41d0:2:7a85::1";
       vpn = "10.100.0.1";
       publicKey = "9iISDdDl9g57OE+yhQMNJjAVsaBqHurf4iUjnZ9GQF4=";
+      externalInterface = "eno1";
     };
 
     isis = {
@@ -23,6 +24,7 @@
       ipv6 = "2001:41d0:2:91b4::1";
       vpn = "10.100.0.2";
       publicKey = "F0NoDNdlJzcKh0JCNsVKPvof3SXQEpWwMsCF9zHCbTs=";
+      externalInterface = "enp3s0";
     };
 
     odin = {
@@ -31,6 +33,7 @@
       ipv6 = "fe80::222:4dff:feae:322d";
       vpn = "10.100.0.3";
       publicKey = "4raBwIpdh+masy1YSzEuX7jhnkn9pYG2RDalp8VrKl0=";
+      externalInterface = "eno0";
     };
   };
 }

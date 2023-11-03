@@ -59,13 +59,13 @@ in {
     hostName = config.node.name; # Define your hostname.
     domain = "xinutec.org";
 
-#    # enable NAT
-#    nat = {
-#      enable = true;
-#      externalInterface = "eth0";
-#      internalInterfaces =
-#        builtins.attrNames config.networking.wireguard.interfaces;
-#    };
+    # enable NAT
+    nat = {
+      enable = true;
+      externalInterface = config.node.externalInterface;
+      internalInterfaces =
+        builtins.attrNames config.networking.wireguard.interfaces;
+    };
 
     firewall = {
       enable = true;
@@ -76,18 +76,18 @@ in {
       allowedUDPPorts = [ net.vpnPort ];
 
       # Allow traffic to flow freely inside the VPN.
-#      trustedInterfaces = config.networking.nat.internalInterfaces;
+      trustedInterfaces = config.networking.nat.internalInterfaces;
 
-#      extraCommands = ''
-#        # Allow containers to access the API, but don't give them full access
-#        # to all internal ports.
-#        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${
-#          toString net.k8sApiPort
-#        } -j nixos-fw-accept
-#        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
-#          toString net.k8sApiPort
-#        } -j nixos-fw-accept
-#      '';
+      extraCommands = ''
+        # Allow containers to access the API, but don't give them full access
+        # to all internal ports.
+        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${
+          toString net.k8sApiPort
+        } -j nixos-fw-accept
+        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
+          toString net.k8sApiPort
+        } -j nixos-fw-accept
+      '';
     };
   };
 

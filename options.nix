@@ -35,6 +35,12 @@ let
         example = "9iISDdDl9g57OE+yhQMNJjAVsaBqHurf4iUjnZ9GQF4=";
         description = "The Wireguard public key of the node.";
       };
+
+      externalInterface = mkOption {
+        type = types.str;
+        example = "eth0";
+        description = "External network interface for the node (check ifconfig for the interface with the public IP address).";
+      };
     };
   };
 in {
