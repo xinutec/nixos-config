@@ -57,16 +57,16 @@ in {
     options = [ "bind" ];
   };
 
-  virtualisation.oci-containers.containers = {
-    toktok = {
-      image = "xinutec/toktok:latest";
-      ports = [ "2223:22" ];
-      volumes = [
-        "/home/pippijn/code/kubes/vps/toktok/workspace:/src/workspace"
-        "/home/pippijn/.local/share/vscode/config:/src/workspace/.vscode"
-        "/home/pippijn/.local/share/vscode/server:/home/builder/.vscode-server"
-        "/home/pippijn/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
-      ];
-    };
-  };
+#  virtualisation.oci-containers.containers = {
+#    toktok = {
+#      image = "xinutec/toktok:latest";
+#      ports = [ "2223:22" ];
+#      volumes = [
+#        "/home/pippijn/code/kubes/vps/toktok/workspace:/src/workspace"
+#        "/home/pippijn/.local/share/vscode/config:/src/workspace/.vscode"
+#        "/home/pippijn/.local/share/vscode/server:/home/builder/.vscode-server"
+#        "/home/pippijn/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
+#      ];
+#    };
+#  };
 }

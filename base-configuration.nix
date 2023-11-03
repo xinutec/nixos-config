@@ -16,13 +16,13 @@ in {
   ];
 
   system.stateVersion = "21.11";
-
-  boot.loader.grub = {
-    # Use the GRUB 2 boot loader.
-    enable = true;
-    # Define on which hard drive you want to install Grub.
-    device = "/dev/sda";
+  nix = {
+    gc.automatic = true;
+    optimise.automatic = true;
   };
+
+  # Define on which hard drive you want to install Grub.
+  boot.loader.grub.device = "/dev/sda";
 
   boot.cleanTmpDir = true;
   zramSwap.enable = true;
@@ -48,23 +48,24 @@ in {
   networking = {
     enableIPv6 = true;
     useDHCP = true;
-    dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
+#   dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
 
     # Resolve hostnames in domain.
-    search = [ "xinutec.org" ];
+    search = [ config.networking.domain ];
     nameservers = [
       "10.43.0.10" # kube-dns.kube-system.svc.cluster.local
       "213.186.33.99" # cdns.ovh.net
     ];
     hostName = config.node.name; # Define your hostname.
+    domain = "xinutec.org";
 
-    # enable NAT
-    nat = {
-      enable = true;
-      externalInterface = "eth0";
-      internalInterfaces =
-        builtins.attrNames config.networking.wireguard.interfaces;
-    };
+#    # enable NAT
+#    nat = {
+#      enable = true;
+#      externalInterface = "eth0";
+#      internalInterfaces =
+#        builtins.attrNames config.networking.wireguard.interfaces;
+#    };
 
     firewall = {
       enable = true;
@@ -72,21 +73,21 @@ in {
       # No need for explicitly allowing ports here. Kubernetes takes care of
       # opening ports as needed. We only need 10250 (kubelet) and the Wireguard port.
       allowedTCPPorts = [ 10250 net.vpnPort ];
-      allowedUDPPorts = [ ];
+      allowedUDPPorts = [ net.vpnPort ];
 
       # Allow traffic to flow freely inside the VPN.
-      trustedInterfaces = config.networking.nat.internalInterfaces;
+#      trustedInterfaces = config.networking.nat.internalInterfaces;
 
-      extraCommands = ''
-        # Allow containers to access the API, but don't give them full access
-        # to all internal ports.
-        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${
-          toString net.k8sApiPort
-        } -j nixos-fw-accept
-        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
-          toString net.k8sApiPort
-        } -j nixos-fw-accept
-      '';
+#      extraCommands = ''
+#        # Allow containers to access the API, but don't give them full access
+#        # to all internal ports.
+#        iptables -A nixos-fw -p tcp --source ${net.cluster} --dport ${
+#          toString net.k8sApiPort
+#        } -j nixos-fw-accept
+#        iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
+#          toString net.k8sApiPort
+#        } -j nixos-fw-accept
+#      '';
     };
   };
 
