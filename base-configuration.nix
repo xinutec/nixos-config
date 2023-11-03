@@ -15,10 +15,11 @@ in {
     <home-manager/nixos>
   ];
 
+  system.stateVersion = "21.11";
+
   boot.loader.grub = {
     # Use the GRUB 2 boot loader.
     enable = true;
-    version = 2;
     # Define on which hard drive you want to install Grub.
     device = "/dev/sda";
   };
@@ -37,6 +38,7 @@ in {
   };
 
   programs.mosh.enable = true;
+  programs.zsh.enable = true;
 
   programs.neovim = {
     enable = true;
