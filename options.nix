@@ -9,7 +9,7 @@ let
       name = mkOption {
         type = types.str;
         example = "amun";
-        description = "The node hostname part before '.xinutec.org'.";
+        description = "The node hostname part before '.xinutec.org' (required).";
       };
 
       ipv4 = mkOption {
@@ -27,13 +27,13 @@ let
       vpn = mkOption {
         type = types.str;
         example = "10.100.0.50";
-        description = "The internal VPN IPv4 address of the node.";
+        description = "The internal VPN IPv4 address of the node (required).";
       };
 
       publicKey = mkOption {
         type = types.str;
         example = "9iISDdDl9g57OE+yhQMNJjAVsaBqHurf4iUjnZ9GQF4=";
-        description = "The Wireguard public key of the node.";
+        description = "The Wireguard public key of the node (required).";
       };
 
       externalInterface = mkOption {
