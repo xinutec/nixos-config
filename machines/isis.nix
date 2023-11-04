@@ -45,6 +45,6 @@ in {
 
   fileSystems."/export" = {
     device = "${net.nodes.amun.vpn}:/export";
-    fsType = "nfs";
+    fsType = "nfs4";
   };
 }
