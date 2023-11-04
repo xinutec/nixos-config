@@ -93,20 +93,60 @@ in {
 
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
-    wg0 = {
-      # Determines the IP address and subnet of the server's end of the tunnel interface.
-      ips = [ "${config.node.vpn}/24" ];
+    wg0 = let
+      networkConfig = {
+        # Determines the IP address and subnet of the server's end of the tunnel interface.
+        ips = [ "${config.node.vpn}/24" ];
 
-      # The port that WireGuard listens to. Must be accessible by the client.
-      listenPort = net.vpnPort;
+        # The port that WireGuard listens to. Must be accessible by the client.
+        listenPort = net.vpnPort;
 
-      # Path to the private key file.
-      #
-      # Note: The private key can also be included inline via the privateKey option,
-      # but this makes the private key world-readable; thus, using privateKeyFile is
-      # recommended.
-      privateKeyFile = "/root/wireguard-keys/private";
-    };
+        # Path to the private key file.
+        #
+        # Note: The private key can also be included inline via the privateKey option,
+        # but this makes the private key world-readable; thus, using privateKeyFile is
+        # recommended.
+        privateKeyFile = "/root/wireguard-keys/private";
+      };
+      peerConfig = if config.node.name == net.nodes.master.name then {
+        # This allows the wireguard server to route your traffic to the internet and hence be like a VPN
+        # For this to work you have to set the dnsserver IP of your router (or dnsserver of choice) in your clients
+        postSetup = ''
+          ${pkgs.iptables}/bin/iptables -t nat -A POSTROUTING -s ${net.vpn} -o eth0 -j MASQUERADE
+        '';
+
+        # This undoes the above command
+        postShutdown = ''
+          ${pkgs.iptables}/bin/iptables -t nat -D POSTROUTING -s ${net.vpn} -o eth0 -j MASQUERADE
+        '';
+
+        # Allow all other nodes to be peers.
+        peers = builtins.map (node: {
+          publicKey = "${node.publicKey}";
+          allowedIPs = [ "${node.vpn}/32" ];
+        }) (builtins.filter (node: node.name != config.node.name) (builtins.attrValues net.nodes));
+      } else {
+        peers = [
+          # For a client configuration, one peer entry for the server will suffice.
+          {
+            # Public key of the server (not a file path).
+            publicKey = net.nodes.master.publicKey;
+
+            # Forward all the traffic via VPN.
+            #allowedIPs = [ "0.0.0.0/0" ];
+            # Or forward only particular subnets
+            allowedIPs = [ net.vpn ];
+
+            # Set this to the server IP and port.
+            # TODO: route to endpoint not automatically configured https://wiki.archlinux.org/index.php/WireGuard#Loop_routing https://discourse.nixos.org/t/solved-minimal-firewall-setup-for-wireguard-client/7577
+            endpoint = "${net.nodes.master.ipv4}:${toString net.vpnPort}";
+
+            # Send keepalives every 25 seconds. Important to keep NAT tables alive.
+            persistentKeepalive = 25;
+          }
+        ];
+      };
+    in pkgs.lib.mkMerge [ networkConfig peerConfig ];
   };
 
   # Enable the OpenSSH daemon.

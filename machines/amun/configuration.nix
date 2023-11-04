@@ -17,28 +17,6 @@ in {
 
   networking.firewall.allowedTCPPorts = [ 2223 28192 ];
 
-  networking.wireguard.interfaces = {
-    # "wg0" is the network interface name. You can name the interface arbitrarily.
-    wg0 = {
-      # This allows the wireguard server to route your traffic to the internet and hence be like a VPN
-      # For this to work you have to set the dnsserver IP of your router (or dnsserver of choice) in your clients
-      postSetup = ''
-        ${pkgs.iptables}/bin/iptables -t nat -A POSTROUTING -s ${net.vpn} -o eth0 -j MASQUERADE
-      '';
-
-      # This undoes the above command
-      postShutdown = ''
-        ${pkgs.iptables}/bin/iptables -t nat -D POSTROUTING -s ${net.vpn} -o eth0 -j MASQUERADE
-      '';
-
-      # List of allowed peers.
-      peers = builtins.map (node: {
-        publicKey = "${node.publicKey}";
-        allowedIPs = [ "${node.vpn}/32" ];
-      }) [ net.nodes.odin net.nodes.isis net.nodes.osiris net.nodes.phone ];
-    };
-  };
-
   # List services that you want to enable:
   services.k3s = {
     enable = true;

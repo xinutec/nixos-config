@@ -8,7 +8,9 @@
   vpn = "10.100.0.0/24";
   vpnPort = 51820;
 
-  nodes = {
+  nodes = rec {
+    master = amun;
+
     amun = {
       name = "amun";
       ipv4 = "94.23.247.133";
