@@ -35,5 +35,17 @@
       publicKey = "4raBwIpdh+masy1YSzEuX7jhnkn9pYG2RDalp8VrKl0=";
       externalInterface = "eno0";
     };
+
+    osiris = {
+      name = "osiris";
+      vpn = "10.100.0.4";
+      publicKey = "ODQiM8MGoywHcGYiR9obqP8gi8oAyJob02tW3d6VJ0A=";
+    };
+
+    phone = {
+      name = "phone";
+      vpn = "10.100.0.5";
+      publicKey = "nNi2hDKeBzqRB4WyGX3F50N6VhA5vJ4ij/DSEk3PfGM=";
+    };
   };
 }

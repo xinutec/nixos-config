@@ -35,7 +35,7 @@ in {
       peers = builtins.map (node: {
         publicKey = "${node.publicKey}";
         allowedIPs = [ "${node.vpn}/32" ];
-      }) [ net.nodes.isis ];
+      }) [ net.nodes.isis net.nodes.osiris net.nodes.phone ];
     };
   };
 
