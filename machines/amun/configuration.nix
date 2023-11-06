@@ -46,6 +46,7 @@ in {
       ];
       volumes = [
         "/sys/fs/cgroup:/sys/fs/cgroup"
+        "${config.users.users.pippijn.home}/code/kubes/vps/toktok/home/.config/tox:/home/builder/.config/tox"
         "${config.users.users.pippijn.home}/code/kubes/vps/toktok/workspace:/src/workspace"
         "${config.users.users.pippijn.home}/.local/share/vscode/config:/src/workspace/.vscode"
         "${config.users.users.pippijn.home}/.local/share/vscode/server:/home/builder/.vscode-server"
