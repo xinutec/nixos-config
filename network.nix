@@ -59,5 +59,19 @@
       vpn = "10.100.0.5";
       publicKey = "nNi2hDKeBzqRB4WyGX3F50N6VhA5vJ4ij/DSEk3PfGM=";
     };
+
+    # Windows PC.
+    horus = {
+      name = "horus";
+      vpn = "10.100.0.6";
+      publicKey = "vMPacQKiSO+/6OjAYFZxKu7RSNQcRAN6z0cY9EaASFc=";
+    };
+
+    # Picade
+    picade0 = {
+      name = "picade0";
+      vpn = "10.100.0.100";
+      publicKey = "SuoQCMx8H5/E+KtXuqm+scplFLflq8J8R2rKRhU4A3M=";
+    };
   };
 }

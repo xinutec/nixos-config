@@ -42,7 +42,7 @@ in {
       extraOptions = [
         "--tmpfs=/run"
         "--tmpfs=/run/wrappers:exec,suid"
-        "--tmpfs=/tmp"
+        "--tmpfs=/tmp:exec"
       ];
       volumes = [
         "/sys/fs/cgroup:/sys/fs/cgroup"
