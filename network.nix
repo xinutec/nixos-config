@@ -73,5 +73,25 @@
       vpn = "10.100.0.100";
       publicKey = "SuoQCMx8H5/E+KtXuqm+scplFLflq8J8R2rKRhU4A3M=";
     };
+    picade1 = {
+      name = "picade1";
+      vpn = "10.100.0.101";
+      publicKey = "2RrrIbbdtyBtZVKh5ygq/39OyQmZnJbIAkIJh2/k5Q0=";
+    };
+    picade2 = {
+      name = "picade2";
+      vpn = "10.100.0.102";
+      publicKey = "/enY3RTfb2h15K6ly3DkN0simlAvL3sQO+tAW7yXOF8=";
+    };
+    picade3 = {
+      name = "picade3";
+      vpn = "10.100.0.103";
+      publicKey = "vPyzu27jIEeI/A717eWg3oNFxu4PNoOK+a3oMJtiUyY=";
+    };
+    picade4 = {
+      name = "picade4";
+      vpn = "10.100.0.104";
+      publicKey = "HW/rKw7+MUrE7WV8FUsprcGzsgSWVyj7nqo/PiuFAAg=";
+    };
   };
 }
