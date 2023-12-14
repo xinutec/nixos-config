@@ -27,7 +27,10 @@ in {
 
   services.nfs.server = {
     enable = true;
-    exports = "/export ${net.vpn}(rw,nohide,insecure,no_subtree_check)";
+    exports = ''
+      /export ${net.nodes.isis.vpn}(rw,nohide,insecure,no_subtree_check)
+      /export/home/pi ${net.vpn}(rw,nohide,insecure,no_subtree_check)
+    '';
   };
 
   fileSystems."/home" = {

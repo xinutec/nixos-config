@@ -60,6 +60,18 @@
       publicKey = "nNi2hDKeBzqRB4WyGX3F50N6VhA5vJ4ij/DSEk3PfGM=";
     };
 
+    # Mouad's devices
+    mouad-phone = {
+      name = "mouad-phone";
+      vpn = "10.100.0.50";
+      publicKey = "BNwlNpho/n9Jx121L5kWbW015Mk+9Gei4ltyWttS4Fo=";
+    };
+    mouad = {
+      name = "mouad";
+      vpn = "10.100.0.51";
+      publicKey = "eLXKgq+CXQGaah4B3LNaLzvdjv46lt8K87XpaQuA/j4=";
+    };
+
     # Windows PC.
     horus = {
       name = "horus";
