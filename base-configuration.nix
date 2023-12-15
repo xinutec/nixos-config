@@ -37,6 +37,24 @@ in {
       }";
   };
 
+  virtualisation.oci-containers.containers = {
+    grafana = {
+      image = "grafana/agent:v0.38.1";
+      extraOptions = [
+        "--net=host"
+        "--pid=host"
+        "--cap-add=SYS_TIME"
+      ];
+      volumes = [
+        "/var/lib/grafana-agent:/etc/agent/data"
+        "/etc/grafana-agent.yaml:/etc/agent/agent.yaml:ro"
+        "/:/host/root:ro,rslave"
+        "/sys:/host/sys:ro,rslave"
+        "/proc:/host/proc:ro,rslave"
+      ];
+    };
+  };
+
   programs.mosh.enable = true;
   programs.zsh.enable = true;
 
