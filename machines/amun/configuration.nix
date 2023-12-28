@@ -57,11 +57,6 @@ in {
       ];
     };
 
-    buildfarm-redis = {
-      image = "redis:alpine";
-      extraOptions = [ "--network=host" ];
-    };
-
     buildfarm-server = {
       image = "toxchat/buildfarm-server";
       dependsOn = [ "buildfarm-redis" ];
@@ -73,7 +68,10 @@ in {
 
     buildfarm-worker = {
       image = "toxchat/buildfarm-worker";
-      extraOptions = [ "--network=host" ];
+      extraOptions = [
+        "--network=host"
+        "--tmpfs=/tmp:exec"
+      ];
       volumes = [
         "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/examples/config.minimal.yml"
       ];

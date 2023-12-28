@@ -12,4 +12,11 @@ in {
     device = "${net.nodes.master.vpn}:/export";
     fsType = "nfs4";
   };
+
+  virtualisation.oci-containers.containers = {
+    buildfarm-redis = {
+      image = "redis:alpine";
+      extraOptions = [ "--network=host" ];
+    };
+  };
 }

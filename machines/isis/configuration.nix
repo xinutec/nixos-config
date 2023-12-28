@@ -25,7 +25,10 @@ in {
   virtualisation.oci-containers.containers = {
     buildfarm-worker = {
       image = "toxchat/buildfarm-worker";
-      extraOptions = [ "--network=host" ];
+      extraOptions = [
+        "--network=host"
+        "--tmpfs=/tmp:exec"
+      ];
       volumes = [
         "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/examples/config.minimal.yml"
       ];
