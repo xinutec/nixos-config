@@ -21,4 +21,14 @@ in {
     device = "${net.nodes.master.vpn}:/export";
     fsType = "nfs4";
   };
+
+  virtualisation.oci-containers.containers = {
+    buildfarm-worker = {
+      image = "toxchat/buildfarm-worker";
+      extraOptions = [ "--network=host" ];
+      volumes = [
+        "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/examples/config.minimal.yml"
+      ];
+    };
+  };
 }

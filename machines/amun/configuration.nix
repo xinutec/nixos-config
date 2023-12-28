@@ -70,5 +70,13 @@ in {
         "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/examples/config.minimal.yml"
       ];
     };
+
+    buildfarm-worker = {
+      image = "toxchat/buildfarm-worker";
+      extraOptions = [ "--network=host" ];
+      volumes = [
+        "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/examples/config.minimal.yml"
+      ];
+    };
   };
 }
