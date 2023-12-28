@@ -15,7 +15,7 @@ in {
     kubernetes-helm # to install kubernetes packages (helm charts)
   ];
 
-  networking.firewall.allowedTCPPorts = [ 2223 8980 28192 ];
+  networking.firewall.allowedTCPPorts = [ 2223 28192 ];
 
   # List services that you want to enable:
   services.k3s = {
