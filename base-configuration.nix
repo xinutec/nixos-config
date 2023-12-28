@@ -101,7 +101,7 @@ in {
       allowedUDPPorts = [ net.vpnPort ];
 
       # Allow traffic to flow freely inside the VPN.
-      trustedInterfaces = config.networking.nat.internalInterfaces;
+      trustedInterfaces = config.networking.nat.internalInterfaces ++ [ "docker0" ];
 
       extraCommands = ''
         # Allow containers to access the API, but don't give them full access
