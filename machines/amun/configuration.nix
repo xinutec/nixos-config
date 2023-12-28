@@ -15,7 +15,7 @@ in {
     kubernetes-helm # to install kubernetes packages (helm charts)
   ];
 
-  networking.firewall.allowedTCPPorts = [ 2223 28192 ];
+  networking.firewall.allowedTCPPorts = [ 2223 8980 28192 ];
 
   # List services that you want to enable:
   services.k3s = {
@@ -54,6 +54,20 @@ in {
         "${config.users.users.pippijn.home}/.local/share/vscode/config:/src/workspace/.vscode"
         "${config.users.users.pippijn.home}/.local/share/vscode/server:/home/builder/.vscode-server"
         "${config.users.users.pippijn.home}/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
+      ];
+    };
+
+    buildfarm-redis = {
+      image = "redis:alpine";
+      extraOptions = [ "--network=host" ];
+    };
+
+    buildfarm-server = {
+      image = "toxchat/buildfarm-server";
+      dependsOn = [ "buildfarm-redis" ];
+      extraOptions = [ "--network=host" ];
+      volumes = [
+        "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/examples/config.minimal.yml"
       ];
     };
   };

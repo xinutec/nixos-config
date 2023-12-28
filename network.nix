@@ -40,13 +40,13 @@
     odin = {
       name = "odin";
       ipv4 = "5.196.65.240";
-      ipv6 = "fe80::222:4dff:feae:322d";
+      ipv6 = "2001:41d0:a:f9f0::1";
       vpn = "10.100.0.3";
       publicKey = "4raBwIpdh+masy1YSzEuX7jhnkn9pYG2RDalp8VrKl0=";
       externalInterface = "eno0";
     };
 
-    # Windows laptop.
+    # Windows laptop, HP.
     osiris = {
       name = "osiris";
       vpn = "10.100.0.4";
@@ -60,6 +60,27 @@
       publicKey = "nNi2hDKeBzqRB4WyGX3F50N6VhA5vJ4ij/DSEk3PfGM=";
     };
 
+    # Windows PC.
+    horus = {
+      name = "horus";
+      vpn = "10.100.0.6";
+      publicKey = "vMPacQKiSO+/6OjAYFZxKu7RSNQcRAN6z0cY9EaASFc=";
+    };
+
+    # Windows laptop, Lenovo.
+    anubis = {
+      name = "anubis";
+      vpn = "10.100.0.7";
+      publicKey = "PjndYq9FbikA/R75LIe/mW2PLV7pE2jTiy/5DVxZjGI=";
+    };
+
+    # Raspberry Pi Zero 2 W
+    hermes = {
+      name = "hermes";
+      vpn = "10.100.0.8";
+      publicKey = "eUzKLpNdUSNefpML/R+D8kMFwjTxUoKAu1DSWC9IET8=";
+    };
+
     # Mouad's devices
     mouad-phone = {
       name = "mouad-phone";
@@ -70,13 +91,6 @@
       name = "mouad";
       vpn = "10.100.0.51";
       publicKey = "eLXKgq+CXQGaah4B3LNaLzvdjv46lt8K87XpaQuA/j4=";
-    };
-
-    # Windows PC.
-    horus = {
-      name = "horus";
-      vpn = "10.100.0.6";
-      publicKey = "vMPacQKiSO+/6OjAYFZxKu7RSNQcRAN6z0cY9EaASFc=";
     };
 
     # Picade

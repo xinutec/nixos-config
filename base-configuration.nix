@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   net = import ./network.nix;
@@ -53,6 +53,14 @@ in {
         "/proc:/host/proc:ro,rslave"
       ];
     };
+
+    buildfarm-worker = {
+      image = "toxchat/buildfarm-worker";
+      extraOptions = [ "--network=host" ];
+      volumes = [
+        "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/examples/config.minimal.yml"
+      ];
+    };
   };
 
   programs.mosh.enable = true;
@@ -67,6 +75,13 @@ in {
     enableIPv6 = true;
     useDHCP = true;
 #   dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
+
+    extraHosts = lib.concatStrings(
+      lib.lists.unique(
+        lib.lists.naturalSort(
+          builtins.map
+            (node: "${node.vpn} ${node.name}.vpn\n" )
+            (builtins.attrValues net.nodes))));
 
     # Resolve hostnames in domain.
     search = [ config.networking.domain ];
