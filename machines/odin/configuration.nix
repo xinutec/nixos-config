@@ -8,13 +8,8 @@ let net = import ../../network.nix;
 in {
   imports = [ ../../base-configuration.nix ];
 
-  fileSystems."/export" = {
-    device = "${net.nodes.master.vpn}:/export";
-    fsType = "nfs4";
-  };
-
-  fileSystems."/export/k3s/amun" = {
-    device = "${net.nodes.amun.vpn}:/var/lib/rancher/k3s";
+  fileSystems."/export/home" = {
+    device = "${net.nodes.master.vpn}:/export/home";
     fsType = "nfs4";
   };
 
@@ -38,11 +33,11 @@ in {
     # https://docs.k3s.io/datastore/backup-restore
     script = ''
       # amun is the k3s server
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun:/var/lib/rancher/k3s/server/token /backup/amun/var/lib/rancher/k3s/server/
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun:/var/lib/rancher/k3s/server/db/ /backup/amun/var/lib/rancher/k3s/server/db/
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun:/var/lib/rancher/k3s/storage/ /backup/amun/var/lib/rancher/k3s/storage/
+      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avP amun.vpn:/var/lib/rancher/k3s/server/token /backup/amun/var/lib/rancher/k3s/server/
+      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun.vpn:/var/lib/rancher/k3s/server/db/ /backup/amun/var/lib/rancher/k3s/server/db/
+      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun.vpn:/var/lib/rancher/k3s/storage/ /backup/amun/var/lib/rancher/k3s/storage/
       # isis is a k3s agent
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete isis:/var/lib/rancher/k3s/storage/ /backup/isis/var/lib/rancher/k3s/storage/
+      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete isis.vpn:/var/lib/rancher/k3s/storage/ /backup/isis/var/lib/rancher/k3s/storage/
     '';
     serviceConfig = {
       Type = "oneshot";
