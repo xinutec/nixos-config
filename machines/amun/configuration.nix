@@ -28,9 +28,8 @@ in {
   services.nfs.server = {
     enable = true;
     exports = ''
-      /export ${net.nodes.isis.vpn}(rw,nohide,insecure,no_subtree_check)
+      /export/home ${net.nodes.isis.vpn}(rw,nohide,insecure,no_subtree_check) ${net.nodes.odin.vpn}(rw,nohide,insecure,no_subtree_check)
       /export/home/pi ${net.vpn}(rw,nohide,insecure,no_subtree_check)
-      /var/lib/rancher/k3s ${net.nodes.odin.vpn}(ro,nohide,insecure,no_subtree_check)
     '';
   };
 
