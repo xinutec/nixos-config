@@ -13,6 +13,11 @@ in {
     fsType = "nfs4";
   };
 
+  fileSystems."/export/k3s/amun" = {
+    device = "${net.nodes.amun.vpn}:/var/lib/rancher/k3s";
+    fsType = "nfs4";
+  };
+
   virtualisation.oci-containers.containers = {
     buildfarm-redis = {
       image = "redis:alpine";

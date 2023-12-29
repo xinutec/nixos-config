@@ -30,6 +30,7 @@ in {
     exports = ''
       /export ${net.nodes.isis.vpn}(rw,nohide,insecure,no_subtree_check)
       /export/home/pi ${net.vpn}(rw,nohide,insecure,no_subtree_check)
+      /var/lib/rancher/k3s ${net.nodes.odin.vpn}(ro,nohide,insecure,no_subtree_check)
     '';
   };
 
