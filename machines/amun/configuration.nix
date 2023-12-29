@@ -41,7 +41,6 @@ in {
   virtualisation.oci-containers.containers = {
     buildfarm-server = {
       image = "toxchat/buildfarm-server";
-      dependsOn = [ "buildfarm-redis" ];
       extraOptions = [ "--network=host" ];
       volumes = [
         "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/examples/config.minimal.yml"
