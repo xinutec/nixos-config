@@ -17,8 +17,8 @@ in {
     extraFlags = "--node-ip ${config.node.vpn} --flannel-iface=wg0";
   };
 
-  fileSystems."/export" = {
-    device = "${net.nodes.master.vpn}:/export";
+  fileSystems."/export/home" = {
+    device = "${net.nodes.master.vpn}:/export/home";
     fsType = "nfs4";
   };
 
