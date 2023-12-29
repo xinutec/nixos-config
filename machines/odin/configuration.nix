@@ -19,4 +19,12 @@ in {
       extraOptions = [ "--network=host" ];
     };
   };
+
+  # Enable cron service
+  services.cron = {
+    enable = true;
+    systemCronJobs = [
+      "0 * * * *        root    /etc/nixos/machines/${config.node.name}/backup.sh"
+    ];
+  };
 }
