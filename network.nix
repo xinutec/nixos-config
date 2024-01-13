@@ -81,6 +81,13 @@
       publicKey = "eUzKLpNdUSNefpML/R+D8kMFwjTxUoKAu1DSWC9IET8=";
     };
 
+    # Raspberry Pi 4
+    bes = {
+      name = "bes";
+      vpn = "10.100.0.9";
+      publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
+    };
+
     # Mouad's devices
     mouad-phone = {
       name = "mouad-phone";
