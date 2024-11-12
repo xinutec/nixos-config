@@ -61,7 +61,7 @@ in {
         "--tmpfs=/tmp:exec"
       ];
       volumes = [
-        "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/examples/config.minimal.yml"
+        "${config.users.users.pippijn.home}/.config/buildfarm/${config.node.name}.yml:/app/build_buildfarm/config.minimal.yml"
       ];
     };
   };

@@ -43,7 +43,7 @@ in {
       image = "toxchat/buildfarm-server";
       extraOptions = [ "--network=host" ];
       volumes = [
-        "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/examples/config.minimal.yml"
+        "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/config.minimal.yml"
       ];
     };
   };
