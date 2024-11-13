@@ -24,7 +24,7 @@ in {
     wantedBy = [ "timers.target" ];
       timerConfig = {
         OnBootSec = "1h";
-        OnUnitActiveSec = "1h";
+        OnUnitActiveSec = "12h";
         Unit = "rancher-backup.service";
       };
   };
