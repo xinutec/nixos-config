@@ -21,24 +21,4 @@ in {
     device = "${net.nodes.master.vpn}:/export/home";
     fsType = "nfs4";
   };
-
-  virtualisation.oci-containers.containers = {
-    toktok = {
-      image = "xinutec/toktok:latest";
-      ports = [ "2223:22" ];
-      extraOptions = [
-        "--tmpfs=/run"
-        "--tmpfs=/run/wrappers:exec,suid"
-        "--tmpfs=/tmp:exec"
-      ];
-      volumes = [
-        "/sys/fs/cgroup:/sys/fs/cgroup"
-        "${config.users.users.pippijn.home}/code/kubes/vps/toktok/home/.config/tox:/home/builder/.config/tox"
-        "${config.users.users.pippijn.home}/code/kubes/vps/toktok/workspace:/src/workspace"
-        "${config.users.users.pippijn.home}/.local/share/vscode/config:/src/workspace/.vscode"
-        "${config.users.users.pippijn.home}/.local/share/vscode/server:/home/builder/.vscode-server"
-        "${config.users.users.pippijn.home}/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
-      ];
-    };
-  };
 }
