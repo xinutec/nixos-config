@@ -27,12 +27,22 @@ in {
   boot.tmp.cleanOnBoot = true;
   zramSwap.enable = true;
 
+  systemd.slices = {
+    docker = {
+      description = "Docker slice";
+    };
+  };
+
   virtualisation.docker = {
     enable = true;
     extraOptions = "--config-file=${
         pkgs.writeText "daemon.json" (builtins.toJSON {
-          ipv6 = true;
+          "ipv6" = true;
           "fixed-cidr-v6" = "fd00::/80";
+          "exec-opts" = [ "native.cgroupdriver=systemd" ];
+          "features" = { "buildkit" = true; };
+          "experimental" = true;
+          "cgroup-parent" = "docker.slice";
         })
       }";
   };
