@@ -47,22 +47,22 @@ in {
       ];
     };
 
-#   toktok = {
-#     image = "xinutec/toktok:latest";
-#     ports = [ "2223:22" ];
-#     extraOptions = [
-#       "--tmpfs=/run"
-#       "--tmpfs=/run/wrappers:exec,suid"
-#       "--tmpfs=/tmp:exec"
-#     ];
-#     volumes = [
-#       "/sys/fs/cgroup:/sys/fs/cgroup"
-#       "${config.users.users.pippijn.home}/code/kubes/vps/toktok/home/.config/tox:/home/builder/.config/tox"
-#       "${config.users.users.pippijn.home}/code/kubes/vps/toktok/workspace:/src/workspace"
-#       "${config.users.users.pippijn.home}/.local/share/vscode/config:/src/workspace/.vscode"
-#       "${config.users.users.pippijn.home}/.local/share/vscode/server:/home/builder/.vscode-server"
-#       "${config.users.users.pippijn.home}/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
-#     ];
-#   };
+   toktok = {
+     image = "xinutec/toktok:latest";
+     ports = [ "2223:22" ];
+     extraOptions = [
+       "--privileged"
+       "--tmpfs=/run"
+       "--tmpfs=/run/wrappers:exec,suid"
+       "--tmpfs=/tmp:exec"
+     ];
+     volumes = [
+       "${config.users.users.pippijn.home}/code/kubes/vps/toktok/home/.cache/clangd:/home/builder/.cache/clangd"
+       "${config.users.users.pippijn.home}/code/kubes/vps/toktok/workspace:/src/workspace"
+       "${config.users.users.pippijn.home}/.local/share/vscode/config:/src/workspace/.vscode"
+       "${config.users.users.pippijn.home}/.local/share/vscode/server:/home/builder/.vscode-server"
+       "${config.users.users.pippijn.home}/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
+     ];
+   };
   };
 }
