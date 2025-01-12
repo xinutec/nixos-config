@@ -93,6 +93,13 @@
       publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
     };
 
+    # Mac Mini
+    mac-mini = {
+      name = "mac-mini";
+      vpn = "10.100.0.11";
+      publicKey = "/mLzTCXGDoq/ZJ0G/OVgg8U08qZE8KxSKv2JTpWW7lw=";
+    };
+
     # Mouad's devices
     mouad-phone = {
       name = "mouad-phone";
