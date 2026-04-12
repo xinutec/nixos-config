@@ -15,7 +15,7 @@ in {
     kubernetes-helm # to install kubernetes packages (helm charts)
   ];
 
-  networking.firewall.allowedTCPPorts = [ 2223 28192 ];
+  networking.firewall.allowedTCPPorts = [ 2223 28192 33445 ];
 
   # List services that you want to enable:
   services.k3s = {
@@ -51,6 +51,7 @@ in {
      image = "xinutec/toktok:latest";
      ports = [ "2223:22" ];
      extraOptions = [
+       "--memory=10g"
        "--privileged"
        "--tmpfs=/run"
        "--tmpfs=/run/wrappers:exec,suid"
