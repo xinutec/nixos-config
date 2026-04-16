@@ -6,7 +6,7 @@
 
 let net = import ../../network.nix;
 in {
-  imports = [ ../../base-configuration.nix ];
+  imports = [ ../../base-configuration.nix ./backups.nix ];
 
   fileSystems."/export/home" = {
     device = "${net.nodes.master.vpn}:/export/home";

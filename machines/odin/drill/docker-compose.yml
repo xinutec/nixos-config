@@ -1,0 +1,113 @@
+# Nextcloud restore drill on odin. See README.md for context.
+#
+# All credentials below are THROWAWAY DRILL VALUES. They are not used
+# by production and they stay inside ./volumes/ which is root-only on
+# odin. Do not copy these to prod.
+#
+# Listens on 127.0.0.1:8443 only. Access via:
+#   ssh -L 8443:127.0.0.1:8443 odin.xinutec.org
+#   open http://127.0.0.1:8443/
+#
+# Image tags match prod exactly (verified 2026-04-13 against isis'
+# nextcloud namespace) so a successful drill proves the images can
+# open the restored data.
+
+name: nc-drill
+
+networks:
+  drill:
+    driver: bridge
+
+services:
+
+  db:
+    image: mysql:8.0.28
+    container_name: drill-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: drill-root-pw
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: drill-nc-pw
+    volumes:
+      - ./volumes/mysql:/var/lib/mysql
+    networks:
+      - drill
+    # Healthcheck is authless on purpose: after the stage-2 drill-seed
+    # loads the prod mysqldump, the root password becomes prod's (we
+    # don't know it). `mysqladmin ping` with no credentials connects,
+    # sees the server respond, and returns 0 regardless of auth — the
+    # check just proves mysqld is accepting connections.
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost --silent || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    # Deviation from prod: prod uses bitnami/redis:7.4.1-debian-12-r3,
+    # but bitnami pulled that tag from Docker Hub in 2024 so fresh
+    # pulls fail. The official redis:7.4.1-alpine image loads the same
+    # RDB file format, which is what the drill actually needs to
+    # verify (can we read the restored dump.rdb?). Keeping the minor
+    # version matched (7.4.1).
+    image: redis:7.4.1-alpine
+    container_name: drill-redis
+    restart: unless-stopped
+    volumes:
+      - ./volumes/redis:/data
+    networks:
+      - drill
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  nextcloud:
+    image: nextcloud:29.0.8-fpm-alpine
+    container_name: drill-nextcloud
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # These env vars are ONLY consulted during first-run
+      # auto-install (stage 1 smoke test, empty volumes). For
+      # stage 2 restore, config.php from the restored PVC is
+      # authoritative and drill-seed.sh patches the hostnames
+      # inside it to point here.
+      MYSQL_HOST: db
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: drill-nc-pw
+      REDIS_HOST: redis
+      REDIS_HOST_PORT: "6379"
+      NEXTCLOUD_ADMIN_USER: drill-admin
+      NEXTCLOUD_ADMIN_PASSWORD: drill-admin-pw
+      NEXTCLOUD_TRUSTED_DOMAINS: "127.0.0.1 drill.localhost"
+      OVERWRITEPROTOCOL: http
+      OVERWRITEHOST: "127.0.0.1:8443"
+    volumes:
+      - ./volumes/nextcloud:/var/www/html
+    networks:
+      - drill
+
+  web:
+    image: nginx:alpine
+    container_name: drill-web
+    restart: unless-stopped
+    depends_on:
+      - nextcloud
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # nginx serves static assets directly from the Nextcloud
+      # document root, so it needs read-only access to the same
+      # volume the FPM container writes to.
+      - ./volumes/nextcloud:/var/www/html:ro
+    ports:
+      - "127.0.0.1:8443:80"
+    networks:
+      - drill

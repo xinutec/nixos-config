@@ -27,6 +27,8 @@ in {
   boot.tmp.cleanOnBoot = true;
   zramSwap.enable = true;
 
+  environment.systemPackages = with pkgs; [ git ];
+
   systemd.slices = {
     docker = {
       description = "Docker slice";
