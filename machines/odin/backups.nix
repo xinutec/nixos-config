@@ -13,6 +13,38 @@
   # imports this file, so there's no fleet-wide footprint.
   environment.systemPackages = [ pkgs.restic ];
 
+  # Dedicated user for off-site restic pull from the mac mini. The mac
+  # mini runs `restic copy --from-repo sftp:restic-offsite@odin:...`
+  # which only READS from odin's repo (writes go to the mac's local
+  # repo). The SSH key is pinned to read-only SFTP via sshd's
+  # ForceCommand, so a compromised mac mini cannot modify odin's repo.
+  users.users.restic-offsite = {
+    isSystemUser = true;
+    group = "restic-offsite";
+    home = "/backup/restic";
+    shell = "${pkgs.shadow}/bin/nologin";
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK1jlqT4cX8mkprp9VQ+KBkdRD1Bv68tE0BrCoyBC9ii mac-mini-restic"
+    ];
+  };
+  users.groups.restic-offsite = {};
+
+  # Pin the offsite user to read-only SFTP, chrooted to /backup.
+  # ForceCommand internal-sftp -R makes it read-only; ChrootDirectory
+  # confines it to /backup so it can't browse the rest of the filesystem.
+  services.openssh.extraConfig = ''
+    Match User restic-offsite
+      ForceCommand internal-sftp -R
+      ChrootDirectory /backup
+      AllowTcpForwarding no
+      X11Forwarding no
+  '';
+
+  # The repo dir needs to be readable by the offsite user for SFTP.
+  systemd.tmpfiles.rules = [
+    "d /backup/restic 0750 root restic-offsite -"
+  ];
+
   services.restic.backups.cluster = {
     repository   = "/backup/restic";
     initialize   = true;
