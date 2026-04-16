@@ -19,29 +19,4 @@ in {
       extraOptions = [ "--network=host" ];
     };
   };
-
-  systemd.timers."rancher-backup" = {
-    wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnBootSec = "1h";
-        OnUnitActiveSec = "12h";
-        Unit = "rancher-backup.service";
-      };
-  };
-  
-  systemd.services."rancher-backup" = {
-    # https://docs.k3s.io/datastore/backup-restore
-    script = ''
-      # amun is the k3s server
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avP amun.vpn:/var/lib/rancher/k3s/server/token /backup/amun/var/lib/rancher/k3s/server/
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun.vpn:/var/lib/rancher/k3s/server/db/ /backup/amun/var/lib/rancher/k3s/server/db/
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete amun.vpn:/var/lib/rancher/k3s/storage/ /backup/amun/var/lib/rancher/k3s/storage/
-      # isis is a k3s agent
-      "${pkgs.rsync}/bin/rsync" --rsh="${pkgs.openssh}/bin/ssh" -avrP --delete isis.vpn:/var/lib/rancher/k3s/storage/ /backup/isis/var/lib/rancher/k3s/storage/
-    '';
-    serviceConfig = {
-      Type = "oneshot";
-      User = "root";
-    };
-  };
 }
