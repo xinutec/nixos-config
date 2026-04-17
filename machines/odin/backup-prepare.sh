@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Assemble /var/backup-staging with DB-consistent dumps + PVC snapshots
 # before restic runs. Invoked as ExecStartPre from
-# restic-backups-cluster.service (ROOT). Must be idempotent and must leave
-# the staging directory clean at start.
+# restic-backups-cluster.service (ROOT). Must be idempotent. The staging
+# tree is kept between runs for incremental rsync.
 #
 # See ~/Code/xinutec-infra/backups.md for the recovery-design rationale and
 # ~/.claude/plans/golden-nibbling-island.md for the plan.

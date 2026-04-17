@@ -58,11 +58,10 @@ for i in $(seq 1 30); do
   fi
 done
 
-# 4. Verify
+# 4. Verify (must not let set -e kill us before teardown)
 echo
 echo "=== STAGE: verify ==="
-./drill-verify.sh
-VERIFY_RC=$?
+./drill-verify.sh && VERIFY_RC=0 || VERIFY_RC=$?
 
 # 5. Teardown (always, even if verify failed)
 echo
