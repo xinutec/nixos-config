@@ -31,11 +31,11 @@ remote() { ssh "${SSH_OPTS[@]}" "root@$1" "$2"; }
 # ISIS — Nextcloud
 # ========================================================================
 
-log "isis: mysqldump nextcloud"
+log "isis: mariadb-dump nextcloud"
 remote isis.vpn \
   'kubectl -n nextcloud exec deploy/nextcloud-db -- \
-     mysqldump --single-transaction --quick --routines --triggers \
-               --all-databases' \
+     mariadb-dump --single-transaction --quick --routines --triggers \
+                  --all-databases' \
   | zstd -T0 -3 > "$STAGE/isis/nextcloud/mysql-all.sql.zst"
 
 # Maintenance mode wraps the redis dump only. A trap ensures we always exit
