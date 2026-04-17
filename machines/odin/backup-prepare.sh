@@ -49,11 +49,11 @@ _occ "maintenance:mode --on"
 trap '_occ "maintenance:mode --off" || true' EXIT
 
 log "isis: redis RDB dump"
-# Redis requires auth; password is already in the pod's REDIS_PASSWORD env
-# var via the k8s secret. Use sh -c so the env var is expanded inside the
-# pod, not on odin or isis. --no-auth-warning silences stderr so the binary
-# RDB stream on stdout stays clean.
-REDIS_INNER='redis-cli --no-auth-warning -a "$REDIS_PASSWORD" --rdb -'
+# Redis requires auth. The bitnami chart (v22+) uses REDIS_PASSWORD_FILE
+# instead of REDIS_PASSWORD env var. Read the password from the file inside
+# the pod. --no-auth-warning silences stderr so the binary RDB stream on
+# stdout stays clean.
+REDIS_INNER='PW=$(cat "$REDIS_PASSWORD_FILE" 2>/dev/null || echo "$REDIS_PASSWORD"); redis-cli --no-auth-warning -a "$PW" --rdb -'
 remote isis.vpn \
   "kubectl -n nextcloud exec statefulset/redis-master -- sh -c '$REDIS_INNER'" \
   > "$STAGE/isis/nextcloud/redis.rdb"
