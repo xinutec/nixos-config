@@ -42,7 +42,7 @@
 
   # The repo dir needs to be readable by the offsite user for SFTP.
   systemd.tmpfiles.rules = [
-    "d /backup/restic 0750 root restic-offsite -"
+    "d /backup/restic 2750 root restic-offsite -"
   ];
 
   services.restic.backups.cluster = {

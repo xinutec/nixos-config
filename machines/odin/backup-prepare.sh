@@ -81,6 +81,21 @@ rsync -aH --numeric-ids --delete \
   "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d50344a0-6803-47e9-9da3-12e3c64f5285_mailu-mailserver_mailu-storage/" \
   "$STAGE/amun/mailu/mailu-storage/"
 
+log "amun: rsync nocodb-storage PVC"
+install -d -m 0700 "$STAGE/amun/nocodb"
+rsync -aH --numeric-ids --delete \
+  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d8296eee-c45f-4f7b-abce-45636659afc1_nocodb_nocodb-storage/" \
+  "$STAGE/amun/nocodb/"
+
+log "amun: rsync irssi-storage PVCs (pippijn + simon)"
+install -d -m 0700 "$STAGE/amun/irssi-pippijn" "$STAGE/amun/irssi-simon"
+rsync -aH --numeric-ids --delete \
+  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-1bf60831-9e69-425b-8aff-61eb8a4999a2_vps-pippijn_irssi-storage/" \
+  "$STAGE/amun/irssi-pippijn/"
+rsync -aH --numeric-ids --delete \
+  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-b7c7a0df-167d-4fd2-b689-ddd5f861bb28_vps-simon_irssi-storage/" \
+  "$STAGE/amun/irssi-simon/"
+
 # ========================================================================
 # k3s control-plane: tokens, TLS, snapshot dir (if any), manifest dumps
 # ========================================================================
