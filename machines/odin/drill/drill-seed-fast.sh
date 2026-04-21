@@ -92,15 +92,15 @@ docker run -d --rm \
   mysql:8.0.28 \
   >/dev/null
 
-log "waiting for drill-seed-db to finish init..."
+log "waiting for drill-seed-db to accept authenticated connections..."
 for i in $(seq 1 120); do
-  if docker exec drill-seed-db mysqladmin ping -h localhost -uroot --password=drill-root-pw --silent 2>/dev/null; then
+  if docker exec drill-seed-db mysql -uroot --password=drill-root-pw -e "SELECT 1" >/dev/null 2>&1; then
     log "ready after ${i}s"
     break
   fi
-  sleep 1
+  sleep 2
   if [ "$i" -eq 120 ]; then
-    echo "TIMEOUT: drill-seed-db did not become ready in 2 minutes" >&2
+    echo "TIMEOUT: drill-seed-db did not become ready" >&2
     docker logs --tail 40 drill-seed-db >&2
     exit 1
   fi
