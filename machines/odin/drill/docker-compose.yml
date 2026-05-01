@@ -21,25 +21,20 @@ networks:
 services:
 
   db:
-    image: mysql:8.0.28
+    image: mariadb:11.8
     container_name: drill-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: drill-root-pw
-      MYSQL_DATABASE: nextcloud
-      MYSQL_USER: nextcloud
-      MYSQL_PASSWORD: drill-nc-pw
+      MARIADB_ROOT_PASSWORD: drill-root-pw
+      MARIADB_DATABASE: nextcloud
+      MARIADB_USER: nextcloud
+      MARIADB_PASSWORD: drill-nc-pw
     volumes:
-      - ./volumes/mysql:/var/lib/mysql
+      - ./volumes/mariadb:/var/lib/mysql
     networks:
       - drill
-    # Healthcheck is authless on purpose: after the stage-2 drill-seed
-    # loads the prod mysqldump, the root password becomes prod's (we
-    # don't know it). `mysqladmin ping` with no credentials connects,
-    # sees the server respond, and returns 0 regardless of auth — the
-    # check just proves mysqld is accepting connections.
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost --silent || exit 1"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -83,18 +83,18 @@ cp "$SRC/redis.rdb" ./volumes/redis/dump.rdb
 chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
 
 # 4. mysql: initialize + load dump
-log "start temporary drill-seed-db (mysql:8.0.28)"
+log "start temporary drill-seed-db (mariadb:11.8)"
 docker run -d --rm \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=drill-root-pw \
   -e MYSQL_DATABASE=nextcloud \
   -v "$PWD/volumes/mysql:/var/lib/mysql" \
-  mysql:8.0.28 \
+  mariadb:11.8 \
   >/dev/null
 
 log "waiting for drill-seed-db to accept authenticated connections..."
 for i in $(seq 1 120); do
-  if docker exec drill-seed-db mysql -uroot --password=drill-root-pw -e "SELECT 1" >/dev/null 2>&1; then
+  if docker exec drill-seed-db mariadb -uroot --password=drill-root-pw -e "SELECT 1" >/dev/null 2>&1; then
     log "ready after ${i}s"
     break
   fi
@@ -107,7 +107,7 @@ for i in $(seq 1 120); do
 done
 
 log "verifying mysql auth before loading dump..."
-docker exec drill-seed-db mysql -uroot --password=drill-root-pw -e "SELECT 'auth-ok'" 2>&1
+docker exec drill-seed-db mariadb -uroot --password=drill-root-pw -e "SELECT 'auth-ok'" 2>&1
 log "loading mysql dump via stdin..."
 time zstd -dc "$SRC/mysql-all.sql.zst" \
   | docker exec -i drill-seed-db mysql -uroot --password=drill-root-pw --binary-mode
