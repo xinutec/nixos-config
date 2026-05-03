@@ -75,15 +75,21 @@ mkdir -p ./volumes/{mysql,redis,nextcloud}
 
 # 2. nextcloud file tree (local rsync, no SSH, same filesystem)
 log "rsync server-data/ → ./volumes/nextcloud/"
-time rsync -aH --numeric-ids "$SRC/server-data/" ./volumes/nextcloud/
+# Exit 23 = partial transfer (e.g. symlinks with names exceeding fs limits).
+# Acceptable for the drill — a few broken .license symlinks don't affect
+# Nextcloud boot or integrity checks.
+time rsync -aH --numeric-ids "$SRC/server-data/" ./volumes/nextcloud/ || {
+  rc=$?; [ $rc -eq 23 ] && log "rsync partial transfer (exit 23), continuing" || exit $rc
+}
 
 # 3. redis RDB
 log "cp redis.rdb → ./volumes/redis/dump.rdb"
 cp "$SRC/redis.rdb" ./volumes/redis/dump.rdb
 chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
 
-# 4. mysql: initialize + load dump
+# 4. mariadb: initialize + load dump
 log "start temporary drill-seed-db (mariadb:11.8)"
+docker rm -f drill-seed-db >/dev/null 2>&1 || true
 docker run -d --rm \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=drill-root-pw \
@@ -106,11 +112,12 @@ for i in $(seq 1 120); do
   fi
 done
 
-log "verifying mysql auth before loading dump..."
-docker exec drill-seed-db mariadb -uroot --password=drill-root-pw -e "SELECT 'auth-ok'" 2>&1
-log "loading mysql dump via stdin..."
+# Wait for MariaDB's real server (the init process starts a temp server
+# first, shuts it down, then starts the real one — brief socket gap).
+sleep 5
+log "loading dump via stdin..."
 time zstd -dc "$SRC/mysql-all.sql.zst" \
-  | docker exec -i drill-seed-db mysql -uroot --password=drill-root-pw --binary-mode
+  | docker exec -i drill-seed-db mariadb -uroot --password=drill-root-pw --binary-mode
 
 log "stopping drill-seed-db"
 docker stop drill-seed-db >/dev/null

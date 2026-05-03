@@ -10,7 +10,7 @@
 set -euo pipefail
 
 STAGE=/var/backup-staging
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10)
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
 log() { printf '[backup-prepare] %s\n' "$*"; }
 
@@ -31,12 +31,27 @@ remote() { ssh "${SSH_OPTS[@]}" "root@$1" "$2"; }
 # ISIS — Nextcloud
 # ========================================================================
 
-log "isis: mariadb-dump nextcloud"
+# Dump using crictl exec (NOT kubectl exec). kubectl exec pipes through
+# the k8s API server websocket which truncates large output (~880k lines).
+# crictl talks directly to containerd — no websocket, complete dump every
+# time. The file lands on the PVC bind-mount at a known host path.
+DBPVC="pvc-47f55441-335c-4533-a5d5-e270c4a5b59e_nextcloud_nextcloud-storage"
+DBPATH="/var/lib/rancher/k3s/storage/$DBPVC/mariadb-data"
+log "isis: mariadb-dump nextcloud (crictl exec → file → rsync)"
 remote isis.vpn \
-  'kubectl -n nextcloud exec deploy/nextcloud-db -- \
-     mariadb-dump --single-transaction --quick --routines --triggers \
-                  --all-databases' \
-  | zstd -T0 -3 > "$STAGE/isis/nextcloud/mysql-all.sql.zst"
+  "CONTAINER=\$(k3s crictl ps --name mariadb -q | head -1) \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'mariadb-dump --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $DBPATH/dump.sql -o /tmp/nextcloud-dump.sql.zst \
+   && rm -f $DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/nextcloud-dump.sql.zst" \
+  "$STAGE/isis/nextcloud/mysql-all.sql.zst"
+remote isis.vpn 'rm -f /tmp/nextcloud-dump.sql.zst'
 
 # Maintenance mode wraps the redis dump only. A trap ensures we always exit
 # maintenance mode even if redis-cli fails or the script is interrupted.

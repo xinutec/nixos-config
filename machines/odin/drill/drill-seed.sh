@@ -107,15 +107,18 @@ fi
 
 # 3. nextcloud file tree
 log "rsync server-data/ → ./volumes/nextcloud/"
-rsync -aH --numeric-ids "$SRC/server-data/" ./volumes/nextcloud/
+rsync -aH --numeric-ids "$SRC/server-data/" ./volumes/nextcloud/ || {
+  rc=$?; [ $rc -eq 23 ] && log "rsync partial transfer (exit 23), continuing" || exit $rc
+}
 
 # 4. redis RDB
 log "cp redis.rdb → ./volumes/redis/dump.rdb"
 cp "$SRC/redis.rdb" ./volumes/redis/dump.rdb
 chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
 
-# 5. mysql: initialize + load dump
+# 5. mariadb: initialize + load dump
 log "start temporary drill-seed-db (mariadb:11.8)"
+docker rm -f drill-seed-db >/dev/null 2>&1 || true
 docker run -d --rm \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=drill-root-pw \
@@ -140,7 +143,7 @@ done
 
 log "loading mysql dump via stdin (this may take a few minutes)..."
 time zstd -dc "$SRC/mysql-all.sql.zst" \
-  | docker exec -i drill-seed-db mysql -uroot --password=drill-root-pw
+  | docker exec -i drill-seed-db mariadb -uroot --password=drill-root-pw
 
 log "stopping drill-seed-db"
 docker stop drill-seed-db >/dev/null
