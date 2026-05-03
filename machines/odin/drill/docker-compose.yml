@@ -60,7 +60,7 @@ services:
       retries: 10
 
   nextcloud:
-    image: nextcloud:29.0.8-fpm-alpine
+    image: nextcloud:33.0.2-fpm-alpine
     container_name: drill-nextcloud
     restart: unless-stopped
     depends_on:
