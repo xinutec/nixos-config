@@ -42,7 +42,7 @@ echo "=== STAGE: up ==="
 #    detection is fast, but give it up to 5 minutes)
 echo
 echo "=== STAGE: wait for nextcloud ==="
-for i in $(seq 1 30); do
+for i in $(seq 1 60); do
   code=$(curl -sS -o /dev/null -w "%{http_code}" http://127.0.0.1:8443/status.php 2>/dev/null || echo 000)
   if [ "$code" = "200" ]; then
     echo "Nextcloud ready after $((i*10))s"
@@ -50,9 +50,12 @@ for i in $(seq 1 30); do
   fi
   printf "  %3ds: HTTP %s\n" "$((i*10))" "$code"
   sleep 10
-  if [ "$i" -eq 30 ]; then
-    echo "TIMEOUT waiting for Nextcloud" >&2
-    docker logs --tail 30 drill-nextcloud >&2
+  if [ "$i" -eq 60 ]; then
+    echo "TIMEOUT (600s) waiting for Nextcloud" >&2
+    echo "=== nextcloud container logs ===" >&2
+    docker logs --tail 50 drill-nextcloud >&2
+    echo "=== db container logs ===" >&2
+    docker logs --tail 20 drill-db >&2
     ./drill-smoke.sh teardown
     exit 1
   fi
