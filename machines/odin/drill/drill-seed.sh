@@ -152,12 +152,19 @@ docker stop drill-seed-db >/dev/null
 log "writing ./volumes/nextcloud/config/zz-drill.config.php"
 cat > ./volumes/nextcloud/config/zz-drill.config.php <<'EOF'
 <?php
-// Drill-only overrides. Loaded after config.php in alphabetical
-// order so the keys below take precedence.
+// Drill-only overrides. See drill-seed-fast.sh for rationale.
 $CONFIG = array(
   'dbhost' => 'db',
   'trusted_domains' => array('127.0.0.1', 'drill.localhost'),
+  'overwritehost' => '127.0.0.1:8443',
+  'overwriteprotocol' => 'http',
   'maintenance' => false,
+  'memcache.distributed' => '\OC\Memcache\Redis',
+  'memcache.locking' => '\OC\Memcache\Redis',
+  'redis' => array(
+    'host' => 'redis',
+    'port' => 6379,
+  ),
 );
 EOF
 chown 33:33 ./volumes/nextcloud/config/zz-drill.config.php

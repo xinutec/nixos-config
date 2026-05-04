@@ -127,11 +127,27 @@ log "writing ./volumes/nextcloud/config/zz-drill.config.php"
 cat > ./volumes/nextcloud/config/zz-drill.config.php <<'EOF'
 <?php
 // Drill-only overrides. Loaded after config.php in alphabetical
-// order so the keys below take precedence.
+// order so the keys below take precedence. This file overrides both
+// the static config.php AND the env-driven redis.config.php /
+// reverse-proxy.config.php, since alphabetically 'zz-' loads last.
 $CONFIG = array(
   'dbhost' => 'db',
   'trusted_domains' => array('127.0.0.1', 'drill.localhost'),
+  'overwritehost' => '127.0.0.1:8443',
+  'overwriteprotocol' => 'http',
   'maintenance' => false,
+  // Override redis to point at the drill's no-auth redis service.
+  // The restored redis.config.php reads REDIS_HOST_PASSWORD from env,
+  // which is unset in the drill compose. An empty AUTH to a no-password
+  // redis causes "ERR Client sent AUTH, but no password is set".
+  // Explicitly setting password to '' here with memcache config
+  // prevents redis.config.php from being consulted.
+  'memcache.distributed' => '\OC\Memcache\Redis',
+  'memcache.locking' => '\OC\Memcache\Redis',
+  'redis' => array(
+    'host' => 'redis',
+    'port' => 6379,
+  ),
 );
 EOF
 chown 33:33 ./volumes/nextcloud/config/zz-drill.config.php
