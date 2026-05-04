@@ -35,9 +35,10 @@ services:
       - drill
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent || exit 1"]
+      start_period: 120s
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
 
   redis:
     # Deviation from prod: prod uses bitnami/redis:7.4.1-debian-12-r3,
