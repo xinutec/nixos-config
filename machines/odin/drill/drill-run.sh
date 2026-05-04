@@ -52,10 +52,15 @@ for i in $(seq 1 60); do
   sleep 10
   if [ "$i" -eq 60 ]; then
     echo "TIMEOUT (600s) waiting for Nextcloud" >&2
-    echo "=== nextcloud container logs ===" >&2
-    docker logs --tail 50 drill-nextcloud >&2
+    echo "=== HTTP 500 response body ===" >&2
+    curl -sS http://127.0.0.1:8443/status.php 2>&1 >&2 || true
+    echo >&2
+    echo "=== nextcloud.log (app errors) ===" >&2
+    docker exec drill-nextcloud cat /var/www/html/data/nextcloud.log 2>/dev/null | tail -20 >&2 || echo "(no nextcloud.log)" >&2
+    echo "=== nextcloud container stderr ===" >&2
+    docker logs --tail 20 drill-nextcloud >&2
     echo "=== db container logs ===" >&2
-    docker logs --tail 20 drill-db >&2
+    docker logs --tail 10 drill-db >&2
     ./drill-smoke.sh teardown
     exit 1
   fi
