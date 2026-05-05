@@ -25,6 +25,41 @@ esac
 
 echo "=== drill-run ($MODE) starting $(date -u +%FT%TZ) ==="
 
+# 0. Preflight: verify drill images match production
+echo
+echo "=== STAGE: preflight (version sync check) ==="
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10)
+COMPOSE="$DRILL_DIR/docker-compose.yml"
+
+prod_nc=$(ssh "${SSH_OPTS[@]}" root@isis.vpn \
+  "kubectl -n nextcloud get deploy/nextcloud-server -o jsonpath='{.spec.template.spec.containers[?(@.name==\"nextcloud\")].image}'" 2>/dev/null || echo "UNKNOWN")
+prod_db=$(ssh "${SSH_OPTS[@]}" root@isis.vpn \
+  "kubectl -n nextcloud get deploy/nextcloud-db -o jsonpath='{.spec.template.spec.containers[0].image}'" 2>/dev/null || echo "UNKNOWN")
+
+drill_nc=$(grep 'image:.*nextcloud:' "$COMPOSE" | awk '{print $2}')
+drill_db=$(grep 'image:.*mariadb:' "$COMPOSE" | awk '{print $2}')
+
+mismatch=0
+if [ "$prod_nc" != "UNKNOWN" ] && [ "$prod_nc" != "$drill_nc" ]; then
+  echo "MISMATCH: nextcloud image"
+  echo "  production: $prod_nc"
+  echo "  drill:      $drill_nc"
+  mismatch=1
+fi
+if [ "$prod_db" != "UNKNOWN" ] && [ "$prod_db" != "$drill_db" ]; then
+  echo "MISMATCH: database image"
+  echo "  production: $prod_db"
+  echo "  drill:      $drill_db"
+  mismatch=1
+fi
+if [ $mismatch -ne 0 ]; then
+  echo
+  echo "FATAL: drill images out of sync with production."
+  echo "Update $COMPOSE to match, then re-run."
+  exit 2
+fi
+echo "preflight ok: nc=$prod_nc db=$prod_db"
+
 # Ensure any previous drill is cleaned up
 ./drill-smoke.sh teardown >/dev/null 2>&1 || true
 
