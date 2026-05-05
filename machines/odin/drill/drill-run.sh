@@ -84,3 +84,4 @@ fi
 
 echo
 echo "=== drill-run PASSED $(date -u +%FT%TZ) ==="
+curl -fsS https://hc-ping.com/bcaeb0ad-b66b-4925-9f51-06b2078f6d98 >/dev/null 2>&1 || true

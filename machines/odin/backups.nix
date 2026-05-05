@@ -84,7 +84,7 @@
   # kubectl is NOT needed on odin — the script runs kubectl on amun/isis
   # over SSH.
   systemd.services.restic-backups-cluster = {
-    path = with pkgs; [ bash rsync openssh zstd ];
+    path = with pkgs; [ bash rsync openssh zstd curl ];
     serviceConfig = {
       # Prepare script + restic + cleanup can take a long while on first
       # run (the Nextcloud PVC is ~200 GiB); lift the default timeout.
@@ -92,6 +92,8 @@
       # Create files as 0640/dirs 0750 so the restic-offsite group can
       # read the repo for off-site SFTP pulls.
       UMask = "0027";
+      # Ping healthchecks.io on success (dead man's switch).
+      ExecStartPost = "${pkgs.curl}/bin/curl -fsS https://hc-ping.com/cae5d5ab-9a5b-4878-8fa1-b8647ce9722a";
     };
   };
 
