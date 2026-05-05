@@ -30,7 +30,7 @@ services:
       MARIADB_USER: nextcloud
       MARIADB_PASSWORD: drill-nc-pw
     volumes:
-      - ./volumes/mariadb:/var/lib/mysql
+      - ./volumes/mysql:/var/lib/mysql
     networks:
       - drill
     healthcheck:
