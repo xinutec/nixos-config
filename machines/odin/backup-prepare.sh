@@ -38,8 +38,14 @@ remote() { ssh "${SSH_OPTS[@]}" "root@$1" "$2"; }
 DBPVC="pvc-47f55441-335c-4533-a5d5-e270c4a5b59e_nextcloud_nextcloud-storage"
 DBPATH="/var/lib/rancher/k3s/storage/$DBPVC/mariadb-data"
 log "isis: mariadb-dump nextcloud (crictl exec → file → rsync)"
+# Filter by namespace+pod name to pick the nextcloud-db mariadb container,
+# not the health-db one (both have container name 'mariadb'). Order of
+# `crictl ps --name mariadb` is not stable across pod restarts.
 remote isis.vpn \
-  "CONTAINER=\$(k3s crictl ps --name mariadb -q | head -1) \
+  "POD_ID=\$(k3s crictl pods --namespace nextcloud --name 'nextcloud-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no nextcloud-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in nextcloud-db pod'; exit 1; } \
    && k3s crictl exec \"\$CONTAINER\" sh -c \
       'mariadb-dump --single-transaction --quick --routines --triggers \
                     --all-databases > /var/lib/mysql/dump.sql' \
