@@ -89,6 +89,46 @@ rsync -aH --numeric-ids --delete \
   "$STAGE/isis/nextcloud/server-data/"
 
 # ========================================================================
+# ISIS — Health DB (health-sync MariaDB)
+# ========================================================================
+
+# Same crictl-exec pattern as Nextcloud above. The health-db container
+# requires the root password from its MARIADB_ROOT_PASSWORD env var;
+# we set MYSQL_PWD inside the exec so the secret isn't visible in
+# the host's process table.
+HEALTH_DBPVC="pvc-5d1e1a9e-3e3f-4451-aba8-c6d70e10a444_health_health-db-pvc"
+HEALTH_DBPATH="/var/lib/rancher/k3s/storage/$HEALTH_DBPVC/mariadb-data"
+log "isis: mariadb-dump health (crictl exec → file → rsync)"
+install -d -m 0700 "$STAGE"/isis/health
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace health --name 'health-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no health-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in health-db pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'MYSQL_PWD=\"\$MARIADB_ROOT_PASSWORD\" mariadb-dump -u root --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $HEALTH_DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $HEALTH_DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $HEALTH_DBPATH/dump.sql -o /tmp/health-dump.sql.zst \
+   && rm -f $HEALTH_DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/health-dump.sql.zst" \
+  "$STAGE/isis/health/health.sql.zst"
+remote isis.vpn 'rm -f /tmp/health-dump.sql.zst'
+
+# ========================================================================
+# ISIS — httpd-isis-storage (public share host: dicom-scan + mri-scan.zip)
+# ========================================================================
+
+log "isis: rsync httpd-isis-storage PVC (web share host)"
+install -d -m 0700 "$STAGE"/isis/httpd-isis
+rsync -aH --numeric-ids --delete \
+  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-21b9cb56-a868-469b-95a4-c5b919829c86_web_httpd-isis-storage/" \
+  "$STAGE/isis/httpd-isis/"
+
+# ========================================================================
 # AMUN — Mailu
 # ========================================================================
 
