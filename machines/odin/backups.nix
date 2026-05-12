@@ -131,7 +131,7 @@
     };
   };
   systemd.services.drill-weekly = {
-    path = with pkgs; [ bash docker rsync zstd curl coreutils gnutar ];
+    path = with pkgs; [ bash docker rsync zstd curl coreutils gnutar gawk ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
