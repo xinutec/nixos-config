@@ -20,6 +20,8 @@ in {
   # List services that you want to enable:
   services.k3s = {
     enable = true;
+    # 25.05 default — k3s_1_30 hit upstream EOL and is gone in 25.11.
+    package = pkgs.k3s_1_32;
     role = "server";
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
