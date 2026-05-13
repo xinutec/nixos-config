@@ -12,6 +12,7 @@ in {
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./options.nix
+    ./grafana-agent.nix
     <home-manager/nixos>
   ];
 
@@ -58,6 +59,7 @@ in {
       volumes = [
         "/var/lib/grafana-agent:/etc/agent/data"
         "/etc/grafana-agent.yaml:/etc/agent/agent.yaml:ro"
+        "/etc/grafana-agent-password:/etc/grafana-agent-password:ro"
         "/:/host/root:ro,rslave"
         "/sys:/host/sys:ro,rslave"
         "/proc:/host/proc:ro,rslave"
