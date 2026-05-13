@@ -65,6 +65,9 @@ in {
        "${config.users.users.pippijn.home}/.local/share/vscode/config:/src/workspace/.vscode"
        "${config.users.users.pippijn.home}/.local/share/vscode/server:/home/builder/.vscode-server"
        "${config.users.users.pippijn.home}/.local/share/zsh/toktok:/home/builder/.local/share/zsh"
+       # Persist Claude Code state across --rm container rebuilds.
+       "${config.users.users.pippijn.home}/.local/share/toktok/claude:/home/builder/.claude"
+       "${config.users.users.pippijn.home}/.local/share/toktok/claude.json:/home/builder/.claude.json"
      ];
    };
   };
