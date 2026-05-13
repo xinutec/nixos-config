@@ -6,7 +6,7 @@
 
 let net = import ../../network.nix;
 in {
-  imports = [ ../../base-configuration.nix ];
+  imports = [ ../../base-configuration.nix ./md-healthcheck.nix ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
