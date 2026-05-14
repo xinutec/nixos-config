@@ -68,6 +68,10 @@ in {
        # Persist Claude Code state across --rm container rebuilds.
        "${config.users.users.pippijn.home}/.local/share/toktok/claude:/home/builder/.claude"
        "${config.users.users.pippijn.home}/.local/share/toktok/claude.json:/home/builder/.claude.json"
+       # Persist toxxi (Tox client) state — same survival reason.
+       # Includes savedata.tox (Tox identity private key) and the
+       # state.json chat history.
+       "${config.users.users.pippijn.home}/.local/share/toxxi:/home/builder/.local/share/toxxi"
      ];
    };
   };
