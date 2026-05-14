@@ -13,6 +13,14 @@
   # imports this file, so there's no fleet-wide footprint.
   environment.systemPackages = [ pkgs.restic ];
 
+  # backup-prepare.sh ships file paths to amun via SSH stdin so the
+  # toktok-workspace backup step doesn't require installing a script
+  # on amun. The source of truth lives next to backup-prepare.sh and
+  # is deployed to /etc/backup-preview.py via environment.etc, where
+  # the prepare script can `< /etc/backup-preview.py` it into the
+  # remote python3.
+  environment.etc."backup-preview.py".source = ./backup_preview.py;
+
   # Dedicated user for off-site restic pull from the mac mini. The mac
   # mini runs `restic copy --from-repo sftp:restic-offsite@odin:...`
   # which only READS from odin's repo (writes go to the mac's local

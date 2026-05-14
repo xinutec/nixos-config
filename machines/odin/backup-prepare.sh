@@ -148,6 +148,29 @@ rsync -aH --numeric-ids --delete \
   "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d8296eee-c45f-4f7b-abce-45636659afc1_nocodb_nocodb-storage/" \
   "$STAGE/amun/nocodb/"
 
+log "amun: toktok workspace (preview script → file list → rsync)"
+install -d -m 0700 "$STAGE/amun/toktok-workspace"
+# Generate the file list on amun. Run the preview script as `pippijn`
+# so git doesn't complain about safe.directory (the repos are owned
+# by pippijn). The script is piped via SSH stdin so we don't have to
+# install it on amun — backup_preview.py lives next to this script
+# in nixos-config and is deployed to /etc/backup-preview.py.
+# --exclude tools/toktok-fuzzer because its 100+ MB of random binary
+# fuzz data is regenerable, not in-flight code (see todo.md).
+TOKTOK_FILES=/tmp/toktok-workspace-files.list
+# `bash -lc` is needed because python3 only exists in pippijn's
+# home-manager nix-profile (~/.nix-profile/bin/python3); plain
+# `sudo -u pippijn` runs with root's PATH and can't find it.
+ssh "${SSH_OPTS[@]}" root@amun.vpn \
+  "sudo -u pippijn bash -lc 'python3 - --print0 --exclude tools/toktok-fuzzer \
+     /home/pippijn/code/kubes/vps/toktok/workspace'" \
+  < /etc/backup-preview.py \
+  > "$TOKTOK_FILES"
+rsync -aH --numeric-ids --files-from="$TOKTOK_FILES" --from0 \
+  "root@amun.vpn:/home/pippijn/code/kubes/vps/toktok/workspace/" \
+  "$STAGE/amun/toktok-workspace/"
+rm -f "$TOKTOK_FILES"
+
 log "amun: rsync irssi-storage PVCs (pippijn + simon)"
 install -d -m 0700 "$STAGE/amun/irssi-pippijn" "$STAGE/amun/irssi-simon"
 rsync -aH --numeric-ids --delete \
