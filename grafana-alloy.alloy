@@ -22,6 +22,14 @@ prometheus.exporter.self "integrations_agent" { }
 
 discovery.relabel "integrations_agent" {
 	targets = prometheus.exporter.self.integrations_agent.targets
+	// Restore the agent_hostname label that the legacy grafana-agent
+	// static-mode integrations set automatically. Dashboards and
+	// alerts query by agent_hostname; without this they'd silently
+	// stop matching once the legacy data ages out of Mimir's lookback.
+	rule {
+		target_label = "agent_hostname"
+		replacement  = constants.hostname
+	}
 	rule {
 		target_label = "job"
 		replacement  = "integrations/agent"
@@ -79,6 +87,11 @@ prometheus.exporter.unix "integrations_node_exporter" {
 
 discovery.relabel "integrations_node_exporter" {
 	targets = prometheus.exporter.unix.integrations_node_exporter.targets
+	// Same agent_hostname restoration as the agent block above.
+	rule {
+		target_label = "agent_hostname"
+		replacement  = constants.hostname
+	}
 	rule {
 		target_label = "job"
 		replacement  = "integrations/node_exporter"
