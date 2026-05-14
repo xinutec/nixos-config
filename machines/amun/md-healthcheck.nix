@@ -25,6 +25,11 @@ let
 in {
   systemd.services.md-healthcheck = {
     description = "MD RAID heartbeat → healthchecks.io";
+    # Persistent=true on the timer causes catch-up runs to fire
+    # immediately at boot, before networking is configured; wait for
+    # network-online or curl fails NXDOMAIN.
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${script}";
