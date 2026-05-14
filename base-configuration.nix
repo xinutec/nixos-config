@@ -12,7 +12,7 @@ in {
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./options.nix
-    ./grafana-agent.nix
+    ./grafana-alloy.nix
     <home-manager/nixos>
   ];
 
@@ -49,23 +49,10 @@ in {
   };
 
   virtualisation.oci-containers.containers = {
-    grafana = {
-      image = "grafana/agent:v0.38.1";
-      extraOptions = [
-        "--net=host"
-        "--pid=host"
-        "--cap-add=SYS_TIME"
-      ];
-      volumes = [
-        "/var/lib/grafana-agent:/etc/agent/data"
-        "/etc/grafana-agent.yaml:/etc/agent/agent.yaml:ro"
-        "/etc/grafana-agent-password:/etc/grafana-agent-password:ro"
-        "/:/host/root:ro,rslave"
-        "/sys:/host/sys:ro,rslave"
-        "/proc:/host/proc:ro,rslave"
-      ];
-    };
-
+    # grafana-agent docker container retired 2026-05-14 in favour of
+    # services.alloy via grafana-alloy.nix (native NixOS service).
+    # grafana-agent reached EOL on 2025-11-01; Alloy is the supported
+    # successor.
     buildfarm-worker = {
       image = "toxchat/buildfarm-worker";
       extraOptions = [

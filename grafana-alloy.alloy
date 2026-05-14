@@ -1,0 +1,123 @@
+// Grafana Alloy config for the xinutec fleet. Replaces the legacy
+// grafana-agent v0.38.1 docker container (deprecated, EOL Nov 2025).
+// Generated from grafana-agent.yaml via `alloy convert
+// --source-format=static`, then cleaned up for native (non-docker)
+// execution under services.alloy.
+//
+// What this does:
+// - Scrapes node_exporter integration metrics from the host (no
+//   `/host/` bind-mount prefixes — we read /proc /sys / directly).
+// - Drops metrics we never query (filesystem inode counts,
+//   network interface metadata) to keep Mimir cardinality down.
+// - Pushes to toktok.grafana.net. The Mimir password lives at
+//   /etc/grafana-agent-password (chmod 640, owned root:alloy) and
+//   is staged out-of-band on each host (pending agenix migration).
+
+logging {
+	level = "warn"
+}
+
+// Agent self-monitoring (heartbeat-shaped: was up, what version).
+prometheus.exporter.self "integrations_agent" { }
+
+discovery.relabel "integrations_agent" {
+	targets = prometheus.exporter.self.integrations_agent.targets
+	rule {
+		target_label = "job"
+		replacement  = "integrations/agent"
+	}
+}
+
+prometheus.scrape "integrations_agent" {
+	targets         = discovery.relabel.integrations_agent.output
+	forward_to      = [prometheus.remote_write.integrations.receiver]
+	job_name        = "integrations/agent"
+	scrape_interval = "1m"
+}
+
+// Mimir destination (Grafana Cloud, toktok stack). Password lives
+// at /etc/grafana-agent-password on each host (mode 600, root:root);
+// systemd's LoadCredential mounts it inside the alloy sandbox at
+// the path below. See grafana-alloy.nix.
+prometheus.remote_write "integrations" {
+	endpoint {
+		url = "https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push"
+		basic_auth {
+			username      = "324618"
+			password_file = "/run/credentials/alloy.service/mimir-password"
+		}
+	}
+}
+
+// node_exporter integration (CPU, memory, disk, network, filesystems).
+// Runs natively under alloy — no /host/* bind-mount prefixes needed,
+// the unix exporter reads /proc /sys / directly on the host.
+prometheus.exporter.unix "integrations_node_exporter" {
+	// mdadm: replaced by amun's md-healthcheck.service; we don't
+	// graph the raw mdraid metrics. nfs (client): not used in this
+	// fleet's metrics. nfsd (server, on amun) is left enabled.
+	disable_collectors = ["mdadm", "nfs"]
+
+	filesystem {
+		// Skip k8s/docker pseudo-mounts — they explode cardinality
+		// without adding observability for real persistent storage.
+		fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs)$"
+		mount_points_exclude = "^/(dev|proc|sys|run|nix/store|var/lib/(docker|rancher|kubelet))($|/)"
+		mount_timeout        = "5s"
+	}
+
+	// Veth pairs from k3s pods are pure noise (~28 of 32 NICs on
+	// amun). docker0 and wg0 are kept (single persistent interfaces).
+	netclass {
+		ignored_devices = "^(veth|cali|cni|flannel|kube-ipvs|nodelocaldns).*"
+	}
+
+	netdev {
+		device_exclude = "^(veth|cali|cni|flannel|kube-ipvs|nodelocaldns).*"
+	}
+}
+
+discovery.relabel "integrations_node_exporter" {
+	targets = prometheus.exporter.unix.integrations_node_exporter.targets
+	rule {
+		target_label = "job"
+		replacement  = "integrations/node_exporter"
+	}
+}
+
+prometheus.scrape "integrations_node_exporter" {
+	targets         = discovery.relabel.integrations_node_exporter.output
+	forward_to      = [prometheus.relabel.integrations_node_exporter.receiver]
+	job_name        = "integrations/node_exporter"
+	scrape_interval = "1m"
+}
+
+// Cardinality trim: drop metrics we never query in Grafana. Mimir
+// charges per active series, and these are 16-20 series per host
+// that we don't graph.
+prometheus.relabel "integrations_node_exporter" {
+	forward_to = [prometheus.remote_write.integrations.receiver]
+
+	// Cosmetic / collector status metrics.
+	rule {
+		source_labels = ["__name__"]
+		regex         = "node_scrape_collector_.+"
+		action        = "drop"
+	}
+
+	// Filesystem metrics we never query: inode counts, device-error
+	// flags, readonly flags. Kept: size, free, avail (all bytes).
+	rule {
+		source_labels = ["__name__"]
+		regex         = "node_filesystem_(device_error|files|files_free|readonly)"
+		action        = "drop"
+	}
+
+	// Network interface metadata we never query. Kept:
+	// node_network_(receive|transmit)_(bytes|packets)_total.
+	rule {
+		source_labels = ["__name__"]
+		regex         = "node_network_(address_assign_type|carrier|carrier_changes_total|carrier_down_changes_total|carrier_up_changes_total|device_id|dormant|flags|iface_id|iface_link|iface_link_mode|info|mtu_bytes|name_assign_type|net_dev_group|protocol_type|transmit_queue_length|type)"
+		action        = "drop"
+	}
+}
