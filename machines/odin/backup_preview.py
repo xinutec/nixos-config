@@ -40,6 +40,15 @@ import argparse
 import os
 import subprocess
 import sys
+from typing import TypedDict
+
+
+class WorktreeInfo(TypedDict):
+    abs: str
+    rel: str
+    is_local_dir: bool
+    wt_files: list[tuple[str, int]]
+    gd_files: list[tuple[str, int]]
 
 
 SUBMODULE_MODE = "160000"  # git's gitlink mode
@@ -130,12 +139,12 @@ def is_excluded(rel_path: str, exclude_paths: list[str]) -> bool:
     return False
 
 
-def collect(target: str, exclude_paths: list[str]) -> list[dict]:
+def collect(target: str, exclude_paths: list[str]) -> list[WorktreeInfo]:
     """Per-worktree info, filtered by exclude rules. Each entry:
       { 'abs': str, 'rel': str, 'is_local_dir': bool,
         'wt_files': [(abs, size)], 'gd_files': [(abs, size)] }"""
     target = os.path.abspath(target)
-    out: list[dict] = []
+    out: list[WorktreeInfo] = []
     for wt_abs, is_local_dir in discover_worktrees(target):
         wt_rel = relpath_under(target, wt_abs) or os.path.basename(target)
         # Exclusion key: '' (the target itself) is never excluded;
@@ -165,7 +174,7 @@ def collect(target: str, exclude_paths: list[str]) -> list[dict]:
     return out
 
 
-def render_report(target: str, data: list[dict]) -> None:
+def render_report(target: str, data: list[WorktreeInfo]) -> None:
     print(f"Backup preview for {target}\n")
 
     repo_rows = []
@@ -203,7 +212,7 @@ def render_report(target: str, data: list[dict]) -> None:
     print(f"TOTAL:         {wt_files + gd_files:>7} files, {human(wt_size + gd_size):>10}")
 
 
-def render_print0(target: str, data: list[dict]) -> None:
+def render_print0(target: str, data: list[WorktreeInfo]) -> None:
     target = os.path.abspath(target)
     out = sys.stdout.buffer
     for d in data:
