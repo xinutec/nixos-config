@@ -181,6 +181,27 @@ rsync -aH --numeric-ids --delete \
   "$STAGE/amun/irssi-simon/"
 
 # ========================================================================
+# AMUN — picade fleet (/home/pi)
+# ========================================================================
+#
+# /home/pi holds the picade fleet's canonical state: picade/ (a ~3.5 GB
+# full RetroPie rootfs mirror of picade1, the restore source for any
+# cabinet), overlay/ (per-host config), and the picade_fleet/ tooling.
+# Losing it means losing the fleet's canonical, so it gets the same
+# daily snapshot + off-site + integrity coverage as everything else.
+
+log "amun: rsync /home/pi (picade fleet canonical + tooling)"
+install -d -m 0700 "$STAGE/amun/picade-home"
+# -A -X here (the PVC sources above use plain -aH): picade/ is a full
+# rootfs mirror, so ACLs and xattrs — notably file capabilities on
+# binaries — must survive a restore. Skip the regenerable python caches
+# left behind by running ./check on amun.
+rsync -aHAX --numeric-ids --delete \
+  --exclude='__pycache__' --exclude='.mypy_cache' --exclude='.pytest_cache' \
+  "root@amun.vpn:/home/pi/" \
+  "$STAGE/amun/picade-home/"
+
+# ========================================================================
 # k3s control-plane: tokens, TLS, snapshot dir (if any), manifest dumps
 # ========================================================================
 #
