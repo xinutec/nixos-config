@@ -31,7 +31,6 @@ in {
     enable = true;
     exports = ''
       /export/home ${net.nodes.isis.vpn}(rw,nohide,insecure,no_subtree_check) ${net.nodes.odin.vpn}(rw,nohide,insecure,no_subtree_check)
-      /export/home/pi ${net.vpn}(rw,nohide,insecure,no_subtree_check)
     '';
   };
 
