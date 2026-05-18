@@ -9,9 +9,9 @@
 //   `/host/` bind-mount prefixes — we read /proc /sys / directly).
 // - Drops metrics we never query (filesystem inode counts,
 //   network interface metadata) to keep Mimir cardinality down.
-// - Pushes to toktok.grafana.net. The Mimir password lives at
-//   /etc/grafana-agent-password (chmod 640, owned root:alloy) and
-//   is staged out-of-band on each host (pending agenix migration).
+// - Pushes to toktok.grafana.net. The Mimir password is an agenix
+//   secret (see grafana-alloy.nix), exposed inside the alloy sandbox
+//   via systemd LoadCredential.
 
 logging {
 	level = "warn"
@@ -43,8 +43,8 @@ prometheus.scrape "integrations_agent" {
 	scrape_interval = "1m"
 }
 
-// Mimir destination (Grafana Cloud, toktok stack). Password lives
-// at /etc/grafana-agent-password on each host (mode 600, root:root);
+// Mimir destination (Grafana Cloud, toktok stack). The password is
+// an agenix secret decrypted to /run/agenix/grafana-agent-password;
 // systemd's LoadCredential mounts it inside the alloy sandbox at
 // the path below. See grafana-alloy.nix.
 prometheus.remote_write "integrations" {

@@ -8,13 +8,13 @@
 # grafana-agent.yaml and cleaning up the result for native (non-
 # docker) execution.
 #
-# The Mimir password file at /etc/grafana-agent-password stays mode
-# 600 root:root. The NixOS services.alloy module runs alloy under
-# systemd DynamicUser=true (no persistent alloy user to chgrp to),
-# so we pass the password through systemd's LoadCredential — the
-# unit's sandbox sees it at /run/credentials/alloy.service/mimir-password,
-# referenced from grafana-alloy.alloy. Cleaner than relaxing file
-# perms; pending agenix migration anyway.
+# The Mimir password is an agenix secret (agenix/grafana-agent-password.age),
+# decrypted at activation to /run/agenix/grafana-agent-password. The
+# NixOS services.alloy module runs alloy under systemd DynamicUser=true
+# (no persistent alloy user to chgrp to), so the password is passed
+# through systemd's LoadCredential — the unit's sandbox sees it at
+# /run/credentials/alloy.service/mimir-password, referenced from
+# grafana-alloy.alloy.
 
 { config, pkgs, lib, ... }:
 
@@ -24,7 +24,10 @@
     configPath = ./grafana-alloy.alloy;
   };
 
+  age.secrets."grafana-agent-password".file =
+    ./agenix/grafana-agent-password.age;
+
   systemd.services.alloy.serviceConfig.LoadCredential = [
-    "mimir-password:/etc/grafana-agent-password"
+    "mimir-password:${config.age.secrets."grafana-agent-password".path}"
   ];
 }
