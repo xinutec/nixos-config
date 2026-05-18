@@ -166,9 +166,17 @@ ssh "${SSH_OPTS[@]}" root@amun.vpn \
      /home/pippijn/code/kubes/vps/toktok/workspace'" \
   < /etc/backup-preview.py \
   > "$TOKTOK_FILES"
-rsync -aH --numeric-ids --files-from="$TOKTOK_FILES" --from0 \
+# The toktok workspace is a live dev environment — files can vanish in
+# the window between the preview-list snapshot above and this rsync.
+# --ignore-missing-args skips list entries already gone (without it,
+# rsync exits 23 and the whole cluster backup aborts — see 2026-05-18).
+# Exit 24 (a file vanishing mid-transfer) is tolerated too; any other
+# exit code stays fatal.
+rsync -aH --numeric-ids --ignore-missing-args \
+  --files-from="$TOKTOK_FILES" --from0 \
   "root@amun.vpn:/home/pippijn/code/kubes/vps/toktok/workspace/" \
-  "$STAGE/amun/toktok-workspace/"
+  "$STAGE/amun/toktok-workspace/" \
+  || { rc=$?; [ "$rc" -eq 24 ] || exit "$rc"; }
 rm -f "$TOKTOK_FILES"
 
 log "amun: rsync irssi-storage PVCs (pippijn + simon)"
