@@ -18,4 +18,9 @@ in {
   # Grafana Cloud / Mimir push password — every host runs the alloy
   # metrics agent, so every host needs it.
   "grafana-agent-password.age".publicKeys = allHosts ++ [ admin ];
+
+  # restic backup repo password — odin is the only backup host. The
+  # admin key can still decrypt it, so a reinstalled odin can be
+  # re-onboarded without losing access to the repo.
+  "restic-password.age".publicKeys = [ odin admin ];
 }

@@ -28,7 +28,7 @@ echo "=== drill-seed starting $(date -u +%FT%TZ) ==="
 
 readonly SNAPSHOT=${1:-latest}
 readonly RESTIC_REPO=/backup/restic
-readonly RESTIC_PW_FILE=/etc/nixos/secrets/restic-password
+readonly RESTIC_PW_FILE=/run/agenix/restic-password
 readonly STAGING_PATH=/var/backup-staging/isis/nextcloud
 readonly RESTORE_TMP=$(mktemp -d /tmp/drill-restore-XXXXXX)
 

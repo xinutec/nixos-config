@@ -53,10 +53,15 @@
     "d /backup/restic 2750 root restic-offsite -"
   ];
 
+  # restic repo password — encrypted in the repo via agenix, decrypted
+  # at activation to /run/agenix/restic-password. Consumed by the backup
+  # job, the weekly integrity check, and the full restore drill.
+  age.secrets."restic-password".file = ../../agenix/restic-password.age;
+
   services.restic.backups.cluster = {
     repository   = "/backup/restic";
     initialize   = true;
-    passwordFile = "/etc/nixos/secrets/restic-password";
+    passwordFile = config.age.secrets."restic-password".path;
 
     paths = [ "/var/backup-staging" ];
 
@@ -121,7 +126,7 @@
     };
     script = ''
       ${pkgs.restic}/bin/restic -r /backup/restic \
-        --password-file /etc/nixos/secrets/restic-password \
+        --password-file ${config.age.secrets."restic-password".path} \
         check --read-data-subset=5%
     '';
   };
