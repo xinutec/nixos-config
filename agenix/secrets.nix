@@ -23,4 +23,11 @@ in {
   # admin key can still decrypt it, so a reinstalled odin can be
   # re-onboarded without losing access to the repo.
   "restic-password.age".publicKeys = [ odin admin ];
+
+  # WireGuard private keys — one per host. The VPN is hub-and-spoke,
+  # so a host only ever needs its own key; each is encrypted just to
+  # that host plus the admin key.
+  "wireguard-amun.age".publicKeys = [ amun admin ];
+  "wireguard-isis.age".publicKeys = [ isis admin ];
+  "wireguard-odin.age".publicKeys = [ odin admin ];
 }

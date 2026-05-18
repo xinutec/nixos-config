@@ -135,6 +135,12 @@ in {
     };
   };
 
+  # WireGuard private key for this host — an agenix secret, decrypted
+  # at activation to /run/agenix/wireguard-<host>. Each host carries
+  # only its own key; recipients are set in agenix/secrets.nix.
+  age.secrets."wireguard-${config.node.name}".file =
+    ./agenix/wireguard-${config.node.name}.age;
+
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
     wg0 = let
@@ -145,12 +151,9 @@ in {
         # The port that WireGuard listens to. Must be accessible by the client.
         listenPort = net.vpnPort;
 
-        # Path to the private key file.
-        #
-        # Note: The private key can also be included inline via the privateKey option,
-        # but this makes the private key world-readable; thus, using privateKeyFile is
-        # recommended.
-        privateKeyFile = "/root/wireguard-keys/private";
+        # Path to the private key file — the agenix-decrypted secret
+        # declared above. Read by wireguard-wg0.service at runtime.
+        privateKeyFile = config.age.secrets."wireguard-${config.node.name}".path;
       };
       peerConfig = if config.node.name == net.nodes.master.name then {
         # This allows the wireguard server to route your traffic to the internet and hence be like a VPN
