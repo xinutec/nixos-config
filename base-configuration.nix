@@ -7,12 +7,21 @@
 let
   net = import ./network.nix;
   sshKeys = import ./ssh-keys.nix;
+  # agenix — secrets encrypted in this repo, decrypted per-host at
+  # activation by the host's own SSH key. Pinned by tag (nixos-config
+  # is channel-based, not a flake); to bump, change the rev and refresh
+  # the hash with: nix-prefetch-url --unpack <url>
+  agenix = builtins.fetchTarball {
+    url = "https://github.com/ryantm/agenix/archive/refs/tags/0.15.0.tar.gz";
+    sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
+  };
 in {
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./options.nix
     ./grafana-alloy.nix
+    "${agenix}/modules/age.nix"
     <home-manager/nixos>
   ];
 
