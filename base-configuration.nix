@@ -141,6 +141,23 @@ in {
   age.secrets."wireguard-${config.node.name}".file =
     ./agenix/wireguard-${config.node.name}.age;
 
+  # Root user's SSH private keys — agenix secrets, decrypted at
+  # activation straight to /root/.ssh/ (symlink = false: a real file
+  # where ssh expects it, no symlink/ramfs indirection). One shared
+  # keypair of each type fleet-wide, for inter-host root SSH.
+  age.secrets."root-ssh-ed25519" = {
+    file = ./agenix/root-ssh-ed25519.age;
+    path = "/root/.ssh/id_ed25519";
+    mode = "0600";
+    symlink = false;
+  };
+  age.secrets."root-ssh-rsa" = {
+    file = ./agenix/root-ssh-rsa.age;
+    path = "/root/.ssh/id_rsa";
+    mode = "0600";
+    symlink = false;
+  };
+
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
     wg0 = let
