@@ -30,4 +30,10 @@ in {
   "wireguard-amun.age".publicKeys = [ amun admin ];
   "wireguard-isis.age".publicKeys = [ isis admin ];
   "wireguard-odin.age".publicKeys = [ odin admin ];
+
+  # Root user's SSH private keys — one shared keypair of each type
+  # across all hosts, used for inter-host root SSH (backup rsyncs and
+  # the restore drill). Encrypted to every host plus the admin key.
+  "root-ssh-ed25519.age".publicKeys = allHosts ++ [ admin ];
+  "root-ssh-rsa.age".publicKeys = allHosts ++ [ admin ];
 }
