@@ -148,6 +148,21 @@ rsync -aH --numeric-ids --delete \
   "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d8296eee-c45f-4f7b-abce-45636659afc1_nocodb_nocodb-storage/" \
   "$STAGE/amun/nocodb/"
 
+log "amun: vaultwarden (consistent sqlite snapshot + data dir)"
+# The vault DB is hot SQLite in WAL mode — a plain rsync of db.sqlite3
+# can yield a torn copy. Take a consistent online .backup on amun first,
+# then rsync everything else (attachments, rsa keys, icon cache).
+VW_PVC=/var/lib/rancher/k3s/storage/pvc-98a35778-d544-4fce-87b3-ba7f34dae537_vaultwarden_vaultwarden-data
+install -d -m 0700 "$STAGE/amun/vaultwarden"
+remote amun.vpn \
+  "nix-shell -p sqlite --run 'sqlite3 $VW_PVC/db.sqlite3 \".backup /tmp/vw-db-snapshot.sqlite3\"' && chmod 600 /tmp/vw-db-snapshot.sqlite3"
+rsync -a "root@amun.vpn:/tmp/vw-db-snapshot.sqlite3" "$STAGE/amun/vaultwarden/db.sqlite3"
+remote amun.vpn "rm -f /tmp/vw-db-snapshot.sqlite3"
+rsync -aH --numeric-ids --delete \
+  --exclude 'db.sqlite3' --exclude 'db.sqlite3-wal' --exclude 'db.sqlite3-shm' \
+  "root@amun.vpn:$VW_PVC/" \
+  "$STAGE/amun/vaultwarden/data/"
+
 log "amun: toktok workspace (preview script → file list → rsync)"
 install -d -m 0700 "$STAGE/amun/toktok-workspace"
 # Generate the file list on amun. Run the preview script as `pippijn`
