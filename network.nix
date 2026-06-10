@@ -64,6 +64,11 @@
       vpn = "10.100.0.10";
       publicKey = "R1eQiNsuwZVo+pzptD7LgzLDaVgvEZoVT641fZe21Sg=";
     };
+    pixel9 = {
+      name = "pixel9";
+      vpn = "10.100.0.12";
+      publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
+    };
 
     # Windows PC.
     horus = {
