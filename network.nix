@@ -93,11 +93,15 @@
       publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
     };
 
-    # Mac Mini
+    # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
+    # the VPN may initiate toward it (it is the offsite-backup host; see
+    # xinutec-infra/mac-mini.md). Enforced by firewall rules in
+    # base-configuration.nix keyed on this vpn address, plus pf on the Mac
+    # itself. Key generated on the Mac 2026-06-10; private key never leaves it.
     mac-mini = {
       name = "mac-mini";
       vpn = "10.100.0.11";
-      publicKey = "/mLzTCXGDoq/ZJ0G/OVgg8U08qZE8KxSKv2JTpWW7lw=";
+      publicKey = "qe0nIvj/UUn4d3gOt/BC5VHKSqpkzhq16+jvYPDxCyg=";
     };
 
     # Mouad's devices

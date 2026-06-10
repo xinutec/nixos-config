@@ -131,6 +131,24 @@ in {
         iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
           toString net.k8sApiPort
         } -j nixos-fw-accept
+
+        # One-way VPN for mac-mini (${net.nodes.mac-mini.vpn}): the Mac may
+        # initiate connections into the VPN, but nothing on the VPN — this
+        # host, its pods, or forwarded peer traffic — may initiate toward the
+        # Mac. Only return traffic for Mac-initiated connections passes. The
+        # Mac enforces the same with pf; this is defense in depth (see
+        # xinutec-infra/mac-mini.md). -D before -I keeps reloads idempotent.
+        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
+        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -j DROP 2>/dev/null || true
+        iptables -w -I FORWARD 1 -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+        iptables -w -I FORWARD 2 -d ${net.nodes.mac-mini.vpn} -j DROP
+        iptables -w -D OUTPUT -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
+        iptables -w -I OUTPUT 1 -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate NEW -j DROP
+      '';
+      extraStopCommands = ''
+        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
+        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -j DROP 2>/dev/null || true
+        iptables -w -D OUTPUT -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
       '';
     };
   };
