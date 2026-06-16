@@ -251,4 +251,57 @@ in {
       };
     };
   };
+
+  # Keep the pippijn home checkout fast-forwarded to origin/main. Every
+  # server's home dir is a clone of github.com:xinutec/pippijn, and with
+  # no automation they silently drift (observed 2026-06-16: 41–261 commits
+  # behind). FAST-FORWARD ONLY: if a host ever has local commits or a real
+  # conflict it logs and skips — it never merges, rebases or forces, so
+  # local work and the perpetually-rewritten .config/rclone/rclone.conf are
+  # left untouched. Uses `git merge --ff-only` rather than `git pull` so a
+  # host-local `pull.rebase=true` (isis has it) can't turn the sync into a
+  # rebase that aborts on the dirty rclone.conf. Drift that can't auto-heal
+  # is surfaced by the home-checkout check in xinutec-infra fleet_health.py.
+  systemd.services.home-autosync = {
+    description = "Fast-forward the pippijn home checkout to origin/main";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    path = with pkgs; [ git git-crypt openssh ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "pippijn";
+      WorkingDirectory = config.users.users.pippijn.home;
+      Environment = "HOME=${config.users.users.pippijn.home}";
+    };
+    script = ''
+      # No `set -e`: exit codes are handled explicitly so a non-ff merge
+      # is a clean skip, not a unit failure.
+      if ! git fetch --quiet origin; then
+        echo "home-autosync: fetch failed (offline?), skipping this run"
+        exit 0
+      fi
+      before=$(git rev-parse --short HEAD)
+      if git merge --ff-only origin/main; then
+        after=$(git rev-parse --short HEAD)
+        if [ "$before" = "$after" ]; then
+          echo "home-autosync: already current at $after"
+        else
+          echo "home-autosync: fast-forwarded $before -> $after"
+        fi
+      else
+        echo "home-autosync: SKIPPED — cannot fast-forward (local commits or conflict); manual reconcile needed" >&2
+      fi
+    '';
+  };
+
+  systemd.timers.home-autosync = {
+    description = "Hourly fast-forward of the pippijn home checkout";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "hourly";
+      Persistent = true;
+      # Stagger the three hosts so they don't all hit GitHub at :00.
+      RandomizedDelaySec = "5m";
+    };
+  };
 }
