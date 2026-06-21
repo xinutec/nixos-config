@@ -53,12 +53,7 @@
       publicKey = "ODQiM8MGoywHcGYiR9obqP8gi8oAyJob02tW3d6VJ0A=";
     };
 
-    # Android phone.
-    pixel7 = {
-      name = "pixel7";
-      vpn = "10.100.0.5";
-      publicKey = "nNi2hDKeBzqRB4WyGX3F50N6VhA5vJ4ij/DSEk3PfGM=";
-    };
+    # Android phones.
     pixel5 = {
       name = "pixel5";
       vpn = "10.100.0.10";
