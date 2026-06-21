@@ -81,7 +81,7 @@
     anubis = {
       name = "anubis";
       vpn = "10.100.0.7";
-      publicKey = "PjndYq9FbikA/R75LIe/mW2PLV7pE2jTiy/5DVxZjGI=";
+      publicKey = "lvu0kLY3Y1WMb47a81Y7QklEiEnM8rVrXUfUReOTUnQ=";
     };
 
     # Raspberry Pi Zero 2 W
