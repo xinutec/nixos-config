@@ -62,7 +62,7 @@
     pixel5 = {
       name = "pixel5";
       vpn = "10.100.0.10";
-      publicKey = "R1eQiNsuwZVo+pzptD7LgzLDaVgvEZoVT641fZe21Sg=";
+      publicKey = "FSaKx2UvFEM3LCMTeNrMr3S1RYg2h+FaWE8JkWn7R2s=";
     };
     pixel9 = {
       name = "pixel9";
