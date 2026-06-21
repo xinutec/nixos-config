@@ -65,32 +65,11 @@
       publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
     };
 
-    # Windows PC.
-    horus = {
-      name = "horus";
-      vpn = "10.100.0.6";
-      publicKey = "vMPacQKiSO+/6OjAYFZxKu7RSNQcRAN6z0cY9EaASFc=";
-    };
-
     # Windows laptop, Lenovo.
     anubis = {
       name = "anubis";
       vpn = "10.100.0.7";
       publicKey = "lvu0kLY3Y1WMb47a81Y7QklEiEnM8rVrXUfUReOTUnQ=";
-    };
-
-    # Raspberry Pi Zero 2 W
-    hermes = {
-      name = "hermes";
-      vpn = "10.100.0.8";
-      publicKey = "eUzKLpNdUSNefpML/R+D8kMFwjTxUoKAu1DSWC9IET8=";
-    };
-
-    # Raspberry Pi 4
-    bes = {
-      name = "bes";
-      vpn = "10.100.0.9";
-      publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
     };
 
     # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
@@ -102,18 +81,6 @@
       name = "mac-mini";
       vpn = "10.100.0.11";
       publicKey = "qe0nIvj/UUn4d3gOt/BC5VHKSqpkzhq16+jvYPDxCyg=";
-    };
-
-    # Mouad's devices
-    mouad-phone = {
-      name = "mouad-phone";
-      vpn = "10.100.0.50";
-      publicKey = "BNwlNpho/n9Jx121L5kWbW015Mk+9Gei4ltyWttS4Fo=";
-    };
-    mouad = {
-      name = "mouad";
-      vpn = "10.100.0.51";
-      publicKey = "eLXKgq+CXQGaah4B3LNaLzvdjv46lt8K87XpaQuA/j4=";
     };
 
     # Picade
