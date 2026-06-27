@@ -119,6 +119,46 @@ rsync -a "root@isis.vpn:/tmp/health-dump.sql.zst" \
 remote isis.vpn 'rm -f /tmp/health-dump.sql.zst'
 
 # ========================================================================
+# ISIS — Signal archive (signal-cli message DB + linked-device keys + media)
+# ========================================================================
+
+# DB-consistent dump (same crictl-exec pattern as Nextcloud/health above).
+SIGNAL_DBPVC="pvc-61696d6d-735d-4f8f-8eef-d2d0a5b6d004_signal_signal-db-pvc"
+SIGNAL_DBPATH="/var/lib/rancher/k3s/storage/$SIGNAL_DBPVC/mariadb-data"
+log "isis: mariadb-dump signal (crictl exec → file → rsync)"
+install -d -m 0700 "$STAGE"/isis/signal
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace signal --name 'signal-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no signal-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in signal-db pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'MYSQL_PWD=\"\$MARIADB_ROOT_PASSWORD\" mariadb-dump -u root --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $SIGNAL_DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $SIGNAL_DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $SIGNAL_DBPATH/dump.sql -o /tmp/signal-dump.sql.zst \
+   && rm -f $SIGNAL_DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/signal-dump.sql.zst" \
+  "$STAGE/isis/signal/signal.sql.zst"
+remote isis.vpn 'rm -f /tmp/signal-dump.sql.zst'
+
+# Linked-device keys/state (signal-cli) — restoring these reconnects the
+# archiver without re-linking. Secret-class, but the restic repo is encrypted.
+log "isis: rsync signal-cli data PVC (linked-device keys)"
+rsync -aH --numeric-ids --delete \
+  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-9425bead-7280-4c1b-8708-94f38a795b11_signal_signal-cli-pvc/" \
+  "$STAGE/isis/signal/signal-cli/"
+
+# Downloaded attachment blobs (media that flowed in via the live feed).
+log "isis: rsync signal-attachments PVC (media)"
+rsync -aH --numeric-ids --delete \
+  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-692ab1c6-6e12-43bb-8bf8-51573a5ceddf_signal_signal-attachments-pvc/" \
+  "$STAGE/isis/signal/attachments/"
+
+# ========================================================================
 # ISIS — httpd-isis-storage (public share host: dicom-scan + mri-scan.zip)
 # ========================================================================
 
