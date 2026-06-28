@@ -65,6 +65,15 @@
       publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
     };
 
+    # iPhone (Pippijn). Private key generated on the Mac 2026-06-28, lives only
+    # in the device's WireGuard tunnel (provisioned by QR); only the public key
+    # is here. Split-tunnel client: AllowedIPs = the VPN subnet.
+    iphone = {
+      name = "iphone";
+      vpn = "10.100.0.13";
+      publicKey = "YqxVUL48NOPh6cbu1Dgu6BS9YUycByEVPrNiyHgtk0c=";
+    };
+
     # Windows laptop, Lenovo.
     anubis = {
       name = "anubis";
