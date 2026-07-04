@@ -114,8 +114,29 @@ in {
     firewall = {
       enable = true;
 
-      # No need for explicitly allowing ports here. Kubernetes takes care of
-      # opening ports as needed. We only need 10250 (kubelet) and the Wireguard port.
+      # PUBLIC EXPOSURE POLICY: closed by default; a service reaches the
+      # internet only if it is *explicitly* listed. But note this list governs
+      # ONLY host-level services on the public interface — it is one of TWO
+      # layers, and it is NOT where most public ports live:
+      #
+      #   1. This firewall (nixos-fw INPUT). Governs host daemons: SSH, kubelet,
+      #      WireGuard, NFS, etc. SSH (22) is opened *implicitly* by
+      #      services.openssh (openFirewall defaults true) and so isn't listed
+      #      here — it and WireGuard are the two remote lifelines: never drop
+      #      them. kubelet (10250) is public pending the --node-ip=<vpn>
+      #      migration that would move it onto WireGuard.
+      #
+      #   2. Docker / k8s published ports. `docker -p`, k8s hostPort, and the
+      #      ingress controller open ports via their OWN nat-table DNAT, which
+      #      is evaluated BEFORE this INPUT chain and BYPASSES it entirely.
+      #      Deleting a port here does NOT close such a service (verified: the
+      #      toktok container stayed reachable after its firewall entry was
+      #      removed). To keep a containerised service private, bind its publish
+      #      to the WireGuard IP (e.g. toktok: "${node.vpn}:2223:22") or route it
+      #      through ingress — editing this list is the wrong lever.
+      #
+      # Internal services need no entry at all: VPN traffic is trusted (see
+      # trustedInterfaces below), so anything is reachable over WireGuard.
       allowedTCPPorts = [ 10250 net.vpnPort ];
       allowedUDPPorts = [ net.vpnPort ];
 
