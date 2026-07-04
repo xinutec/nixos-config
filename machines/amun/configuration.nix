@@ -24,7 +24,7 @@ in {
     package = pkgs.k3s_1_32;
     role = "server";
     extraFlags =
-      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
+      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption";
   };
 
   services.nfs.server = {

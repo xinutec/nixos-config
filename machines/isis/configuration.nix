@@ -22,7 +22,7 @@ in {
     enable = true;
     role = "server";
     extraFlags =
-      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
+      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption";
   };
 
   # List services that you want to enable:
