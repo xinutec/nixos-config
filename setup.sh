@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eux
+set -euxo pipefail
 
 HOST=$(hostname)
 PASSWD=$(mkpasswd -m sha-512)
