@@ -15,7 +15,9 @@ in {
     kubernetes-helm # to install kubernetes packages (helm charts)
   ];
 
-  networking.firewall.allowedTCPPorts = [ 2223 28192 ];
+  # No machine-specific PUBLIC ports. Verified against live `ss` (2026-07):
+  #   2223, 28192 → nothing was listening on isis; dead leftover rules.
+  networking.firewall.allowedTCPPorts = [ ];
 
   # List services that you want to enable:
   services.k3s = {

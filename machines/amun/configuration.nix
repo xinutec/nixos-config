@@ -15,7 +15,11 @@ in {
     kubernetes-helm # to install kubernetes packages (helm charts)
   ];
 
-  networking.firewall.allowedTCPPorts = [ 2223 28192 33445 ];
+  # No machine-specific PUBLIC ports. Verified against live `ss` (2026-07):
+  #   2223 (toktok container SSH) → VPN-only; still binds 0.0.0.0 but the
+  #         firewall now blocks it publicly, reachable over WireGuard (trusted).
+  #   28192, 33445 → nothing was listening on either; dead leftover rules.
+  networking.firewall.allowedTCPPorts = [ ];
 
   # List services that you want to enable:
   services.k3s = {
