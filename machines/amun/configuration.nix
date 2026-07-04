@@ -54,7 +54,11 @@ in {
 
    toktok = {
      image = "xinutec/toktok:latest";
-     ports = [ "2223:22" ];
+     # VPN-only: bind the published SSH port to the WireGuard IP, not
+     # 0.0.0.0. Docker's DNAT bypasses the host firewall, so dropping 2223
+     # from allowedTCPPorts alone leaves it public — the bind IP is what
+     # actually closes it. Reach it at ${config.node.vpn}:2223 over the VPN.
+     ports = [ "${config.node.vpn}:2223:22" ];
      extraOptions = [
        "--memory=10g"
        "--privileged"
@@ -77,5 +81,13 @@ in {
        "${config.users.users.pippijn.home}/.local/share/toxxi:/home/builder/.local/share/toxxi"
      ];
    };
+  };
+
+  # The toktok container publishes its port on the WireGuard IP, so its
+  # Docker unit must not start until wg0 exists — otherwise the bind fails
+  # with "cannot assign requested address" on boot.
+  systemd.services.docker-toktok = {
+    after = [ "wireguard-wg0.service" ];
+    requires = [ "wireguard-wg0.service" ];
   };
 }
