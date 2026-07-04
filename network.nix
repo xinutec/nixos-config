@@ -53,6 +53,20 @@
       publicKey = "ODQiM8MGoywHcGYiR9obqP8gi8oAyJob02tW3d6VJ0A=";
     };
 
+    # Windows laptop, Lenovo.
+    anubis = {
+      name = "anubis";
+      vpn = "10.100.0.7";
+      publicKey = "lvu0kLY3Y1WMb47a81Y7QklEiEnM8rVrXUfUReOTUnQ=";
+    };
+
+    # Raspberry Pi 4
+    bes = {
+      name = "bes";
+      vpn = "10.100.0.9";
+      publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
+    };
+
     # Android phones.
     pixel5 = {
       name = "pixel5";
@@ -72,13 +86,6 @@
       name = "iphone";
       vpn = "10.100.0.13";
       publicKey = "YqxVUL48NOPh6cbu1Dgu6BS9YUycByEVPrNiyHgtk0c=";
-    };
-
-    # Windows laptop, Lenovo.
-    anubis = {
-      name = "anubis";
-      vpn = "10.100.0.7";
-      publicKey = "lvu0kLY3Y1WMb47a81Y7QklEiEnM8rVrXUfUReOTUnQ=";
     };
 
     # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
