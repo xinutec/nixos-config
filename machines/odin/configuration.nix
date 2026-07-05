@@ -16,6 +16,8 @@ in {
   virtualisation.oci-containers.containers = {
     buildfarm-redis = {
       image = "redis:alpine";
+      # buildfarm's shared redis: host networking to serve the build cluster.
+      # ast-grep-ignore: nix-oci-host-namespace
       extraOptions = [ "--network=host" ];
     };
   };

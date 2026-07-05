@@ -65,7 +65,12 @@ in {
     buildfarm-worker = {
       image = "toxchat/buildfarm-worker";
       extraOptions = [
+        # Bazel remote-execution worker: joins the internal buildfarm cluster
+        # over host networking; it's a trusted CI worker, not a public service.
+        # ast-grep-ignore: nix-oci-host-namespace
         "--network=host"
+        # Build actions execute from /tmp (compilers, test binaries).
+        # ast-grep-ignore: nix-oci-exec-suid-tmpfs
         "--tmpfs=/tmp:exec"
       ];
       volumes = [
@@ -137,10 +142,18 @@ in {
       #
       # Internal services need no entry at all: VPN traffic is trusted (see
       # trustedInterfaces below), so anything is reachable over WireGuard.
+      # kubelet 10250: still public pending the --node-ip=<VPN> migration that
+      # moves node identity onto WireGuard (tracked in the firewall-hardening
+      # plan). It's TLS + bearer-auth'd; removing it now risks breaking the
+      # control-plane→kubelet path on this live single-node cluster. Revisit.
+      # ast-grep-ignore: nix-kubelet-port-public
       allowedTCPPorts = [ 10250 net.vpnPort ];
       allowedUDPPorts = [ net.vpnPort ];
 
-      # Allow traffic to flow freely inside the VPN.
+      # Allow traffic to flow freely inside the VPN. docker0 is trusted so the
+      # node-local containers can reach host services (metrics, DNS); the bridge
+      # is not routable off-host.
+      # ast-grep-ignore: nix-docker0-trusted
       trustedInterfaces = config.networking.nat.internalInterfaces ++ [ "docker0" ];
 
       extraCommands = ''
@@ -266,6 +279,7 @@ in {
         isNormalUser = true;
         shell = pkgs.zsh;
         home = "/home/pippijn";
+        # dev-lint: allow-pii — the account's own GECOS full name, by definition.
         description = "Pippijn van Steenhoven";
         extraGroups = [ "docker" "wheel" ];
         openssh.authorizedKeys.keys = sshKeys.pippijn;

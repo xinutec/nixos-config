@@ -148,6 +148,10 @@
     serviceConfig = {
       Type = "oneshot";
       User = "root";
+      # The DR drill intentionally runs from the live /etc/nixos checkout so it
+      # exercises the CURRENT drill scripts + config, not a store-frozen copy —
+      # that's the whole point of a restore drill.
+      # ast-grep-ignore: nix-root-exec-mutable-etc
       WorkingDirectory = "/etc/nixos/machines/odin/drill";
       TimeoutStartSec = "6h";
     };

@@ -46,6 +46,9 @@ in {
   virtualisation.oci-containers.containers = {
     buildfarm-server = {
       image = "toxchat/buildfarm-server";
+      # Bazel buildfarm scheduler: host networking to serve the internal worker
+      # cluster; trusted CI component, not a public service.
+      # ast-grep-ignore: nix-oci-host-namespace
       extraOptions = [ "--network=host" ];
       volumes = [
         "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/config.minimal.yml"
@@ -61,9 +64,18 @@ in {
      ports = [ "${config.node.vpn}:2223:22" ];
      extraOptions = [
        "--memory=10g"
+       # toktok is a VPN-only Nix build/dev container (bound to the WireGuard IP
+       # above): nix's sandboxed builds need broad privileges + setuid wrappers
+       # (nix-daemon build users, /run/wrappers). Candidate for narrowing to
+       # specific --cap-add later; --privileged is the current known-working set.
+       # ast-grep-ignore: nix-oci-privileged
        "--privileged"
        "--tmpfs=/run"
+       # setuid build wrappers (nix-daemon) live here.
+       # ast-grep-ignore: nix-oci-exec-suid-tmpfs
        "--tmpfs=/run/wrappers:exec,suid"
+       # build actions execute from /tmp.
+       # ast-grep-ignore: nix-oci-exec-suid-tmpfs
        "--tmpfs=/tmp:exec"
      ];
      volumes = [

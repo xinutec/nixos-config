@@ -117,11 +117,14 @@ cp "$SRC/redis.rdb" ./volumes/redis/dump.rdb
 chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
 
 # 5. mariadb: initialize + load dump
+# Root password for the throwaway drill-seed-db — a local container torn down
+# (--rm) at the end and never exposed off-host, so this is a constant, not a secret.
+DRILL_DB_PW=drill-root-pw  # dev-lint: allow-secret throwaway local drill-seed-db
 log "start temporary drill-seed-db (mariadb:11.8)"
 docker rm -f drill-seed-db >/dev/null 2>&1 || true
 docker run -d --rm \
   --name drill-seed-db \
-  -e MYSQL_ROOT_PASSWORD=drill-root-pw \
+  -e MYSQL_ROOT_PASSWORD=$DRILL_DB_PW \
   -e MYSQL_DATABASE=nextcloud \
   -v "$PWD/volumes/mysql:/var/lib/mysql" \
   mariadb:11.8 \
@@ -129,7 +132,7 @@ docker run -d --rm \
 
 log "waiting for drill-seed-db to accept authenticated connections..."
 for i in $(seq 1 120); do
-  if docker exec drill-seed-db mariadb -uroot --password=drill-root-pw -e "SELECT 1" >/dev/null 2>&1; then
+  if docker exec drill-seed-db mariadb -uroot --password=$DRILL_DB_PW -e "SELECT 1" >/dev/null 2>&1; then
     log "ready after ${i}s"
     break
   fi
@@ -143,7 +146,7 @@ done
 
 log "loading mysql dump via stdin (this may take a few minutes)..."
 time zstd -dc "$SRC/mysql-all.sql.zst" \
-  | docker exec -i drill-seed-db mariadb -uroot --password=drill-root-pw
+  | docker exec -i drill-seed-db mariadb -uroot --password=$DRILL_DB_PW
 
 log "stopping drill-seed-db"
 docker stop drill-seed-db >/dev/null
