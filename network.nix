@@ -99,6 +99,15 @@
       publicKey = "qe0nIvj/UUn4d3gOt/BC5VHKSqpkzhq16+jvYPDxCyg=";
     };
 
+    # Dasha's phone. Private key generated on the Mac 2026-07-08, lives only in
+    # the device's WireGuard tunnel (provisioned by QR); only the public key is
+    # here. Split-tunnel client: AllowedIPs = the VPN subnet.
+    dasha = {
+      name = "dasha";
+      vpn = "10.100.0.14";
+      publicKey = "FyeFKOIM9xGZbUcjcTLpsI/zL7r5aoj4MIsPkb164To=";
+    };
+
     # Picade
     picade0 = {
       name = "picade0";
