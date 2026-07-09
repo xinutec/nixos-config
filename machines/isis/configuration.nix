@@ -19,6 +19,13 @@ in {
   #   2223, 28192 → nothing was listening on isis; dead leftover rules.
   networking.firewall.allowedTCPPorts = [ ];
 
+  # Let the Mac's reverse SSH tunnel (recall-tunnel) bind the recall web app on
+  # this host's WireGuard address (10.100.0.2:8000) for VPN peers. The Mac is a
+  # one-way WG peer and must dial out; `clientspecified` lets its `ssh -R` choose
+  # the WG bind address. The public NIC stays closed (allowedTCPPorts = [] above),
+  # so this cannot expose anything off-VPN — WireGuard peers are the only reach.
+  services.openssh.settings.GatewayPorts = "clientspecified";
+
   # List services that you want to enable:
   services.k3s = {
     enable = true;
