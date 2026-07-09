@@ -36,4 +36,14 @@ in {
   # the restore drill). Encrypted to every host plus the admin key.
   "root-ssh-ed25519.age".publicKeys = allHosts ++ [ admin ];
   "root-ssh-rsa.age".publicKeys = allHosts ++ [ admin ];
+
+  # oauth2-proxy in front of recall, gated to the pippijn Nextcloud account. Only
+  # isis runs the proxy, so it and the admin key are the recipients.
+  "oauth2-proxy-recall-client-secret.age".publicKeys = [ isis admin ];
+  "oauth2-proxy-recall-cookie-secret.age".publicKeys = [ isis admin ];
+
+  # Cloudflare DNS-01 token for the recall.xinutec.org ACME cert (same token
+  # already used by cert-manager's letsencrypt-dns ClusterIssuer, copied here
+  # since this cert is issued host-side, not by k8s). isis + admin only.
+  "cloudflare-dns01-token.age".publicKeys = [ isis admin ];
 }
