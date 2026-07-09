@@ -87,6 +87,15 @@ in {
     };
   };
 
+  # The oauth2-proxy module does not auto-order against the ACME cert it reads by
+  # path — without this, first activation can race (oauth2-proxy starting before
+  # the cert is issued) and crash-loop on a missing file. `reloadServices` above
+  # only covers restart-on-renewal, not this initial ordering.
+  systemd.services.oauth2-proxy = {
+    after = [ "acme-recall.xinutec.org.service" ];
+    wants = [ "acme-recall.xinutec.org.service" ];
+  };
+
   # List services that you want to enable:
   services.k3s = {
     enable = true;
