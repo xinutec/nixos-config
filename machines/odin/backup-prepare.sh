@@ -119,6 +119,34 @@ rsync -a "root@isis.vpn:/tmp/health-dump.sql.zst" \
 remote isis.vpn 'rm -f /tmp/health-dump.sql.zst'
 
 # ========================================================================
+# ISIS — Life DB (life app MariaDB: inventory / recipes / shopping / todo)
+# ========================================================================
+
+# Same crictl-exec pattern as health above. life-db is the stateless life
+# app's only persistent state; the app container never writes to disk.
+LIFE_DBPVC="pvc-8b4f9606-f8c4-4e02-8b5a-97ecac489cf4_life_life-db-pvc"
+LIFE_DBPATH="/var/lib/rancher/k3s/storage/$LIFE_DBPVC/mariadb-data"
+log "isis: mariadb-dump life (crictl exec → file → rsync)"
+install -d -m 0700 "$STAGE"/isis/life
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace life --name 'life-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no life-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in life-db pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'MYSQL_PWD=\"\$MARIADB_ROOT_PASSWORD\" mariadb-dump -u root --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $LIFE_DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $LIFE_DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $LIFE_DBPATH/dump.sql -o /tmp/life-dump.sql.zst \
+   && rm -f $LIFE_DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/life-dump.sql.zst" \
+  "$STAGE/isis/life/life.sql.zst"
+remote isis.vpn 'rm -f /tmp/life-dump.sql.zst'
+
+# ========================================================================
 # ISIS — Signal archive (signal-cli message DB + linked-device keys + media)
 # ========================================================================
 
