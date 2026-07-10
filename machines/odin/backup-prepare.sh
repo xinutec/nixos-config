@@ -147,6 +147,88 @@ rsync -a "root@isis.vpn:/tmp/life-dump.sql.zst" \
 remote isis.vpn 'rm -f /tmp/life-dump.sql.zst'
 
 # ========================================================================
+# ISIS — Home DB (home dashboard MariaDB: Govee sensor time-series)
+# ========================================================================
+
+# Same crictl-exec pattern as health above. home-db holds the temp/RH/RSSI
+# readings the bes/Mac/pixel5 BLE receivers feed in — the app is stateless.
+HOME_DBPVC="pvc-e4221e0c-7331-49e4-9b2c-417020cd0b1c_home_home-db-pvc"
+HOME_DBPATH="/var/lib/rancher/k3s/storage/$HOME_DBPVC/mariadb-data"
+log "isis: mariadb-dump home (crictl exec → file → rsync)"
+install -d -m 0700 "$STAGE"/isis/home
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace home --name 'home-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no home-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in home-db pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'MYSQL_PWD=\"\$MARIADB_ROOT_PASSWORD\" mariadb-dump -u root --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $HOME_DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $HOME_DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $HOME_DBPATH/dump.sql -o /tmp/home-dump.sql.zst \
+   && rm -f $HOME_DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/home-dump.sql.zst" \
+  "$STAGE/isis/home/home.sql.zst"
+remote isis.vpn 'rm -f /tmp/home-dump.sql.zst'
+
+# ========================================================================
+# ISIS — Coach DB (coach app MariaDB)
+# ========================================================================
+
+# Same crictl-exec pattern as health above.
+COACH_DBPVC="pvc-201cd057-a8ab-4ff1-abbd-c5e7e4cf9566_coach_coach-db-pvc"
+COACH_DBPATH="/var/lib/rancher/k3s/storage/$COACH_DBPVC/mariadb-data"
+log "isis: mariadb-dump coach (crictl exec → file → rsync)"
+install -d -m 0700 "$STAGE"/isis/coach
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace coach --name 'coach-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no coach-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in coach-db pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'MYSQL_PWD=\"\$MARIADB_ROOT_PASSWORD\" mariadb-dump -u root --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $COACH_DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $COACH_DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $COACH_DBPATH/dump.sql -o /tmp/coach-dump.sql.zst \
+   && rm -f $COACH_DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/coach-dump.sql.zst" \
+  "$STAGE/isis/coach/coach.sql.zst"
+remote isis.vpn 'rm -f /tmp/coach-dump.sql.zst'
+
+# ========================================================================
+# ISIS — Fleetwatch DB (fleetwatch MariaDB: fleet health history)
+# ========================================================================
+
+# Same crictl-exec pattern as health above.
+FLEETWATCH_DBPVC="pvc-e4bdd500-3464-478f-b481-08ca58b83437_fleetwatch_fleetwatch-db-pvc"
+FLEETWATCH_DBPATH="/var/lib/rancher/k3s/storage/$FLEETWATCH_DBPVC/mariadb-data"
+log "isis: mariadb-dump fleetwatch (crictl exec → file → rsync)"
+install -d -m 0700 "$STAGE"/isis/fleetwatch
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace fleetwatch --name 'fleetwatch-db-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no fleetwatch-db pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name mariadb -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no mariadb container in fleetwatch-db pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" sh -c \
+      'MYSQL_PWD=\"\$MARIADB_ROOT_PASSWORD\" mariadb-dump -u root --single-transaction --quick --routines --triggers \
+                    --all-databases > /var/lib/mysql/dump.sql' \
+   && tail -c 100 $FLEETWATCH_DBPATH/dump.sql | grep -q 'Dump completed' \
+   && echo \"dump ok: \$(wc -c < $FLEETWATCH_DBPATH/dump.sql) bytes\" \
+   || { echo 'dump failed or truncated'; exit 1; }"
+remote isis.vpn \
+  "zstd -3 -f $FLEETWATCH_DBPATH/dump.sql -o /tmp/fleetwatch-dump.sql.zst \
+   && rm -f $FLEETWATCH_DBPATH/dump.sql"
+rsync -a "root@isis.vpn:/tmp/fleetwatch-dump.sql.zst" \
+  "$STAGE/isis/fleetwatch/fleetwatch.sql.zst"
+remote isis.vpn 'rm -f /tmp/fleetwatch-dump.sql.zst'
+
+# ========================================================================
 # ISIS — Signal archive (signal-cli message DB + linked-device keys + media)
 # ========================================================================
 
