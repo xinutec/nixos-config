@@ -36,7 +36,7 @@ case "$cmd" in
       printf '[drill] %2ds: db=%s redis=%s nc=%s web=%s\n' \
         "$((i*5))" "$db_state" "$redis_state" "$nc_running" "$web_running"
       sleep 5
-      if [ $i -eq 60 ]; then
+      if [ "$i" -eq 60 ]; then
         echo "[drill] TIMEOUT after 5 minutes" >&2
         exit 1
       fi

@@ -30,7 +30,10 @@ readonly SNAPSHOT=${1:-latest}
 readonly RESTIC_REPO=/backup/restic
 readonly RESTIC_PW_FILE=/run/agenix/restic-password
 readonly STAGING_PATH=/var/backup-staging/isis/nextcloud
-readonly RESTORE_TMP=$(mktemp -d /tmp/drill-restore-XXXXXX)
+# Assigned before `readonly` so a failing mktemp surfaces as a non-zero exit under
+# `set -e` — a combined `readonly X=$(...)` returns readonly's status, not mktemp's.
+RESTORE_TMP=$(mktemp -d /tmp/drill-restore-XXXXXX)
+readonly RESTORE_TMP
 
 log() { printf '[drill-seed] %s\n' "$*"; }
 

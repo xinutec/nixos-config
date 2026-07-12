@@ -25,6 +25,8 @@ install -d -m 0700 "$STAGE"/amun/k3s "$STAGE"/isis/k3s
 
 # Helpers: ssh to a cluster node and run either a raw command or a
 # kubectl-exec-inside-a-pod command.
+# shellcheck disable=SC2029  # $2 IS the remote command: expanding it here, so ssh
+# receives the finished string, is the whole point of the helper.
 remote() { ssh "${SSH_OPTS[@]}" "root@$1" "$2"; }
 
 # ========================================================================
@@ -74,6 +76,8 @@ log "isis: redis RDB dump"
 # instead of REDIS_PASSWORD env var. Read the password from the file inside
 # the pod. --no-auth-warning silences stderr so the binary RDB stream on
 # stdout stays clean.
+# shellcheck disable=SC2016  # single-quoted on purpose: these expand inside the pod,
+# where the password file lives — expanding them here would send an empty password.
 REDIS_INNER='PW=$(cat "$REDIS_PASSWORD_FILE" 2>/dev/null || echo "$REDIS_PASSWORD"); redis-cli --no-auth-warning -a "$PW" --rdb -'
 remote isis.vpn \
   "kubectl -n nextcloud exec statefulset/redis-master -- sh -c '$REDIS_INNER'" \

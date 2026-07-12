@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# `pipefail` is a bash option — it is undefined in POSIX sh. NixOS happens to point
+# /bin/sh at bash, so `#!/bin/sh` worked by luck; declare the shell we actually use.
 
 set -euxo pipefail
 

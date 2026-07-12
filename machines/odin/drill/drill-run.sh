@@ -111,7 +111,7 @@ echo
 echo "=== STAGE: teardown ==="
 ./drill-smoke.sh teardown
 
-if [ $VERIFY_RC -ne 0 ]; then
+if [ "$VERIFY_RC" -ne 0 ]; then
   echo
   echo "=== drill-run FAILED (verify exit $VERIFY_RC) $(date -u +%FT%TZ) ==="
   exit 1
