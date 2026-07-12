@@ -24,8 +24,15 @@ in {
   # List services that you want to enable:
   services.k3s = {
     enable = true;
-    # 25.05 default — k3s_1_30 hit upstream EOL and is gone in 25.11.
-    package = pkgs.k3s_1_32;
+    # No explicit package: take the channel default, like isis. On this machine's
+    # channel (25.05) that is 1.32.7+k3s1 — exactly what it already runs, so this is
+    # not an upgrade. It replaces a `k3s_1_32` pin that nixpkgs has since removed as
+    # upstream-EOL, which is the recurring cost of pinning a minor by name.
+    #
+    # The version now moves with the channel, so a channel bump IS a Kubernetes
+    # upgrade: 26.05 ships 1.35.6+k3s1, i.e. 1.32 → 1.35 in one step. k3s supports
+    # only one minor at a time. Before bumping this machine off 25.05, pin the package
+    # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption";
