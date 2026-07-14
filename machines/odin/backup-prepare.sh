@@ -283,6 +283,61 @@ rsync -aH --numeric-ids --delete \
   "$STAGE/isis/httpd-isis/"
 
 # ========================================================================
+# ISIS — recall (household speech archive: SQLite + the audio itself)
+# ========================================================================
+
+# recall is the memory aid. Its audio and the human corrections made against it
+# exist nowhere else once the Mac stops holding them, and a correction cannot be
+# re-made — so this is the one app here whose loss is not recoverable by re-running
+# anything.
+#
+# SQLite, not MariaDB, so this does NOT take the mariadb-dump shape the blocks above
+# share. A live SQLite file must never be copied byte-for-byte: it is in WAL mode and
+# written continuously by the worker, so a plain copy ships a torn page that restores
+# to a corrupt database. `Connection.backup()` is SQLite's online-backup API — a
+# consistent point-in-time image of a database in use — and it runs INSIDE the pod
+# because the isis host has no sqlite3 binary.
+#
+# The snapshot is verified where it is made: PRAGMA integrity_check plus a row count.
+# A backup that silently stages a corrupt file is worse than no backup, because it
+# looks like one.
+RECALL_PVC="pvc-0d2b964f-9ebf-4720-8e9f-b543ca3a0dbb_recall_recall-data-pvc"
+RECALL_DATA="/var/lib/rancher/k3s/storage/$RECALL_PVC"
+log "isis: sqlite online-backup recall (crictl exec → snapshot → rsync)"
+install -d -m 0700 "$STAGE"/isis/recall
+remote isis.vpn \
+  "POD_ID=\$(k3s crictl pods --namespace recall --name 'recall-.*' -q | head -1) \
+   && [ -n \"\$POD_ID\" ] || { echo 'no recall pod found'; exit 1; } \
+   && CONTAINER=\$(k3s crictl ps -p \"\$POD_ID\" --name recall -q | head -1) \
+   && [ -n \"\$CONTAINER\" ] || { echo 'no recall container in recall pod'; exit 1; } \
+   && k3s crictl exec \"\$CONTAINER\" python -c \"
+import sqlite3, sys
+src = sqlite3.connect('file:/data/recall.sqlite?mode=ro', uri=True)
+dst = sqlite3.connect('/data/.snapshot.sqlite')
+src.backup(dst)
+if dst.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+    sys.exit('recall snapshot failed integrity_check')
+n = dst.execute('SELECT COUNT(*) FROM audio_segments').fetchone()[0]
+t = dst.execute('SELECT COUNT(*) FROM transcript_segments').fetchone()[0]
+if n == 0 or t == 0:
+    sys.exit(f'recall snapshot is empty: {n} segments, {t} turns')
+print(f'snapshot ok: {n} segments, {t} turns')
+\" \
+   || { echo 'recall snapshot failed'; exit 1; }"
+rsync -a "root@isis.vpn:$RECALL_DATA/.snapshot.sqlite" \
+  "$STAGE/isis/recall/recall.sqlite"
+remote isis.vpn "rm -f $RECALL_DATA/.snapshot.sqlite"
+
+# The audio. Excluding the live DB (the snapshot above is the consistent copy of it)
+# and the WAL/SHM sidecars, which are meaningless without the file they belong to.
+log "isis: rsync recall audio PVC"
+rsync -aH --numeric-ids --delete \
+  --exclude 'recall.sqlite' --exclude 'recall.sqlite-wal' --exclude 'recall.sqlite-shm' \
+  --exclude '.snapshot.sqlite' \
+  "root@isis.vpn:$RECALL_DATA/" \
+  "$STAGE/isis/recall/audio/"
+
+# ========================================================================
 # AMUN — Mailu
 # ========================================================================
 
