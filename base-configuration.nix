@@ -128,8 +128,9 @@ in {
       #      WireGuard, NFS, etc. SSH (22) is opened *implicitly* by
       #      services.openssh (openFirewall defaults true) and so isn't listed
       #      here — it and WireGuard are the two remote lifelines: never drop
-      #      them. kubelet (10250) is public pending the --node-ip=<vpn>
-      #      migration that would move it onto WireGuard.
+      #      them. kubelet (10250) is NOT listed: it is reachable over WireGuard
+      #      (a trusted interface, below) and loopback, which is the only path
+      #      that uses it — see the note above allowedTCPPorts.
       #
       #   2. Docker / k8s published ports. `docker -p`, k8s hostPort, and the
       #      ingress controller open ports via their OWN nat-table DNAT, which
@@ -142,12 +143,17 @@ in {
       #
       # Internal services need no entry at all: VPN traffic is trusted (see
       # trustedInterfaces below), so anything is reachable over WireGuard.
-      # kubelet 10250: still public pending the --node-ip=<VPN> migration that
-      # moves node identity onto WireGuard (tracked in the firewall-hardening
-      # plan). It's TLS + bearer-auth'd; removing it now risks breaking the
-      # control-plane→kubelet path on this live single-node cluster. Revisit.
-      # ast-grep-ignore: nix-kubelet-port-public
-      allowedTCPPorts = [ 10250 net.vpnPort ];
+      #
+      # kubelet 10250 is deliberately ABSENT. It was public "pending the
+      # --node-ip=<VPN> migration" — but that migration is already in effect:
+      # both k8s nodes advertise their WireGuard address as InternalIP (amun
+      # 10.100.0.1, isis 10.100.0.2), so the control-plane→kubelet path runs over
+      # wg0, a trusted interface. Leaving 10250 in this list only exposed it to
+      # the internet, where it answered 401 to the world for no purpose. Removing
+      # it keeps the WireGuard + loopback paths (control plane, node-local) and
+      # closes the public one. Verified: the api-server→kubelet path is healthy
+      # after the change; nothing scrapes 10250 off-host over the public IP.
+      allowedTCPPorts = [ net.vpnPort ];
       allowedUDPPorts = [ net.vpnPort ];
 
       # Allow traffic to flow freely inside the VPN. docker0 is trusted so the
