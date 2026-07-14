@@ -2,6 +2,11 @@
 # End-to-end drill orchestrator. Called by the systemd timer or
 # manually. Runs the full sequence: seed → up → wait → verify → teardown.
 #
+# SCOPE (2026-07-14): this drills NEXTCLOUD ONLY. Every other backed-up app
+# (recall, signal, life, health, coach, home, fleetwatch, mailu) has a restic
+# backup but its restore has never been exercised. The amun reinstall plan leans
+# on restore working, so extend coverage — recall first — before trusting it.
+#
 # Usage:
 #   ./drill-run.sh              # fast drill (weekly default)
 #   ./drill-run.sh --full       # full drill via restic restore (monthly)
