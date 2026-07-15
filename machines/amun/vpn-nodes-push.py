@@ -10,13 +10,20 @@ no report at all, and fleetwatch's staleness turns the whole producer red — so
 "hub silent" and "VPN down" collapse into the same honest signal.
 
 A peer is UP if it handshaked within --fresh-secs (default 180s, the window `wg`
-itself treats as an active handshake). Note the caveat: WireGuard only re-handshakes
-when there is traffic, so an idle-but-connected mobile peer can read as down — for
-the always-busy fleet servers (isis/odin) that never happens; for phones/laptops
-"up" means "actively passing traffic recently", which is what a liveness view wants.
+itself treats as an active handshake). WireGuard only re-handshakes when there is
+traffic, so an idle-but-connected mobile peer reads as down — and that is exactly
+why each peer carries a LIVENESS CLASS:
 
-Peer pubkey -> name comes from network.nix (rendered to JSON by the NixOS module),
-so adding a peer there is the only edit ever needed; nothing is hardcoded here.
+  - always-on (servers, the receiver Pi): down is a real fault -> FAIL, which
+    reaches the notification channel.
+  - intermittent (phones, laptops, picades): down is expected -- they come and go
+    -- so it is informational, never an alert -> SKIP; up is still PASS.
+
+The class is `intermittent` in network.nix; a peer without it defaults to always-on,
+so a node someone forgot to classify fails loud rather than being silently skipped.
+
+Peer pubkey -> {name, intermittent} comes from network.nix (rendered to JSON by the
+NixOS module), so adding a peer there is the only edit ever needed; nothing hardcoded.
 The report envelope mirrors mac-mini/fleetwatch_push.py so both producers speak the
 same wire format. `source` is NOT sent — fleetwatch derives it from the bearer token.
 
@@ -34,6 +41,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 SCHEMA = 1
@@ -80,9 +88,47 @@ def latest_handshakes(interface: str) -> list[tuple[str, int]]:
     return rows
 
 
-def build_checks(interface: str, peers: dict[str, str], fresh_secs: int) -> list[dict[str, object]]:
-    """One check per peer: pass if it handshaked within fresh_secs, else fail. The
-    numeric `value` is the handshake age in seconds (drives the trend chart)."""
+@dataclass(frozen=True)
+class Peer:
+    """A named WireGuard peer and its liveness class (see module docstring)."""
+
+    name: str
+    intermittent: bool
+
+
+def classify(name: str, intermittent: bool, ts: int, now: int,
+             fresh_secs: int) -> dict[str, object]:
+    """One peer's last-handshake timestamp -> a verdict check.
+
+    The liveness class decides what DOWN means: an always-on peer that is down is a
+    FAIL (a real fault, reaches the alert channel); an intermittent peer that is down
+    is expected and stays a SKIP. UP is PASS for both. ts == 0 means the peer has not
+    handshaked since wg0 came up. The numeric `value` (handshake age, seconds) drives
+    the trend chart and only exists once there has been a handshake to measure."""
+    check: dict[str, object] = {"section": SECTION, "label": name}
+    if ts == 0:
+        check["verdict"] = "skip" if intermittent else "fail"
+        check["observed"] = "not connected" if intermittent else "no handshake yet"
+        return check
+    age = max(0, now - ts)
+    check["value"] = float(age)
+    check["unit"] = "s"
+    if age <= fresh_secs:
+        check["verdict"] = "pass"
+        check["observed"] = f"handshake {human(age)} ago"
+    elif intermittent:
+        check["verdict"] = "skip"
+        check["observed"] = f"offline: last handshake {human(age)} ago"
+    else:
+        check["verdict"] = "fail"
+        check["observed"] = f"stale: last handshake {human(age)} ago"
+    return check
+
+
+def build_checks(interface: str, peers: dict[str, Peer], fresh_secs: int) -> list[dict[str, object]]:
+    """One check per peer, its verdict decided by liveness class (see `classify`). A
+    pubkey absent from the map is treated as always-on: an unknown key is far more
+    likely a real node nobody named than a device we meant to silence."""
     try:
         rows = latest_handshakes(interface)
     except (subprocess.CalledProcessError, OSError, ValueError) as e:
@@ -95,22 +141,10 @@ def build_checks(interface: str, peers: dict[str, str], fresh_secs: int) -> list
     now = int(time.time())
     checks: list[dict[str, object]] = []
     for pubkey, ts in rows:
-        name = peers.get(pubkey, pubkey[:12])
-        if ts == 0:
-            checks.append({
-                "section": SECTION, "label": name, "verdict": "fail",
-                "observed": "no handshake yet",
-            })
-            continue
-        age = max(0, now - ts)
-        up = age <= fresh_secs
-        checks.append({
-            "section": SECTION, "label": name,
-            "verdict": "pass" if up else "fail",
-            "observed": f"handshake {human(age)} ago" if up
-            else f"stale: last handshake {human(age)} ago",
-            "value": float(age), "unit": "s",
-        })
+        peer = peers.get(pubkey)
+        name = peer.name if peer else pubkey[:12]
+        intermittent = peer.intermittent if peer else False
+        checks.append(classify(name, intermittent, ts, now, fresh_secs))
     checks.sort(key=lambda c: str(c["label"]))
     return checks
 
@@ -144,7 +178,14 @@ def main() -> int:
     args = p.parse_args()
 
     with open(args.peers) as f:
-        peers: dict[str, str] = json.load(f)
+        raw: dict[str, dict[str, object]] = json.load(f)
+    peers = {
+        pubkey: Peer(
+            name=str(entry["name"]),
+            intermittent=bool(entry.get("intermittent", False)),
+        )
+        for pubkey, entry in raw.items()
+    }
 
     t0 = time.monotonic()
     start = datetime.now(timezone.utc)

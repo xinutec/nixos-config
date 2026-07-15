@@ -77,6 +77,10 @@ ruff check . 2>&1 | sed 's/^/  /'
 mypy --strict machines/amun/vpn-nodes-push.py machines/odin/backup_preview.py 2>&1 | sed 's/^/  /'
 [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
 
+step "pytest (operational Python)"
+python -m pytest -q machines 2>&1 | sed 's/^/  /'
+[ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
+
 step "shellcheck (host-side shell scripts)"
 # shellcheck disable=SC2046  # word-splitting the file list is intended.
 shellcheck $(git ls-files '*.sh') 2>&1 | sed 's/^/  /'

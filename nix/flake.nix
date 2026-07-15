@@ -36,7 +36,9 @@
       {
         devShells.default = pkgs.mkShell {
           packages = [
-            pkgs.python313 # the two operational scripts (vpn-nodes-push, backup_preview)
+            # python for the operational scripts (vpn-nodes-push, backup_preview),
+            # with pytest for their unit tests (machines/*/test_*.py).
+            (pkgs.python313.withPackages (ps: [ ps.pytest ]))
             pkgs.ruff
             pkgs.mypy
             pkgs.shellcheck # the host-side shell scripts (backup-prepare, drill, setup)

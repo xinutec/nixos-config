@@ -1,3 +1,5 @@
 /configuration.nix
 /hardware-configuration.nix
 /secrets/
+__pycache__/
+.pytest_cache/

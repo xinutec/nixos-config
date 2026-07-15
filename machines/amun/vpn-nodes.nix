@@ -6,8 +6,10 @@
 # The pusher (vpn-nodes-push.py) mirrors mac-mini/fleetwatch_push.py's wire format;
 # `source` is derived server-side from the bearer token, so this writes as "amun".
 #
-# The pubkey -> name map is rendered from network.nix here, so it stays the single
-# source of truth: adding a peer there is the only edit needed, no drift.
+# The pubkey -> {name, intermittent} map is rendered from network.nix here, so it
+# stays the single source of truth: adding a peer there is the only edit needed, no
+# drift. `intermittent` (default false) is the liveness class the pusher keys on — a
+# peer that comes and goes (phone/laptop/picade) is SKIP when down, not FAIL.
 #
 # Ingest token: hand-placed at /var/lib/fleetwatch/token (0600), NOT in the repo —
 # the fleet convention for producer tokens (cf. the Mac's Keychain item and bes's
@@ -23,7 +25,10 @@ let
   net = import ../../network.nix;
   # Invert network.nix's nodes to pubkey -> name (drop entries without a key).
   namedPeers = lib.filter (n: n ? publicKey) (lib.attrValues net.nodes);
-  peerMap = lib.listToAttrs (map (n: lib.nameValuePair n.publicKey n.name) namedPeers);
+  peerMap = lib.listToAttrs (map (n: lib.nameValuePair n.publicKey {
+    name = n.name;
+    intermittent = n.intermittent or false;
+  }) namedPeers);
   peersJson = pkgs.writeText "fleetwatch-wg-peers.json" (builtins.toJSON peerMap);
   tokenFile = "/var/lib/fleetwatch/token";
 in

@@ -41,6 +41,17 @@ let
         example = "eth0";
         description = "External network interface for the node (check ifconfig for the interface with the public IP address).";
       };
+
+      intermittent = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Liveness class for the fleetwatch vpn-nodes producer. A peer that comes
+          and goes (phone, laptop, arcade cabinet) is expected to be down and reads
+          as SKIP, not FAIL, when it has no recent handshake. Default false =
+          always-on: down is a real fault and alerts. See machines/amun/vpn-nodes.nix.
+        '';
+      };
     };
   };
 in {

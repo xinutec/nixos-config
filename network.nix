@@ -51,6 +51,7 @@
       name = "osiris";
       vpn = "10.100.0.4";
       publicKey = "ODQiM8MGoywHcGYiR9obqP8gi8oAyJob02tW3d6VJ0A=";
+      intermittent = true; # laptop — powered off when not in use
     };
 
     # Windows laptop, Lenovo.
@@ -58,6 +59,7 @@
       name = "anubis";
       vpn = "10.100.0.7";
       publicKey = "lvu0kLY3Y1WMb47a81Y7QklEiEnM8rVrXUfUReOTUnQ=";
+      intermittent = true; # laptop — powered off when not in use
     };
 
     # Raspberry Pi 4
@@ -72,11 +74,13 @@
       name = "pixel5";
       vpn = "10.100.0.10";
       publicKey = "FSaKx2UvFEM3LCMTeNrMr3S1RYg2h+FaWE8JkWn7R2s=";
+      intermittent = true; # phone — connects only when actively passing traffic
     };
     pixel9 = {
       name = "pixel9";
       vpn = "10.100.0.12";
       publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
+      intermittent = true; # phone — connects only when actively passing traffic
     };
 
     # iPhone (Pippijn). Private key generated on the Mac 2026-06-28, lives only
@@ -86,6 +90,7 @@
       name = "iphone";
       vpn = "10.100.0.13";
       publicKey = "YqxVUL48NOPh6cbu1Dgu6BS9YUycByEVPrNiyHgtk0c=";
+      intermittent = true; # phone — connects only when actively passing traffic
     };
 
     # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
@@ -106,6 +111,7 @@
       name = "dasha";
       vpn = "10.100.0.14";
       publicKey = "FyeFKOIM9xGZbUcjcTLpsI/zL7r5aoj4MIsPkb164To=";
+      intermittent = true; # phone — connects only when actively passing traffic
     };
 
     # Picade
@@ -113,26 +119,31 @@
       name = "picade0";
       vpn = "10.100.0.100";
       publicKey = "SuoQCMx8H5/E+KtXuqm+scplFLflq8J8R2rKRhU4A3M=";
+      intermittent = true; # arcade cabinet — powered on only when in use
     };
     picade1 = {
       name = "picade1";
       vpn = "10.100.0.101";
       publicKey = "2RrrIbbdtyBtZVKh5ygq/39OyQmZnJbIAkIJh2/k5Q0=";
+      intermittent = true; # arcade cabinet — powered on only when in use
     };
     picade2 = {
       name = "picade2";
       vpn = "10.100.0.102";
       publicKey = "/enY3RTfb2h15K6ly3DkN0simlAvL3sQO+tAW7yXOF8=";
+      intermittent = true; # arcade cabinet — powered on only when in use
     };
     picade3 = {
       name = "picade3";
       vpn = "10.100.0.103";
       publicKey = "vPyzu27jIEeI/A717eWg3oNFxu4PNoOK+a3oMJtiUyY=";
+      intermittent = true; # arcade cabinet — powered on only when in use
     };
     picade4 = {
       name = "picade4";
       vpn = "10.100.0.104";
       publicKey = "HW/rKw7+MUrE7WV8FUsprcGzsgSWVyj7nqo/PiuFAAg=";
+      intermittent = true; # arcade cabinet — powered on only when in use
     };
   };
 }
