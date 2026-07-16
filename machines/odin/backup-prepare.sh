@@ -72,6 +72,9 @@ _occ "maintenance:mode --on"
 trap '_occ "maintenance:mode --off" || true' EXIT
 
 log "isis: redis RDB dump"
+# The RDB stream is the consistent snapshot; the PVC itself is deliberately
+# not rsynced (a live RDB file can be torn mid-write).
+# covers-pvc: nextcloud/redis-data-redis-master-0
 # Redis requires auth. The bitnami chart (v22+) uses REDIS_PASSWORD_FILE
 # instead of REDIS_PASSWORD env var. Read the password from the file inside
 # the pod. --no-auth-warning silences stderr so the binary RDB stream on
@@ -350,6 +353,17 @@ log "amun: rsync mailu-storage PVC (dovecot + rspamd + friends)"
 rsync -aH --numeric-ids --delete \
   "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d50344a0-6803-47e9-9da3-12e3c64f5285_mailu-mailserver_mailu-storage/" \
   "$STAGE/amun/mailu/mailu-storage/"
+
+log "amun: mailu redis RDB dump"
+# rspamd learned state, the greylist DB, and the in-flight mail queue — the
+# gap backups.md used to list as "Real gap". Same dump-over-exec shape as the
+# Nextcloud redis above (the RDB stream is the consistent snapshot, the PVC
+# itself is never rsynced), minus the password dance: the mailu chart runs
+# its redis with ALLOW_EMPTY_PASSWORD=yes.
+# covers-pvc: mailu-mailserver/redis-data-mailu-redis-master-0
+remote amun.vpn \
+  'kubectl -n mailu-mailserver exec statefulset/mailu-redis-master -- redis-cli --rdb -' \
+  > "$STAGE/amun/mailu/redis.rdb"
 
 log "amun: rsync nocodb-storage PVC"
 install -d -m 0700 "$STAGE/amun/nocodb"
