@@ -122,7 +122,7 @@ chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
 # 5. mariadb: initialize + load dump
 # Root password for the throwaway drill-seed-db — a local container torn down
 # (--rm) at the end and never exposed off-host, so this is a constant, not a secret.
-DRILL_DB_PW=drill-root-pw  # dev-lint: allow-secret throwaway local drill-seed-db
+DRILL_DB_PW=drill-root-pw
 log "start temporary drill-seed-db (mariadb:11.8)"
 docker rm -f drill-seed-db >/dev/null 2>&1 || true
 docker run -d --rm \
