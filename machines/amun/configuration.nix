@@ -6,7 +6,7 @@
 
 let net = import ../../network.nix;
 in {
-  imports = [ ../../base-configuration.nix ./md-healthcheck.nix ./vpn-nodes.nix ];
+  imports = [ ../../base-configuration.nix ./md-healthcheck.nix ./vpn-nodes.nix ./picade-health.nix ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
