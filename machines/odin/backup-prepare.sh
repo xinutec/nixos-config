@@ -358,11 +358,13 @@ log "amun: mailu redis RDB dump"
 # rspamd learned state, the greylist DB, and the in-flight mail queue — the
 # gap backups.md used to list as "Real gap". Same dump-over-exec shape as the
 # Nextcloud redis above (the RDB stream is the consistent snapshot, the PVC
-# itself is never rsynced), minus the auth dance: the mailu chart runs its
-# redis unauthenticated (bitnami allow-empty-auth mode; verified on amun).
-# covers-pvc: mailu-mailserver/redis-data-mailu-redis-master-0
+# itself is never rsynced), minus the auth dance: no redis auth (mailu can't
+# authenticate to redis, so it runs unauthenticated). As of 2026-07-24 mailu's
+# bundled Bitnami redis subchart was replaced by our own mailu-redis-ext
+# (redis:8-alpine, protected-mode off) — dump from that Deployment now.
+# covers-pvc: mailu-mailserver/mailu-redis-ext-data
 remote amun.vpn \
-  'kubectl -n mailu-mailserver exec statefulset/mailu-redis-master -- redis-cli --rdb -' \
+  'kubectl -n mailu-mailserver exec deploy/mailu-redis-ext -- redis-cli --rdb -' \
   > "$STAGE/amun/mailu/redis.rdb"
 
 log "amun: rsync nocodb-storage PVC"
