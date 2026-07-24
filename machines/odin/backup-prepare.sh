@@ -29,6 +29,21 @@ install -d -m 0700 "$STAGE"/amun/k3s "$STAGE"/isis/k3s
 # receives the finished string, is the whole point of the helper.
 remote() { ssh "${SSH_OPTS[@]}" "root@$1" "$2"; }
 
+# A dump-over-exec block writes to "<path>.new"; this promotes it only if it is
+# non-empty. `set -e` already aborts the whole run when the exec HARD-fails (a
+# retired workload, a dead pod) — this catches the SOFT failure: a source that
+# exits 0 with no output (a wedged redis, an empty stream), which would otherwise
+# silently overwrite the last good dump held in the persisted staging tree.
+keep_if_nonempty() {
+  if [ -s "$1.new" ]; then
+    mv "$1.new" "$1"
+  else
+    rm -f "$1.new"
+    echo "FATAL: empty dump for $1 (source produced no output)" >&2
+    exit 1
+  fi
+}
+
 # ========================================================================
 # ISIS — Nextcloud
 # ========================================================================
@@ -84,7 +99,8 @@ log "isis: redis RDB dump"
 REDIS_INNER='PW=$(cat "$REDIS_PASSWORD_FILE" 2>/dev/null || echo "$REDIS_PASSWORD"); redis-cli --no-auth-warning -a "$PW" --rdb -'
 remote isis.vpn \
   "kubectl -n nextcloud exec statefulset/redis-master -- sh -c '$REDIS_INNER'" \
-  > "$STAGE/isis/nextcloud/redis.rdb"
+  > "$STAGE/isis/nextcloud/redis.rdb.new"
+keep_if_nonempty "$STAGE/isis/nextcloud/redis.rdb"
 
 log "isis: nextcloud maintenance:mode --off"
 _occ "maintenance:mode --off"
@@ -365,7 +381,8 @@ log "amun: mailu redis RDB dump"
 # covers-pvc: mailu-mailserver/mailu-redis-ext-data
 remote amun.vpn \
   'kubectl -n mailu-mailserver exec deploy/mailu-redis-ext -- redis-cli --rdb -' \
-  > "$STAGE/amun/mailu/redis.rdb"
+  > "$STAGE/amun/mailu/redis.rdb.new"
+keep_if_nonempty "$STAGE/amun/mailu/redis.rdb"
 
 log "amun: rsync nocodb-storage PVC"
 install -d -m 0700 "$STAGE/amun/nocodb"
