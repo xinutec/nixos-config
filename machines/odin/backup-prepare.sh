@@ -390,20 +390,29 @@ rsync -aH --numeric-ids --delete \
   "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d8296eee-c45f-4f7b-abce-45636659afc1_nocodb_nocodb-storage/" \
   "$STAGE/amun/nocodb/"
 
-log "amun: vaultwarden (consistent sqlite snapshot + data dir)"
+log "isis: vaultwarden (consistent sqlite snapshot + data dir)"
 # The vault DB is hot SQLite in WAL mode — a plain rsync of db.sqlite3
-# can yield a torn copy. Take a consistent online .backup on amun first,
+# can yield a torn copy. Take a consistent online .backup on isis first,
 # then rsync everything else (attachments, rsa keys, icon cache).
-VW_PVC=/var/lib/rancher/k3s/storage/pvc-98a35778-d544-4fce-87b3-ba7f34dae537_vaultwarden_vaultwarden-data
-install -d -m 0700 "$STAGE/amun/vaultwarden"
-remote amun.vpn \
+#
+# Moved amun -> isis 2026-07-26. The PVC dir is resolved by GLOB, not pinned:
+# it used to be a hardcoded pvc-98a35778-… UUID, so the move would have left
+# this snapshotting amun's frozen copy and still reporting success — a silent
+# stale backup of the password manager. Fail loudly if the glob misses.
+VW_PVC=$(remote isis.vpn "ls -d /var/lib/rancher/k3s/storage/*_vaultwarden_vaultwarden-data" | tr -d '\r')
+if [ -z "$VW_PVC" ]; then
+  echo "FATAL: vaultwarden PVC not found on isis — refusing a silent no-op backup" >&2
+  exit 1
+fi
+install -d -m 0700 "$STAGE/isis/vaultwarden"
+remote isis.vpn \
   "nix-shell -p sqlite --run 'sqlite3 $VW_PVC/db.sqlite3 \".backup /tmp/vw-db-snapshot.sqlite3\"' && chmod 600 /tmp/vw-db-snapshot.sqlite3"
-rsync -a "root@amun.vpn:/tmp/vw-db-snapshot.sqlite3" "$STAGE/amun/vaultwarden/db.sqlite3"
-remote amun.vpn "rm -f /tmp/vw-db-snapshot.sqlite3"
+rsync -a "root@isis.vpn:/tmp/vw-db-snapshot.sqlite3" "$STAGE/isis/vaultwarden/db.sqlite3"
+remote isis.vpn "rm -f /tmp/vw-db-snapshot.sqlite3"
 rsync -aH --numeric-ids --delete \
   --exclude 'db.sqlite3' --exclude 'db.sqlite3-wal' --exclude 'db.sqlite3-shm' \
-  "root@amun.vpn:$VW_PVC/" \
-  "$STAGE/amun/vaultwarden/data/"
+  "root@isis.vpn:$VW_PVC/" \
+  "$STAGE/isis/vaultwarden/data/"
 
 log "amun: toktok workspace (preview script → file list → rsync)"
 install -d -m 0700 "$STAGE/amun/toktok-workspace"
