@@ -150,7 +150,10 @@
     };
   };
   systemd.services.drill-weekly = {
-    path = with pkgs; [ bash docker rsync zstd curl coreutils gnutar gawk ];
+    # openssh + sqlite are for drill-nocodb.sh: it ssh's to amun to run the
+    # container and reads the restored DB back. A unit's `path` is not the
+    # interactive PATH, so being in environment.systemPackages is NOT enough.
+    path = with pkgs; [ bash docker rsync zstd curl coreutils gnutar gawk openssh sqlite ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
@@ -161,8 +164,15 @@
       WorkingDirectory = "/etc/nixos/machines/odin/drill";
       TimeoutStartSec = "6h";
     };
+    # Both drills run; the unit fails if either does. drill-run.sh is Nextcloud
+    # (compose stack on odin); drill-nocodb.sh seeds on odin but runs its
+    # container on amun, because odin's Atom CPU cannot execute the nocodb image
+    # at all — see the header of that script.
     script = ''
-      /etc/nixos/machines/odin/drill/drill-run.sh
+      rc=0
+      /etc/nixos/machines/odin/drill/drill-run.sh || rc=$?
+      /etc/nixos/machines/odin/drill/drill-nocodb.sh || rc=$?
+      exit $rc
     '';
   };
 }
