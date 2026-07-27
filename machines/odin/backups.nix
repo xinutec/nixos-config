@@ -11,7 +11,13 @@
   # declared here in backups.nix so the dependency is colocated with
   # the module that actually needs it — odin is the only host that
   # imports this file, so there's no fleet-wide footprint.
-  environment.systemPackages = [ pkgs.restic ];
+  #
+  # sqlite is here for the same reason: drill-nocodb.sh inspects the RESTORED
+  # database on odin to prove the restore actually carried the data, rather than
+  # nocodb having silently initialised a fresh empty DB and served HTTP 200 off
+  # it. Note odin does not need sqlite for the backup itself — backup-prepare.sh
+  # only ever runs sqlite3 on amun/isis over SSH, out of those hosts' closures.
+  environment.systemPackages = [ pkgs.restic pkgs.sqlite ];
 
   # backup-prepare.sh ships file paths to amun via SSH stdin so the
   # toktok-workspace backup step doesn't require installing a script
