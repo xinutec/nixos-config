@@ -399,6 +399,12 @@ log "isis: vaultwarden (consistent sqlite snapshot + data dir)"
 # it used to be a hardcoded pvc-98a35778-… UUID, so the move would have left
 # this snapshotting amun's frozen copy and still reporting success — a silent
 # stale backup of the password manager. Fail loudly if the glob misses.
+#
+# The glob is why this needs an explicit annotation: DL-DEPLOY-BACKUP-COVERAGE
+# joins PVCs to backup blocks on the literal pvc-<uid>_<ns>_<claim> host path,
+# and dropping the UUID (correctly) removed the token it matched on. Without
+# this line the rule reports the vault as unbacked-up — which it is not.
+# covers-pvc: vaultwarden/vaultwarden-data
 VW_PVC=$(remote isis.vpn "ls -d /var/lib/rancher/k3s/storage/*_vaultwarden_vaultwarden-data" | tr -d '\r')
 if [ -z "$VW_PVC" ]; then
   echo "FATAL: vaultwarden PVC not found on isis — refusing a silent no-op backup" >&2
