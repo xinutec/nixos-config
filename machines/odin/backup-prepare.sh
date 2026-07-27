@@ -29,6 +29,33 @@ install -d -m 0700 "$STAGE"/amun/k3s "$STAGE"/isis/k3s
 # receives the finished string, is the whole point of the helper.
 remote() { ssh "${SSH_OPTS[@]}" "root@$1" "$2"; }
 
+# Resolve a PVC's k3s local-path directory at RUN TIME.
+#
+# k3s names it pvc-<uid>_<namespace>_<claim>, and the uid is regenerated whenever
+# the claim is recreated — so writing the literal path here is a silent-stale trap:
+# once a service moves host or a claim is rebuilt, the path no longer exists, and
+# under `set -e` that aborts the ENTIRE backup rather than just its own app. That is
+# exactly what vaultwarden's pinned uid did when it moved amun -> isis on 2026-07-26,
+# and amun's planned from-scratch reinstall would have tripped every amun-side pin at
+# once — precisely when the backups matter most.
+#
+# ⚠ ALWAYS call this into a VARIABLE, never inline in an rsync argument. The abort
+# below exits the command substitution's subshell, not the script; an assignment
+# propagates that failure and `set -e` stops the run, but inline it would expand to
+# the empty string and leave rsync syncing `host:/` with --delete.
+pvc_dir() { # host namespace claim -> absolute path
+  local d
+  d=$(remote "$1" "ls -d /var/lib/rancher/k3s/storage/*_$2_$3 2>/dev/null" | tr -d '\r') || true
+  case $d in
+    /var/lib/rancher/k3s/storage/pvc-*_"$2"_"$3") printf '%s\n' "$d" ;;
+    *)
+      echo "FATAL: PVC $2/$3 not resolvable on $1 (got: '${d:-}')" >&2
+      echo "       refusing a silent no-op backup" >&2
+      exit 1
+      ;;
+  esac
+}
+
 # A dump-over-exec block writes to "<path>.new"; this promotes it only if it is
 # non-empty. `set -e` already aborts the whole run when the exec HARD-fails (a
 # retired workload, a dead pod) — this catches the SOFT failure: a source that
@@ -52,8 +79,8 @@ keep_if_nonempty() {
 # the k8s API server websocket which truncates large output (~880k lines).
 # crictl talks directly to containerd — no websocket, complete dump every
 # time. The file lands on the PVC bind-mount at a known host path.
-DBPVC="pvc-47f55441-335c-4533-a5d5-e270c4a5b59e_nextcloud_nextcloud-storage"
-DBPATH="/var/lib/rancher/k3s/storage/$DBPVC/mariadb-data"
+NEXTCLOUD_PVC=$(pvc_dir isis.vpn nextcloud nextcloud-storage)
+DBPATH="$NEXTCLOUD_PVC/mariadb-data"
 log "isis: mariadb-dump nextcloud (crictl exec → file → rsync)"
 # Filter by namespace+pod name to pick the nextcloud-db mariadb container,
 # not the health-db one (both have container name 'mariadb'). Order of
@@ -108,7 +135,7 @@ trap - EXIT
 
 log "isis: rsync nextcloud server-data"
 rsync -aH --numeric-ids --delete \
-  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-47f55441-335c-4533-a5d5-e270c4a5b59e_nextcloud_nextcloud-storage/server-data/" \
+  "root@isis.vpn:$NEXTCLOUD_PVC/server-data/" \
   "$STAGE/isis/nextcloud/server-data/"
 
 # ========================================================================
@@ -119,8 +146,7 @@ rsync -aH --numeric-ids --delete \
 # requires the root password from its MARIADB_ROOT_PASSWORD env var;
 # we set MYSQL_PWD inside the exec so the secret isn't visible in
 # the host's process table.
-HEALTH_DBPVC="pvc-5d1e1a9e-3e3f-4451-aba8-c6d70e10a444_health_health-db-pvc"
-HEALTH_DBPATH="/var/lib/rancher/k3s/storage/$HEALTH_DBPVC/mariadb-data"
+HEALTH_DBPATH="$(pvc_dir isis.vpn health health-db-pvc)/mariadb-data"
 log "isis: mariadb-dump health (crictl exec → file → rsync)"
 install -d -m 0700 "$STAGE"/isis/health
 remote isis.vpn \
@@ -147,8 +173,7 @@ remote isis.vpn 'rm -f /tmp/health-dump.sql.zst'
 
 # Same crictl-exec pattern as health above. life-db is the stateless life
 # app's only persistent state; the app container never writes to disk.
-LIFE_DBPVC="pvc-8b4f9606-f8c4-4e02-8b5a-97ecac489cf4_life_life-db-pvc"
-LIFE_DBPATH="/var/lib/rancher/k3s/storage/$LIFE_DBPVC/mariadb-data"
+LIFE_DBPATH="$(pvc_dir isis.vpn life life-db-pvc)/mariadb-data"
 log "isis: mariadb-dump life (crictl exec → file → rsync)"
 install -d -m 0700 "$STAGE"/isis/life
 remote isis.vpn \
@@ -175,8 +200,7 @@ remote isis.vpn 'rm -f /tmp/life-dump.sql.zst'
 
 # Same crictl-exec pattern as health above. home-db holds the temp/RH/RSSI
 # readings the bes/Mac/pixel5 BLE receivers feed in — the app is stateless.
-HOME_DBPVC="pvc-e4221e0c-7331-49e4-9b2c-417020cd0b1c_home_home-db-pvc"
-HOME_DBPATH="/var/lib/rancher/k3s/storage/$HOME_DBPVC/mariadb-data"
+HOME_DBPATH="$(pvc_dir isis.vpn home home-db-pvc)/mariadb-data"
 log "isis: mariadb-dump home (crictl exec → file → rsync)"
 install -d -m 0700 "$STAGE"/isis/home
 remote isis.vpn \
@@ -202,8 +226,7 @@ remote isis.vpn 'rm -f /tmp/home-dump.sql.zst'
 # ========================================================================
 
 # Same crictl-exec pattern as health above.
-COACH_DBPVC="pvc-201cd057-a8ab-4ff1-abbd-c5e7e4cf9566_coach_coach-db-pvc"
-COACH_DBPATH="/var/lib/rancher/k3s/storage/$COACH_DBPVC/mariadb-data"
+COACH_DBPATH="$(pvc_dir isis.vpn coach coach-db-pvc)/mariadb-data"
 log "isis: mariadb-dump coach (crictl exec → file → rsync)"
 install -d -m 0700 "$STAGE"/isis/coach
 remote isis.vpn \
@@ -229,8 +252,7 @@ remote isis.vpn 'rm -f /tmp/coach-dump.sql.zst'
 # ========================================================================
 
 # Same crictl-exec pattern as health above.
-FLEETWATCH_DBPVC="pvc-e4bdd500-3464-478f-b481-08ca58b83437_fleetwatch_fleetwatch-db-pvc"
-FLEETWATCH_DBPATH="/var/lib/rancher/k3s/storage/$FLEETWATCH_DBPVC/mariadb-data"
+FLEETWATCH_DBPATH="$(pvc_dir isis.vpn fleetwatch fleetwatch-db-pvc)/mariadb-data"
 log "isis: mariadb-dump fleetwatch (crictl exec → file → rsync)"
 install -d -m 0700 "$STAGE"/isis/fleetwatch
 remote isis.vpn \
@@ -256,8 +278,7 @@ remote isis.vpn 'rm -f /tmp/fleetwatch-dump.sql.zst'
 # ========================================================================
 
 # DB-consistent dump (same crictl-exec pattern as Nextcloud/health above).
-SIGNAL_DBPVC="pvc-61696d6d-735d-4f8f-8eef-d2d0a5b6d004_signal_signal-db-pvc"
-SIGNAL_DBPATH="/var/lib/rancher/k3s/storage/$SIGNAL_DBPVC/mariadb-data"
+SIGNAL_DBPATH="$(pvc_dir isis.vpn signal signal-db-pvc)/mariadb-data"
 log "isis: mariadb-dump signal (crictl exec → file → rsync)"
 install -d -m 0700 "$STAGE"/isis/signal
 remote isis.vpn \
@@ -281,14 +302,16 @@ remote isis.vpn 'rm -f /tmp/signal-dump.sql.zst'
 # Linked-device keys/state (signal-cli) — restoring these reconnects the
 # archiver without re-linking. Secret-class, but the restic repo is encrypted.
 log "isis: rsync signal-cli data PVC (linked-device keys)"
+SIGNAL_CLI_PVC=$(pvc_dir isis.vpn signal signal-cli-pvc)
 rsync -aH --numeric-ids --delete \
-  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-9425bead-7280-4c1b-8708-94f38a795b11_signal_signal-cli-pvc/" \
+  "root@isis.vpn:$SIGNAL_CLI_PVC/" \
   "$STAGE/isis/signal/signal-cli/"
 
 # Downloaded attachment blobs (media that flowed in via the live feed).
 log "isis: rsync signal-attachments PVC (media)"
+SIGNAL_ATT_PVC=$(pvc_dir isis.vpn signal signal-attachments-pvc)
 rsync -aH --numeric-ids --delete \
-  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-692ab1c6-6e12-43bb-8bf8-51573a5ceddf_signal_signal-attachments-pvc/" \
+  "root@isis.vpn:$SIGNAL_ATT_PVC/" \
   "$STAGE/isis/signal/attachments/"
 
 # ========================================================================
@@ -297,8 +320,9 @@ rsync -aH --numeric-ids --delete \
 
 log "isis: rsync httpd-isis-storage PVC (web share host)"
 install -d -m 0700 "$STAGE"/isis/httpd-isis
+HTTPD_ISIS_PVC=$(pvc_dir isis.vpn web httpd-isis-storage)
 rsync -aH --numeric-ids --delete \
-  "root@isis.vpn:/var/lib/rancher/k3s/storage/pvc-21b9cb56-a868-469b-95a4-c5b919829c86_web_httpd-isis-storage/" \
+  "root@isis.vpn:$HTTPD_ISIS_PVC/" \
   "$STAGE/isis/httpd-isis/"
 
 # ========================================================================
@@ -320,8 +344,7 @@ rsync -aH --numeric-ids --delete \
 # The snapshot is verified where it is made: PRAGMA integrity_check plus a row count.
 # A backup that silently stages a corrupt file is worse than no backup, because it
 # looks like one.
-RECALL_PVC="pvc-0d2b964f-9ebf-4720-8e9f-b543ca3a0dbb_recall_recall-data-pvc"
-RECALL_DATA="/var/lib/rancher/k3s/storage/$RECALL_PVC"
+RECALL_DATA=$(pvc_dir isis.vpn recall recall-data-pvc)
 log "isis: sqlite online-backup recall (crictl exec → snapshot → rsync)"
 install -d -m 0700 "$STAGE"/isis/recall
 remote isis.vpn \
@@ -366,8 +389,9 @@ remote amun.vpn \
   > "$STAGE/amun/mailu/admin.sqlite"
 
 log "amun: rsync mailu-storage PVC (dovecot + rspamd + friends)"
+MAILU_PVC=$(pvc_dir amun.vpn mailu-mailserver mailu-storage)
 rsync -aH --numeric-ids --delete \
-  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d50344a0-6803-47e9-9da3-12e3c64f5285_mailu-mailserver_mailu-storage/" \
+  "root@amun.vpn:$MAILU_PVC/" \
   "$STAGE/amun/mailu/mailu-storage/"
 
 log "amun: mailu redis RDB dump"
@@ -384,11 +408,39 @@ remote amun.vpn \
   > "$STAGE/amun/mailu/redis.rdb.new"
 keep_if_nonempty "$STAGE/amun/mailu/redis.rdb"
 
-log "amun: rsync nocodb-storage PVC"
+log "amun: nocodb (consistent sqlite snapshot + data dir)"
+# nocodb keeps its metadata in SQLite at server-data/noco.db, and that database is
+# in journal_mode=delete: SQLite mutates the MAIN FILE IN PLACE during a write and
+# holds the undo data in a transient noco.db-journal sidecar. A plain rsync taken
+# mid-transaction therefore copies a torn page AND misses the journal needed to
+# repair it — an unrecoverable copy that reports success every night. This block
+# used to be exactly that rsync. Same hazard the vaultwarden block below documents;
+# the fix is the same, an online .backup which takes SQLite's own locks.
+#
+# nocodb is slated for retirement once its data has been migrated out. Until that
+# happens it is a live system holding real data, so it gets backed up properly
+# rather than approximately.
+NOCODB_PVC=$(pvc_dir amun.vpn nocodb nocodb-storage)
 install -d -m 0700 "$STAGE/amun/nocodb"
+remote amun.vpn \
+  "nix-shell -p sqlite --run 'sqlite3 \"$NOCODB_PVC/server-data/noco.db\" \".backup /tmp/noco-snapshot.db\"' \
+   && chmod 600 /tmp/noco-snapshot.db \
+   && IC=\$(nix-shell -p sqlite --run 'sqlite3 /tmp/noco-snapshot.db \"PRAGMA integrity_check\"') \
+   && [ \"\$IC\" = ok ] || { echo \"nocodb snapshot failed integrity_check: \$IC\"; exit 1; } \
+   && N=\$(nix-shell -p sqlite --run 'sqlite3 /tmp/noco-snapshot.db \"SELECT count(*) FROM sqlite_master\"') \
+   && [ \"\$N\" -gt 0 ] || { echo \"nocodb snapshot is empty\"; exit 1; } \
+   && echo \"snapshot ok: \$N schema objects\""
+rsync -a "root@amun.vpn:/tmp/noco-snapshot.db" "$STAGE/amun/nocodb/noco.db"
+remote amun.vpn "rm -f /tmp/noco-snapshot.db"
+
+# Everything else (uploads, thumbnails). The live DB and its sidecars are excluded —
+# the snapshot above is the consistent copy of it, and a half-written journal is
+# worse than useless next to a good snapshot.
 rsync -aH --numeric-ids --delete \
-  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-d8296eee-c45f-4f7b-abce-45636659afc1_nocodb_nocodb-storage/" \
-  "$STAGE/amun/nocodb/"
+  --exclude 'noco.db' --exclude 'noco.db-journal' \
+  --exclude 'noco.db-wal' --exclude 'noco.db-shm' \
+  "root@amun.vpn:$NOCODB_PVC/" \
+  "$STAGE/amun/nocodb/data/"
 
 log "isis: vaultwarden (consistent sqlite snapshot + data dir)"
 # The vault DB is hot SQLite in WAL mode — a plain rsync of db.sqlite3
@@ -405,11 +457,7 @@ log "isis: vaultwarden (consistent sqlite snapshot + data dir)"
 # and dropping the UUID (correctly) removed the token it matched on. Without
 # this line the rule reports the vault as unbacked-up — which it is not.
 # covers-pvc: vaultwarden/vaultwarden-data
-VW_PVC=$(remote isis.vpn "ls -d /var/lib/rancher/k3s/storage/*_vaultwarden_vaultwarden-data" | tr -d '\r')
-if [ -z "$VW_PVC" ]; then
-  echo "FATAL: vaultwarden PVC not found on isis — refusing a silent no-op backup" >&2
-  exit 1
-fi
+VW_PVC=$(pvc_dir isis.vpn vaultwarden vaultwarden-data)
 install -d -m 0700 "$STAGE/isis/vaultwarden"
 remote isis.vpn \
   "nix-shell -p sqlite --run 'sqlite3 $VW_PVC/db.sqlite3 \".backup /tmp/vw-db-snapshot.sqlite3\"' && chmod 600 /tmp/vw-db-snapshot.sqlite3"
@@ -453,11 +501,13 @@ rm -f "$TOKTOK_FILES"
 
 log "amun: rsync irssi-storage PVCs (pippijn + simon)"
 install -d -m 0700 "$STAGE/amun/irssi-pippijn" "$STAGE/amun/irssi-simon"
+IRSSI_PIPPIJN_PVC=$(pvc_dir amun.vpn vps-pippijn irssi-storage)
 rsync -aH --numeric-ids --delete \
-  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-1bf60831-9e69-425b-8aff-61eb8a4999a2_vps-pippijn_irssi-storage/" \
+  "root@amun.vpn:$IRSSI_PIPPIJN_PVC/" \
   "$STAGE/amun/irssi-pippijn/"
+IRSSI_SIMON_PVC=$(pvc_dir amun.vpn vps-simon irssi-storage)
 rsync -aH --numeric-ids --delete \
-  "root@amun.vpn:/var/lib/rancher/k3s/storage/pvc-b7c7a0df-167d-4fd2-b689-ddd5f861bb28_vps-simon_irssi-storage/" \
+  "root@amun.vpn:$IRSSI_SIMON_PVC/" \
   "$STAGE/amun/irssi-simon/"
 
 # ========================================================================
