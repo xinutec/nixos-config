@@ -149,13 +149,22 @@ on_run "docker run -d --name $CONTAINER \
   -v $RUNDIR:/usr/app/data \
   $prod_image" >/dev/null || fail "docker run on $RUNHOST failed"
 
+# Probe the purpose-built health endpoint, NOT a UI path. /dashboard answers 301
+# and / answers 302, so an "is it 200 yet" check against either never matches and
+# the drill times out while nocodb is up and perfectly healthy — which is exactly
+# what happened on the first amun run. /api/v1/health returns a plain 200.
+#
+# 20 minutes, because nocodb takes several minutes to boot on amun's 2012 Xeon
+# and a slow start is not a restore failure.
 log "waiting for nocodb on $RUNHOST:127.0.0.1:$PORT ..."
 ready=0
-for i in $(seq 1 60); do
-  code=$(on_run "curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:$PORT/dashboard 2>/dev/null || echo 000" | tr -d '\r')
-  case "$code" in
-    200|302) log "responding after $((i*5))s (HTTP $code)"; ready=1; break ;;
-  esac
+for i in $(seq 1 240); do
+  code=$(on_run "curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:$PORT/api/v1/health 2>/dev/null || echo 000" | tr -d '\r')
+  if [ "$code" = "200" ]; then
+    log "healthy after $((i*5))s"
+    ready=1
+    break
+  fi
   sleep 5
 done
 if [ "$ready" -ne 1 ]; then
