@@ -56,6 +56,26 @@ pvc_dir() { # host namespace claim -> absolute path
   esac
 }
 
+# Assert a tool exists on a node before any work starts.
+#
+# The sqlite snapshot blocks are ~2/3 of the way through a run that stages 573G,
+# so a missing binary there costs hours before it surfaces. It is also a REAL
+# transition state, not a hypothetical: sqlite3 arrives via each host's
+# systemPackages, and a host only gains it on activation — isis takes it at its
+# next reboot (it was staged with `nixos-rebuild boot` to avoid a live PID1
+# re-exec). Until then this aborts in the first second, naming the fix, instead of
+# rsyncing 573G and dying at step 30.
+require_cmd() { # host command
+  remote "$1" "command -v $2 >/dev/null" || {
+    echo "FATAL: $2 not found on $1" >&2
+    echo "       it comes from that host's environment.systemPackages —" >&2
+    echo "       the host needs a nixos-rebuild (isis: a reboot) to pick it up" >&2
+    exit 1
+  }
+}
+require_cmd amun.vpn sqlite3
+require_cmd isis.vpn sqlite3
+
 # A dump-over-exec block writes to "<path>.new"; this promotes it only if it is
 # non-empty. `set -e` already aborts the whole run when the exec HARD-fails (a
 # retired workload, a dead pod) — this catches the SOFT failure: a source that
