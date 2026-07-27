@@ -420,16 +420,23 @@ log "amun: nocodb (consistent sqlite snapshot + data dir)"
 # nocodb is slated for retirement once its data has been migrated out. Until that
 # happens it is a live system holding real data, so it gets backed up properly
 # rather than approximately.
+#
+# sqlite3 comes from amun's system closure (machines/amun/configuration.nix), not
+# from a `nix-shell -p sqlite` here. Fetching the tool at backup time would make
+# this step depend on working internet and an up binary cache, and nix GC evicts it
+# again, so it never settles into a cost you have already paid.
 NOCODB_PVC=$(pvc_dir amun.vpn nocodb nocodb-storage)
 install -d -m 0700 "$STAGE/amun/nocodb"
-remote amun.vpn \
-  "nix-shell -p sqlite --run 'sqlite3 \"$NOCODB_PVC/server-data/noco.db\" \".backup /tmp/noco-snapshot.db\"' \
-   && chmod 600 /tmp/noco-snapshot.db \
-   && IC=\$(nix-shell -p sqlite --run 'sqlite3 /tmp/noco-snapshot.db \"PRAGMA integrity_check\"') \
-   && [ \"\$IC\" = ok ] || { echo \"nocodb snapshot failed integrity_check: \$IC\"; exit 1; } \
-   && N=\$(nix-shell -p sqlite --run 'sqlite3 /tmp/noco-snapshot.db \"SELECT count(*) FROM sqlite_master\"') \
-   && [ \"\$N\" -gt 0 ] || { echo \"nocodb snapshot is empty\"; exit 1; } \
-   && echo \"snapshot ok: \$N schema objects\""
+remote amun.vpn "
+  set -eu
+  sqlite3 '$NOCODB_PVC/server-data/noco.db' '.backup /tmp/noco-snapshot.db'
+  chmod 600 /tmp/noco-snapshot.db
+  IC=\$(sqlite3 /tmp/noco-snapshot.db 'PRAGMA integrity_check')
+  [ \"\$IC\" = ok ] || { echo \"nocodb snapshot failed integrity_check: \$IC\" >&2; exit 1; }
+  N=\$(sqlite3 /tmp/noco-snapshot.db 'SELECT count(*) FROM sqlite_master')
+  [ \"\$N\" -gt 0 ] || { echo 'nocodb snapshot is empty' >&2; exit 1; }
+  echo \"snapshot ok: \$N schema objects\"
+"
 rsync -a "root@amun.vpn:/tmp/noco-snapshot.db" "$STAGE/amun/nocodb/noco.db"
 remote amun.vpn "rm -f /tmp/noco-snapshot.db"
 
@@ -447,20 +454,19 @@ log "isis: vaultwarden (consistent sqlite snapshot + data dir)"
 # can yield a torn copy. Take a consistent online .backup on isis first,
 # then rsync everything else (attachments, rsa keys, icon cache).
 #
-# Moved amun -> isis 2026-07-26. The PVC dir is resolved by GLOB, not pinned:
-# it used to be a hardcoded pvc-98a35778-… UUID, so the move would have left
-# this snapshotting amun's frozen copy and still reporting success — a silent
-# stale backup of the password manager. Fail loudly if the glob misses.
+# Moved amun -> isis 2026-07-26. The PVC dir is RESOLVED AT RUN TIME by pvc_dir,
+# not pinned: it used to be a hardcoded pvc-98a35778-… UUID, so the move would
+# have left this snapshotting amun's frozen copy and still reporting success — a
+# silent stale backup of the password manager. pvc_dir fails loudly instead.
 #
-# The glob is why this needs an explicit annotation: DL-DEPLOY-BACKUP-COVERAGE
-# joins PVCs to backup blocks on the literal pvc-<uid>_<ns>_<claim> host path,
-# and dropping the UUID (correctly) removed the token it matched on. Without
-# this line the rule reports the vault as unbacked-up — which it is not.
-# covers-pvc: vaultwarden/vaultwarden-data
+# sqlite3 comes from isis's system closure (machines/isis/configuration.nix), not
+# from a `nix-shell -p sqlite` here — that fetch was 101.6 MiB of stdenv pulled
+# from cache.nixos.org in the middle of the backup, i.e. the vault snapshot only
+# worked while the network and the binary cache were both up.
 VW_PVC=$(pvc_dir isis.vpn vaultwarden vaultwarden-data)
 install -d -m 0700 "$STAGE/isis/vaultwarden"
 remote isis.vpn \
-  "nix-shell -p sqlite --run 'sqlite3 $VW_PVC/db.sqlite3 \".backup /tmp/vw-db-snapshot.sqlite3\"' && chmod 600 /tmp/vw-db-snapshot.sqlite3"
+  "sqlite3 '$VW_PVC/db.sqlite3' '.backup /tmp/vw-db-snapshot.sqlite3' && chmod 600 /tmp/vw-db-snapshot.sqlite3"
 rsync -a "root@isis.vpn:/tmp/vw-db-snapshot.sqlite3" "$STAGE/isis/vaultwarden/db.sqlite3"
 remote isis.vpn "rm -f /tmp/vw-db-snapshot.sqlite3"
 rsync -aH --numeric-ids --delete \
