@@ -346,6 +346,25 @@ rsync -aH --numeric-ids --delete \
   "$STAGE/isis/httpd-isis/"
 
 # ========================================================================
+# ISIS — ircd (InspIRCd state: permanent channels)
+# ========================================================================
+
+# 60K, and almost all of it IS recoverable from elsewhere: conf/secret/ lives
+# git-crypt'd in github.com:xinutec/inspircd, and the TLS cert/key are reissued.
+# data/permchannels.conf is the exception — InspIRCd rewrites it as permanent
+# channels, topics and modes change, it is gitignored ON PURPOSE (the container
+# `git reset --hard`s this checkout every 5 minutes, so tracking it would either
+# revert the server's own writes or leave the tree permanently dirty and stop
+# config pulls), and so it existed NOWHERE but this PVC. The old waiver called it
+# "cheaply regenerated"; it is not regenerable at all, it is just small.
+log "isis: rsync ircd-storage PVC (permchannels + conf)"
+install -d -m 0700 "$STAGE"/isis/ircd
+IRCD_PVC=$(pvc_dir isis.vpn ircd ircd-storage)
+rsync -aH --numeric-ids --delete \
+  "root@isis.vpn:$IRCD_PVC/" \
+  "$STAGE/isis/ircd/"
+
+# ========================================================================
 # ISIS — recall (household speech archive: SQLite + the audio itself)
 # ========================================================================
 
