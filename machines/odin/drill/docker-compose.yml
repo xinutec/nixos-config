@@ -21,7 +21,7 @@ networks:
 services:
 
   db:
-    image: mariadb:11.8
+    image: mariadb:12.3
     container_name: drill-db
     restart: unless-stopped
     environment:

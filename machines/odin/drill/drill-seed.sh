@@ -123,14 +123,20 @@ chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
 # Root password for the throwaway drill-seed-db — a local container torn down
 # (--rm) at the end and never exposed off-host, so this is a constant, not a secret.
 DRILL_DB_PW=drill-root-pw
-log "start temporary drill-seed-db (mariadb:11.8)"
+# Read the image from docker-compose.yml rather than repeating it here — see the
+# same block in drill-seed-fast.sh for why a literal here defeats drill-run.sh's
+# preflight.
+db_image=$(grep 'image:.*mariadb:' "$DRILL_DIR/docker-compose.yml" | awk '{print $2}')
+[ -n "$db_image" ] || { echo "BUG: no mariadb image in docker-compose.yml" >&2; exit 99; }
+readonly db_image
+log "start temporary drill-seed-db ($db_image)"
 docker rm -f drill-seed-db >/dev/null 2>&1 || true
 docker run -d --rm \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=$DRILL_DB_PW \
   -e MYSQL_DATABASE=nextcloud \
   -v "$PWD/volumes/mysql:/var/lib/mysql" \
-  mariadb:11.8 \
+  "$db_image" \
   >/dev/null
 
 log "waiting for drill-seed-db to accept authenticated connections..."

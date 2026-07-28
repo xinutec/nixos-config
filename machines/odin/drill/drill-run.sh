@@ -44,14 +44,30 @@ prod_db=$(ssh "${SSH_OPTS[@]}" root@isis.vpn \
 drill_nc=$(grep 'image:.*nextcloud:' "$COMPOSE" | awk '{print $2}')
 drill_db=$(grep 'image:.*mariadb:' "$COMPOSE" | awk '{print $2}')
 
+# An unreachable production is NOT a pass. This used to skip the comparison
+# whenever the probe returned UNKNOWN, so a failed ssh printed
+# "preflight ok: nc=UNKNOWN db=UNKNOWN" and waved the run through — which is
+# exactly what happened on 2026-07-26, after production had moved to
+# mariadb:12.3 and the drill was still on 11.8. The drill then spent 249 minutes
+# restoring before dying on `ERROR 1805 ... mysql.proc ... Expected 21, found 22`,
+# the very skew this stage exists to catch. A check that cannot see the thing it
+# compares against has failed, not passed.
+if [ "$prod_nc" = "UNKNOWN" ] || [ "$prod_db" = "UNKNOWN" ]; then
+  echo "FATAL: could not read production images from isis.vpn"
+  echo "  nextcloud: $prod_nc"
+  echo "  database:  $prod_db"
+  echo "Refusing to drill against unverified versions — fix connectivity and re-run."
+  exit 2
+fi
+
 mismatch=0
-if [ "$prod_nc" != "UNKNOWN" ] && [ "$prod_nc" != "$drill_nc" ]; then
+if [ "$prod_nc" != "$drill_nc" ]; then
   echo "MISMATCH: nextcloud image"
   echo "  production: $prod_nc"
   echo "  drill:      $drill_nc"
   mismatch=1
 fi
-if [ "$prod_db" != "UNKNOWN" ] && [ "$prod_db" != "$drill_db" ]; then
+if [ "$prod_db" != "$drill_db" ]; then
   echo "MISMATCH: database image"
   echo "  production: $prod_db"
   echo "  drill:      $drill_db"
