@@ -81,6 +81,16 @@ if [ $mismatch -ne 0 ]; then
 fi
 echo "preflight ok: nc=$prod_nc db=$prod_db"
 
+# 0b. Preflight: prove the dump actually loads, before paying for the restore.
+# Matching image tags (above) is not the same as a loadable dump — a truncated
+# dump, a rejected mysqldump flag, or a schema feature the image lacks all fail
+# at the import, and the import is the LAST thing the drill reaches. Spending
+# five minutes here converts that whole class of failure from a wasted 2.5–4h
+# into an immediate answer. `set -e` aborts the drill if it fails.
+echo
+echo "=== STAGE: preflight (dump loads) ==="
+./drill-dbload-check.sh
+
 # Ensure any previous drill is cleaned up
 ./drill-smoke.sh teardown >/dev/null 2>&1 || true
 
