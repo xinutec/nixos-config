@@ -54,9 +54,53 @@
       X11Forwarding no
   '';
 
+  # Dedicated user for the mac mini's push of ~/.claude (Claude Code's
+  # transcripts, memory corpus and file history). This is the ONLY thing on
+  # the fleet that travels mac -> server rather than the other way round, and
+  # it has to: the mac is a one-way VPN peer, so odin cannot reach it to pull,
+  # and the mac's internal disk is otherwise the single copy of ~27k files
+  # nothing else holds. The mac initiates, which the one-way rule allows.
+  #
+  # It lands in /var/backup-staging, so the existing nightly restic snapshot
+  # picks it up with no change to backup-prepare.sh — the staging tree is
+  # backed up wholesale (`paths = [ "/var/backup-staging" ]`), and every
+  # --delete rsync in that script is scoped to the amun/ or isis/ subtree, so
+  # a third top-level dir is left alone.
+  users.users.mac-archive = {
+    isSystemUser = true;
+    group = "mac-archive";
+    home = "/var/backup-staging/mac";
+    # A real shell, deliberately, and NOT nologin like restic-offsite above.
+    # sshd runs an authorized_keys `command=` through the user's login shell,
+    # so nologin refuses the forced command itself and rsync dies with
+    # "protocol version mismatch -- is your shell clean?". restic-offsite gets
+    # away with nologin only because internal-sftp is handled inside sshd and
+    # never execs a shell. The key is confined by `command=` + `restrict`, not
+    # by the shell: there is no way to reach it interactively.
+    shell = "${pkgs.bash}/bin/bash";
+    openssh.authorizedKeys.keys = [
+      # rrsync confines the key to one directory. `-wo` makes it write-only, so
+      # a compromised mac can add to the archive but cannot read it back, and
+      # `-no-del` refuses --delete server-side — the append-only property is
+      # then structural rather than a flag the client script could grow later.
+      # Neither /backup/restic (root-owned) nor anything else on the host is
+      # reachable.
+      #
+      # rsync rather than SFTP because projects/ is append-mostly JSONL — the
+      # largest transcript is ~480 MB and grows daily, so delta transfer is the
+      # difference between a few MB a night and re-uploading the file.
+      ''command="${pkgs.rrsync}/bin/rrsync -wo -no-del /var/backup-staging/mac",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFZb+BRn1YUxmseeNCEU+cD9CzvOGdgcZmk4zqYwTb7i mac-mini-claude-archive''
+    ];
+  };
+  users.groups.mac-archive = {};
+
   # The repo dir needs to be readable by the offsite user for SFTP.
   systemd.tmpfiles.rules = [
     "d /backup/restic 2750 root restic-offsite -"
+    # Owned by the pushing user so rrsync can write into it. Not under
+    # amun/ or isis/ — those are rsync --delete targets in backup-prepare.sh
+    # and anything parked inside one would be erased on the next run.
+    "d /var/backup-staging/mac 0750 mac-archive mac-archive -"
   ];
 
   # restic repo password — encrypted in the repo via agenix, decrypted
