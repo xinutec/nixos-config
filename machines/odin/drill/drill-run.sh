@@ -8,8 +8,18 @@
 # on restore working, so extend coverage — recall first — before trusting it.
 #
 # Usage:
-#   ./drill-run.sh              # fast drill (weekly default)
-#   ./drill-run.sh --full       # full drill via restic restore (monthly)
+#   ./drill-run.sh                  # fast drill (weekly default)
+#   ./drill-run.sh --full           # full drill via restic restore (monthly)
+#   ./drill-run.sh --restore-only   # skip the preflight stages; see below
+#
+# --restore-only exists for `plan-run drill`, which owns the two preflight
+# stages as facts of its own: DrillMatchesProduction and done:drill-dbload are
+# both established before it ever chooses to restore. Running them again here
+# would be a second description of a check that has already passed — and a second
+# description is what this whole port is removing.
+#
+# It is NOT the flag to use by hand. Invoked without it, this script still does
+# its own preflight, because a human running it directly has nothing else to.
 
 set -euo pipefail
 
@@ -22,13 +32,31 @@ cd "$DRILL_DIR"
 readonly LOG="$DRILL_DIR/drill-run.log"
 exec > >(tee "$LOG") 2>&1
 
-MODE=${1:-fast}
-case "$MODE" in
-  --full) SEED_SCRIPT=./drill-seed.sh ;;
-  *)      SEED_SCRIPT=./drill-seed-fast.sh ;;
-esac
+# A loop rather than `case "$1"`, so the flags compose and an unknown one is
+# refused. `case ... *)` silently accepted anything: `--preflight-only`, which
+# plan/drill.dhall spent months believing in, fell through to the default and ran
+# the entire fast drill.
+MODE=fast
+SEED_SCRIPT=./drill-seed-fast.sh
+PREFLIGHT=yes
+for arg in "$@"; do
+  case "$arg" in
+    --full)         MODE=full; SEED_SCRIPT=./drill-seed.sh ;;
+    --restore-only) PREFLIGHT=no ;;
+    *) echo "unknown option: $arg" >&2
+       echo "usage: $0 [--full] [--restore-only]" >&2
+       exit 64 ;;
+  esac
+done
+readonly MODE SEED_SCRIPT PREFLIGHT
 
 echo "=== drill-run ($MODE) starting $(date -u +%FT%TZ) ==="
+
+# Stages 0 and 0b are the plan's when it calls with --restore-only: it has
+# already established DrillMatchesProduction and done:drill-dbload as facts, and
+# repeating them here would be the second description this port exists to
+# delete. Kept for the by-hand path, which has no plan behind it.
+if [ "$PREFLIGHT" = yes ]; then
 
 # 0. Preflight: verify drill images match production
 echo
@@ -90,6 +118,11 @@ echo "preflight ok: nc=$prod_nc db=$prod_db"
 echo
 echo "=== STAGE: preflight (dump loads) ==="
 ./drill-dbload-check.sh
+
+else
+  echo
+  echo "=== STAGE: preflight (skipped — the plan established it) ==="
+fi
 
 # Ensure any previous drill is cleaned up
 ./drill-smoke.sh teardown >/dev/null 2>&1 || true
