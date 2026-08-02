@@ -108,6 +108,15 @@
   # job, the weekly integrity check, and the full restore drill.
   age.secrets."restic-password".file = ../../agenix/restic-password.age;
 
+  # healthchecks.io check IDs for odin's two dead-man's switches. A check
+  # ID is a bearer capability — see agenix/secrets.nix for why these are
+  # not literals any more. Read at RUN time from /run/agenix, never at
+  # eval time: agenix decrypts during activation, which happens after
+  # evaluation, so a `builtins.readFile` here would read a path that does
+  # not exist yet on a fresh boot.
+  age.secrets."hc-ping-backup".file = ../../agenix/hc-ping-backup.age;
+  age.secrets."hc-ping-drill".file = ../../agenix/hc-ping-drill.age;
+
   services.restic.backups.cluster = {
     repository   = "/backup/restic";
     initialize   = true;
@@ -155,8 +164,23 @@
       # Create files as 0640/dirs 0750 so the restic-offsite group can
       # read the repo for off-site SFTP pulls.
       UMask = "0027";
-      # Ping healthchecks.io on success (dead man's switch).
-      ExecStartPost = "${pkgs.curl}/bin/curl -fsS https://hc-ping.com/cae5d5ab-9a5b-4878-8fa1-b8647ce9722a";
+      # Ping healthchecks.io on success (dead man's switch). The check ID
+      # comes from agenix at run time; only the base URL is spelled here,
+      # because where odin checks in is documentation and the ID is not.
+      #
+      # A script rather than a bare curl line because reading the secret
+      # needs a shell. `id=$(...)` on its own line deliberately: as an
+      # assignment, `set -e` catches a missing or unreadable secret here,
+      # whereas the same substitution inline in curl's arguments would
+      # discard its exit status and ping a URL with no ID in it.
+      #
+      # Still no `|| true` — an unreachable monitor fails this unit, as it
+      # did before. A backup nobody can confirm is not a backup.
+      ExecStartPost = pkgs.writeShellScript "restic-backup-ping" ''
+        set -euo pipefail
+        id="$(cat ${config.age.secrets."hc-ping-backup".path})"
+        exec ${pkgs.curl}/bin/curl -fsS "https://hc-ping.com/$id"
+      '';
     };
   };
 

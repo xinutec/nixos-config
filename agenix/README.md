@@ -30,6 +30,26 @@ fixed path. The NixOS modules reference those paths.
 | `wireguard-<host>.age` | that host + admin | the host's `wg0` private key, `base-configuration.nix` |
 | `root-ssh-ed25519.age` | all hosts + admin | `/root/.ssh/id_ed25519`, inter-host root SSH |
 | `root-ssh-rsa.age` | all hosts + admin | `/root/.ssh/id_rsa`, inter-host root SSH (legacy) |
+| `hc-ping-md.age` | amun + admin | RAID heartbeat check ID, `machines/amun/md-healthcheck.nix` |
+| `hc-ping-backup.age` | odin + admin | backup check ID, `machines/odin/backups.nix` |
+| `hc-ping-drill.age` | odin + admin | restore-drill check ID, `machines/odin/drill/drill-run.sh` |
+
+### Why a check ID is a secret
+
+A healthchecks.io check ID is a **capability, not a name**. Anyone holding
+one can `GET` the URL to mark the check *up* — silencing the dead-man's
+switch — or `GET …/fail` to raise a false alarm. It discloses nothing, so
+it reads like an identifier; but these three checks are precisely what
+notices when the backup and the restore drill go quiet, and a leaked ID
+turns *"tell me when this stops"* into *"this never stops"*. A crawler
+that merely followed the URL would report a failed backup as successful.
+
+Only the **ID** is encrypted. Each module still spells out the base URL
+`https://hc-ping.com`, because where a host checks in is documentation.
+
+These are read at **run time** from `/run/agenix/…`, never with
+`builtins.readFile`: agenix decrypts during activation, which happens
+*after* evaluation, so an eval-time read would fail on a fresh boot.
 
 ## Editing or adding a secret
 

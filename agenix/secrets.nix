@@ -36,4 +36,27 @@ in {
   # the restore drill). Encrypted to every host plus the admin key.
   "root-ssh-ed25519.age".publicKeys = allHosts ++ [ admin ];
   "root-ssh-rsa.age".publicKeys = allHosts ++ [ admin ];
+
+  # healthchecks.io check IDs. A check ID is a bearer capability, not a
+  # name: anyone holding one can GET it to mark the check UP, which
+  # SILENCES the dead-man's switch, or GET /fail to raise a false alarm.
+  # It reveals nothing, but these three checks are exactly what notices
+  # when the backup and the restore drill go quiet, so a leaked ID turns
+  # "tell me when this stops" into "this never stops".
+  #
+  # They were literals in this repo — which is PUBLIC — from 2026-05-05
+  # (backup, drill) and 2026-05-13 (md), and a crawler that merely
+  # followed the URL would have reported a failed backup as successful.
+  #
+  # Only the ID is secret. The base URL stays spelled out in each module,
+  # because where a host checks in is documentation, not a capability —
+  # the same split plan/settings.json already makes between
+  # `monitor.base_url` and the per-plan check name.
+  #
+  # One file per check rather than one shared file, on the wireguard
+  # precedent: amun's RAID heartbeat and odin's backup are unrelated, and
+  # neither host has any use for the other's.
+  "hc-ping-md.age".publicKeys = [ amun admin ];
+  "hc-ping-backup.age".publicKeys = [ odin admin ];
+  "hc-ping-drill.age".publicKeys = [ odin admin ];
 }

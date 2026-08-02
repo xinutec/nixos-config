@@ -183,4 +183,21 @@ fi
 
 echo
 echo "=== drill-run PASSED $(date -u +%FT%TZ) ==="
-curl -fsS https://hc-ping.com/bcaeb0ad-b66b-4925-9f51-06b2078f6d98 >/dev/null 2>&1 || true
+
+# Dead-man's-switch ping. The check ID is a bearer capability — holding it is
+# enough to mark this check UP and silence the alarm — and this repo is public,
+# so it comes from agenix rather than from this line. Only the base URL, which
+# is documentation rather than a capability, is still spelled out.
+#
+# This script runs from /etc/nixos under drill-weekly.service, not from the Nix
+# store, so the path is literal; the secret is declared in ../backups.nix beside
+# the unit. Root-only (0400), which this unit already is.
+#
+# `|| true` on the whole thing, as before: the drill has already passed by the
+# time we get here, and a monitor that cannot be reached is a monitoring
+# problem, not a failed restore. If the ping is lost the switch fires anyway,
+# which is the safe direction to fail in.
+{
+  hc_id="$(cat /run/agenix/hc-ping-drill)"
+  curl -fsS "https://hc-ping.com/$hc_id" >/dev/null 2>&1
+} || true
