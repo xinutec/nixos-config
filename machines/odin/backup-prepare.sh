@@ -508,6 +508,22 @@ remote isis.vpn \
   "sqlite3 '$VW_PVC/db.sqlite3' '.backup /tmp/vw-db-snapshot.sqlite3' && chmod 600 /tmp/vw-db-snapshot.sqlite3"
 rsync -a "root@isis.vpn:/tmp/vw-db-snapshot.sqlite3" "$STAGE/isis/vaultwarden/db.sqlite3"
 remote isis.vpn "rm -f /tmp/vw-db-snapshot.sqlite3"
+# The snapshot above is self-contained: `.backup` checkpoints, so a WAL and shm
+# beside it describe state it does not have. They belong to no step here — the
+# rsync below excludes all three names, and its --delete governs data/ rather
+# than this directory, so anything already sitting here is invisible to both.
+#
+# Two were: db.sqlite3-wal (0 bytes) and db.sqlite3-shm (32K), frozen at
+# 2026-07-27 20:07 — vaultwarden's move amun -> isis, when an earlier form of
+# this block still copied the raw PVC in here. Every snapshot since has carried
+# them next to a consistent dump. amun/nocodb is the control: same fix, a
+# directory created fresh, no sidecars.
+#
+# Deleted rather than excluded, because an exclude only stops them ARRIVING.
+# The staging tree is deliberately kept between runs, so nothing else will ever
+# take them out — and the reconciler will not either: its artifacts assert
+# freshness, not that the tree holds only what is declared.
+rm -f "$STAGE/isis/vaultwarden/db.sqlite3-wal" "$STAGE/isis/vaultwarden/db.sqlite3-shm"
 rsync -aH --numeric-ids --delete \
   --exclude 'db.sqlite3' --exclude 'db.sqlite3-wal' --exclude 'db.sqlite3-shm' \
   "root@isis.vpn:$VW_PVC/" \
