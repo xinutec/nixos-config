@@ -67,6 +67,7 @@
       name = "bes";
       vpn = "10.100.0.9";
       publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
+      intermittent = true; # general-purpose Pi again — powered on when it's wanted
     };
 
     # Android phones.
