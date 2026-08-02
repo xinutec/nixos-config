@@ -6,7 +6,12 @@
 
 let net = import ../../network.nix;
 in {
-  imports = [ ../../base-configuration.nix ./backups.nix ./plan-run.nix ];
+  imports = [
+    ../../base-configuration.nix
+    ./backups.nix
+    ./plan-run.nix
+    ./plan-settings.nix
+  ];
 
   # odin is a 4-thread Atom N2800 with 3 GB of RAM, and it now builds a Rust
   # program on every plan-run pin bump. amun is the same architecture with 8
