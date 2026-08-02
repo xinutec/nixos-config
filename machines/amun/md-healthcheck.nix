@@ -14,6 +14,24 @@ let
   # because agenix decrypts during activation, i.e. after evaluation.
   base = "https://hc-ping.com";
 
+  # --retry-connrefused is not an optimisation, it is what makes the exit
+  # status honest. Measured on amun with curl 8.14.1 against an unreachable
+  # port:
+  #
+  #   -fsS -m 10                               exit 7
+  #   -fsS --retry 2 -m 10                     exit 0   <-- failure reported as success
+  #   -fsS --retry 2 --retry-connrefused -m 10 exit 7
+  #
+  # Without it, curl classes a connection failure as retryable, declines to
+  # retry it, and still exits 0 — so `set -e` sees success, the unit finishes
+  # green, and a heartbeat that never left the machine looks like one that
+  # did. amun does this roughly twice a day. The dead-man's switch still
+  # catches it, because a ping that did not arrive is a ping that did not
+  # arrive — but the host itself said nothing, which is the part worth fixing.
+  # It also makes the two retries actually happen, which is why the flag was
+  # there in the first place. DNS failures (exit 6) were never affected.
+  retry = "--retry 2 --retry-connrefused";
+
   script = pkgs.writeShellScript "md-healthcheck" ''
     set -euo pipefail
     id="$(cat ${config.age.secrets."hc-ping-md".path})"
@@ -21,12 +39,12 @@ let
     # array — array names like md0/md127 contain no underscores, so a
     # bare grep -F is sufficient.
     if ${pkgs.gnugrep}/bin/grep -qF '_' /proc/mdstat; then
-      ${pkgs.curl}/bin/curl -fsS --retry 2 -m 10 \
+      ${pkgs.curl}/bin/curl -fsS ${retry} -m 10 \
         --data-binary @/proc/mdstat \
         "${base}/$id/fail" > /dev/null
       exit 1
     fi
-    ${pkgs.curl}/bin/curl -fsS --retry 2 -m 10 "${base}/$id" > /dev/null
+    ${pkgs.curl}/bin/curl -fsS ${retry} -m 10 "${base}/$id" > /dev/null
   '';
 in {
   age.secrets."hc-ping-md".file = ../../agenix/hc-ping-md.age;
