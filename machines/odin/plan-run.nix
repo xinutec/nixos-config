@@ -82,4 +82,12 @@ in
   # one. Anything scheduled must be referenced by the system closure or it is
   # not really installed.
   environment.systemPackages = [ plan-run ];
+
+  # And to the other modules on this host, so `backups.nix` can name the same
+  # derivation rather than a second copy of this expression or a PATH lookup.
+  # A store path in the unit is what makes the backup's staging step pinned to
+  # the generation it was built with: `/run/current-system/sw/bin/plan-run`
+  # would resolve at run time to whatever is current then, which is a different
+  # binary from the one this generation was tested with.
+  _module.args.planRun = plan-run;
 }

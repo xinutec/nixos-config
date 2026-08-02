@@ -3,7 +3,7 @@
 # See ~/Code/xinutec-infra/backups.md and the plan at
 # ~/.claude/plans/golden-nibbling-island.md for rationale.
 
-{ config, pkgs, ... }:
+{ config, pkgs, planRun, ... }:
 
 {
   # Expose the restic CLI on odin's system PATH so ad-hoc inspection
@@ -143,7 +143,30 @@
       "--tag" "cluster"
     ];
 
-    backupPrepareCommand = builtins.readFile ./backup-prepare.sh;
+    # THE CUTOVER (2026-08-02). This was `builtins.readFile ./backup-prepare.sh`
+    # — 626 lines of shell whose coverage could only be established by reading
+    # it. The same staging is now a declared table of 36 artifacts in
+    # xinutec-infra's `plans::backup`, and what changes is not how it copies but
+    # what a failure means: each artifact is a fact, so a run that dies at the
+    # eleventh resumes at the eleventh instead of re-dumping every database to
+    # get back there.
+    #
+    # backup-prepare.sh is KEPT, not deleted. It is the rollback: revert this
+    # one line and the old path is live again, which is why it must stay
+    # correct — including the vaultwarden sidecar cleanup, which the reconciler
+    # does not do (its artifacts assert freshness, not that the tree holds only
+    # what is declared; the two stale files were removed by hand at cutover).
+    #
+    # By store path, not `plan-run` on PATH: this pins the staging step to the
+    # binary this generation was built and tested with. See plan-run.nix.
+    #
+    # --apply because observe is the default — the runner is handed an `Effect`
+    # only under apply, so a missing flag here would stage nothing and report
+    # success, which is the one failure this whole port exists to make
+    # impossible. Verified by hand first: a full apply ran 36/36 artifacts clean
+    # on 2026-08-02 at 19:41–20:22 UTC before this line was written.
+    backupPrepareCommand =
+      "${planRun}/bin/plan-run backup --settings /etc/plan/settings.json --apply";
     # Intentionally NO backupCleanupCommand. The staging tree is kept
     # between runs so that the next run's rsync is incremental (seconds
     # instead of hours) instead of starting from an empty directory.
