@@ -40,7 +40,7 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    rev = "fa5b3a2fa7b23def6f54a952277cc5f3fde9dfac";
+    rev = "692c3a6b0ba47ba4fc5f1ddfce44c91bb0cbf98a";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source
