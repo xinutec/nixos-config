@@ -47,4 +47,29 @@ in {
 #   device = "${net.nodes.master.vpn}:/export/home";
 #   fsType = "nfs4";
 # };
+
+  # The agent console's way in, and the reason the Mac needs no open port.
+  #
+  # The Mac dials out and asks sshd to listen on this host's VPN address; the
+  # phone connects there and the bytes go back down the tunnel the Mac opened.
+  # The phone's TLS session terminates at the Mac, not here — so this host
+  # carries ciphertext, holds no key that opens anything, and cannot inject or
+  # impersonate. It can drop the tunnel, which is denial of service and
+  # unavoidable for anything in the middle. See memview/docs/agent-console.md.
+  #
+  # `clientspecified` rather than `yes`: `yes` would bind every remote forward to
+  # every interface, this host among other things being internet-facing. With
+  # `clientspecified` the client names the address, and the key below is only
+  # permitted to name one.
+  services.openssh.settings.GatewayPorts = "clientspecified";
+
+  # A key of its own, restricted to exactly that one listener — no shell, no
+  # agent, no X11, no local forwards. An unattended tunnel that ran on the
+  # ordinary admin key would give anything holding the Mac's disk a root session
+  # here, which is a far larger thing than the console it exists to carry.
+  users.users.pippijn.openssh.authorizedKeys.keys = [
+    ''restrict,port-forwarding,permitlisten="${config.node.vpn}:${
+      toString net.consolePort
+    }" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBJAGJDba9uOuPZNe/LHngVUXao8Uv+2y5TDLvOA7icR console-tunnel@mac-mini''
+  ];
 }

@@ -8,6 +8,14 @@
   vpn = "10.100.0.0/24";
   vpnPort = 51820;
 
+  # The agent console on the Mac. It is reachable through a tunnel the Mac itself
+  # dials out to isis — nothing initiates toward the Mac, so the one-way rule
+  # stands unamended. isis binds this port on its VPN address and forwards it back
+  # down that tunnel; the phone's TLS session runs end to end through it, so isis
+  # carries ciphertext and holds no key that opens anything. Named here because
+  # both ends of the tunnel have to agree. See memview/docs/agent-console.md.
+  consolePort = 8097;
+
   nodes = rec {
     # amun is the Kubernetes/NFS/Wireguard master. All other nodes connect to
     # it. If it is down, other nodes still work, e.g. isis deployments still
