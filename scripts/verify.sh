@@ -86,6 +86,32 @@ step "shellcheck (host-side shell scripts)"
 shellcheck $(git ls-files '*.sh') 2>&1 | sed 's/^/  /'
 [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
 
+step "the reconciler's cross-checks against backup-prepare.sh"
+# backup-prepare.sh is the one file in this PUBLIC repo that a different repo
+# compiles against: xinutec-infra's plan/core/tests/backup.rs `include_str!`s it
+# at five sites and cross-checks the reconciler's table against it — every claim,
+# every destination, every SQLite source path. Those tests exist because the port
+# inferred claim names from staging paths and got eleven of seventeen wrong, each
+# of which would have staged nothing while reporting success.
+#
+# The coupling runs one way and the gates ran the other, so an edit HERE could
+# only be discovered by running the gate THERE. On 2026-08-03 it was: the
+# vaultwarden sidecar cleanup added `rm -f "$STAGE/..."`, the extractor read a
+# delete as a write, and this gate had nothing to say about it.
+#
+# Skipped, not failed, when the checkout is absent — this repo is public and
+# xinutec-infra is not, so a clean clone genuinely cannot run this. The skip
+# names what went unchecked, because a silent one is the hole being closed.
+plan_repo="$HOME/Code/xinutec-infra"
+if [ -d "$plan_repo/plan" ]; then
+  (cd "$plan_repo/plan" && nix develop "$plan_repo" --command \
+    cargo test -p plan-core --test backup) 2>&1 | sed 's/^/  /'
+  [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
+else
+  printf '  – skipped: no %s; the reconciler/script cross-checks did not run\n' \
+    "$plan_repo"
+fi
+
 step "dev-lint"
 nix run "$HOME/Code/dev-lint" -- . 2>&1 | sed 's/^/  /'
 [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
