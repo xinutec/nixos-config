@@ -12,7 +12,7 @@
   # This flake exists for the VERIFY GATE, not for deployment. The machines are still
   # channel-based (`nixos-rebuild switch` on the host, `<nixpkgs>` from its channel) —
   # nothing here changes how they are built or deployed. What it buys is a *pinned*
-  # nixpkgs + home-manager for scripts/verify.sh, so the gate can evaluate each
+  # nixpkgs + home-manager for scripts/eval_machines.py, so the gate can evaluate each
   # machine's configuration on a known revision instead of whatever channel the
   # machine running the check happens to have. (The Mac that runs the fleet check has
   # no channels at all, so an unpinned eval could not work there.)
@@ -44,7 +44,7 @@
             pkgs.shellcheck # the host-side shell scripts (backup-prepare, drill, setup)
           ];
           # The gate evaluates each machine against THESE revisions. Exported here
-          # rather than passed as `-I` flags in verify.sh so a manual eval from an
+          # rather than passed as `-I` flags by the gate, so a manual eval from an
           # interactive `nix develop` shell resolves exactly what the gate does.
           shellHook = ''
             export NIX_PATH="nixpkgs=${nixpkgs}:home-manager=${home-manager}"

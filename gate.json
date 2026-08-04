@@ -1,0 +1,141 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
+        "python3",
+        "scripts/eval_machines.py"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "nix eval — every machine's full NixOS config",
+      "timeout_s": 1800
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
+        "ruff",
+        "check",
+        "."
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "ruff (operational Python)",
+      "timeout_s": 300
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
+        "mypy",
+        "--strict",
+        "machines/amun/vpn-nodes-push.py",
+        "machines/odin/backup_preview.py"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "mypy --strict (operational Python)",
+      "timeout_s": 600
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "machines"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "pytest (operational Python)",
+      "timeout_s": 600
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
+        "find",
+        "machines",
+        "scripts",
+        "setup.sh",
+        "-name",
+        "*.sh",
+        "-exec",
+        "shellcheck",
+        "{}",
+        "+"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "shellcheck (host-side shell scripts)",
+      "timeout_s": 300
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "..",
+        "--no-warn-dirty",
+        "--command",
+        "cargo",
+        "test",
+        "-p",
+        "plan-core",
+        "--test",
+        "backup"
+      ],
+      "cwd": "../xinutec-infra/plan",
+      "env": {},
+      "name": "the reconciler's cross-checks against backup-prepare.sh",
+      "timeout_s": 1800
+    },
+    {
+      "argv": [
+        "nix",
+        "run",
+        "git+file:../dev-lint?ref=HEAD",
+        "--",
+        "."
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "dev-lint",
+      "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
+        "run",
+        "../dev-lint#gate",
+        "--",
+        "--check-table",
+        "gate.dhall",
+        "gate.json"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "the table matches its Dhall",
+      "timeout_s": 300
+    }
+  ],
+  "name": "nixos-config"
+}
