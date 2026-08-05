@@ -40,7 +40,7 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    rev = "5214767f18d8a8479c9446182004fb532deccd0a";
+    rev = "5dbe20ef8a950a69795f94e249685cf030353236";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source
@@ -62,20 +62,27 @@ let
     src = src + "/plan";
     cargoLock.lockFile = src + "/plan/Cargo.lock";
 
-    # The reason this is off CHANGED on 2026-08-05. It used to be structural:
-    # five tests include_str!d this repo's machines/odin/backup-prepare.sh to
-    # prove the plan and the shell it replaced named the same PVCs, and two
-    # repositories cannot both be inside one src. That script is retired and
-    # those tests went with it, so the suite now builds in the sandbox.
+    # TRUE since 2026-08-05, so this build runs the suite again. It was false
+    # for two reasons, both now gone.
     #
-    # It does not pass there. `runner/tests/redis.rs`'s
-    # `a_redis_without_a_quiesce_touches_no_application` is not hermetic —
-    # green from a checkout, red in a nix sandbox, measured both ways. Fix that
-    # and this becomes `true`; xinutec-infra's flake.nix carries the same note.
+    # Structural, and correctly diagnosed: five tests include_str!d this repo's
+    # machines/odin/backup-prepare.sh to prove the plan and the shell it
+    # replaced named the same PVCs, and two repositories cannot both be inside
+    # one src. That script is retired and those tests went with it.
     #
-    # Until then the gate's `cargo test` from a checkout is what runs them, and
-    # odin's package build still runs none.
-    doCheck = false;
+    # Then `runner/tests/redis.rs` was recorded as "not hermetic — green from a
+    # checkout, red in a nix sandbox". Right verdict, wrong cause: the dump
+    # script redirected to a hard-coded /tmp/stage-redis.rdb, whoever ran the
+    # tests first owned that file, and /tmp is sticky — so a build as _nixbld
+    # got EACCES. The path is a parameter now. xinutec-infra's flake.nix carries
+    # the long version.
+    #
+    # What this was costing: between the structural blocker being lifted and
+    # today, odin's plan-run package built and installed having run ZERO tests,
+    # on the machine that runs the backups. The gate's `cargo test` from a
+    # checkout covered it, which is a different thing from the artefact being
+    # checked.
+    doCheck = true;
   };
 in
 {
