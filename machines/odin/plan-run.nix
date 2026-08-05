@@ -62,16 +62,19 @@ let
     src = src + "/plan";
     cargoLock.lockFile = src + "/plan/Cargo.lock";
 
-    # The test suite cannot build from a store path, and that is a property of
-    # one test rather than an accident: `the_plan_covers_every_claim_the_script_stages`
-    # include_str!s this very repo's machines/odin/backup-prepare.sh, to prove
-    # the plan and the shell it replaces name the same PVCs. Two repositories
-    # cannot both be inside one src.
+    # The reason this is off CHANGED on 2026-08-05. It used to be structural:
+    # five tests include_str!d this repo's machines/odin/backup-prepare.sh to
+    # prove the plan and the shell it replaced named the same PVCs, and two
+    # repositories cannot both be inside one src. That script is retired and
+    # those tests went with it, so the suite now builds in the sandbox.
     #
-    # So the tests run where both trees exist — `cargo test` from a checkout,
-    # which is where the gate runs them. That test is scheduled to die with the
-    # shell it cross-checks; when it does, this line can go and doCheck can be
-    # true.
+    # It does not pass there. `runner/tests/redis.rs`'s
+    # `a_redis_without_a_quiesce_touches_no_application` is not hermetic —
+    # green from a checkout, red in a nix sandbox, measured both ways. Fix that
+    # and this becomes `true`; xinutec-infra's flake.nix carries the same note.
+    #
+    # Until then the gate's `cargo test` from a checkout is what runs them, and
+    # odin's package build still runs none.
     doCheck = false;
   };
 in

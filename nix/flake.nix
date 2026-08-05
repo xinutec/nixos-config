@@ -41,7 +41,7 @@
             (pkgs.python313.withPackages (ps: [ ps.pytest ]))
             pkgs.ruff
             pkgs.mypy
-            pkgs.shellcheck # the host-side shell scripts (backup-prepare, drill, setup)
+            pkgs.shellcheck # the host-side shell scripts (drill, setup)
           ];
           # The gate evaluates each machine against THESE revisions. Exported here
           # rather than passed as `-I` flags by the gate, so a manual eval from an

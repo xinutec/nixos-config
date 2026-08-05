@@ -18,16 +18,20 @@ loop doing real work — a temp tree, a `sed` substitution into
 at the root — and that is a program, not a command line. Same evaluation, same
 per-machine reporting, and it is now readable by the ruff and mypy rows below it.
 
-**The cross-check against xinutec-infra no longer skips.** `backup-prepare.sh` is
-the one file in this PUBLIC repo that a different repo compiles against:
-xinutec-infra's `plan/core/tests/backup.rs` `include_str!`s it at five sites and
-checks the reconciler's table against it — every claim, every destination, every
-SQLite source path. Those tests exist because the port inferred claim names from
-staging paths and got eleven of seventeen wrong, each of which would have staged
-nothing while reporting success. The coupling runs one way and the gates ran the
-other, so an edit HERE could only be discovered by running the gate THERE; on
-2026-08-03 it was, when the vaultwarden sidecar cleanup added an `rm -f` the
-extractor read as a write.
+**The cross-check against xinutec-infra is GONE, with its subject.**
+`backup-prepare.sh` used to be the one file in this PUBLIC repo that another
+repo compiled against: xinutec-infra's `plan/core/tests/backup.rs` `include_str!`d
+it at five sites and checked the reconciler's table against it. The coupling ran
+one way and the gates ran the other, so an edit HERE could only be discovered by
+running the gate THERE — which is why a row here reached into that repo.
+
+The script was deleted on 2026-08-05, three days after the reconciler took over
+the nightly staging, and those five tests went with it. The row that ran them
+went too: it would still have passed, because the file it names holds nine other
+tests, but it would have been a row in THIS repo running THAT repo's suite for a
+reason that no longer existed — and `plan: cargo test` in xinutec-infra's own
+gate already covers them. A green row whose justification has evaporated is the
+shape this whole gate exists to catch.
 
 The script's answer was to print `– skipped: no ~/Code/xinutec-infra` and carry
 on green, on the grounds that this repo is public and that one is not. That is
@@ -107,27 +111,6 @@ in  { name = "nixos-config"
               , "+"
               ]
         , timeout_s = 300
-        }
-      , {-  The reconciler's cross-checks against backup-prepare.sh — see the
-            header for why they live next door and run from here.
-        -}
-        G.Check::{
-        , name = "the reconciler's cross-checks against backup-prepare.sh"
-        , cwd = "../xinutec-infra/plan"
-        , argv =
-            [ "nix"
-            , "develop"
-            , ".."
-            , "--no-warn-dirty"
-            , "--command"
-            , "cargo"
-            , "test"
-            , "-p"
-            , "plan-core"
-            , "--test"
-            , "backup"
-            ]
-        , timeout_s = 1800
         }
       , G.devLint "../"
       , G.checkTable "../dev-lint"

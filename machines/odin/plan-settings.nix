@@ -48,7 +48,7 @@ let
     # `address` is why this file exists at all today. The plan names `isis`,
     # and on odin that name resolves to the PUBLIC address while `isis.vpn`
     # is the WireGuard one — and `.vpn` is not a DNS zone, it is rendered into
-    # /etc/hosts from network.nix. backup-prepare.sh has always used .vpn.
+    # /etc/hosts from network.nix. The shell this replaced always used .vpn.
     # Both answer, so naming the wrong one does not fail: it moves the whole
     # ~573 GB staging pull off the tunnel and reports success.
     hosts = {

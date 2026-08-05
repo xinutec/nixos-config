@@ -13,7 +13,7 @@ in {
   environment.systemPackages = with pkgs; [
     kubectl # to manage kubernetes
     kubernetes-helm # to install kubernetes packages (helm charts)
-    # odin's backup-prepare.sh ssh's in and runs `sqlite3 ... ".backup"` to take a
+    # odin's nightly staging ssh's in and runs `sqlite3 ... ".backup"` to take a
     # consistent snapshot of nocodb's DB. It must be present in the system closure:
     # fetching it at backup time (nix-shell -p) makes the backup depend on working
     # internet and an up binary cache — the conditions least likely to hold when you

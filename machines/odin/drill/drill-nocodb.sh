@@ -2,7 +2,7 @@
 # Restore drill for nocodb: seed from staging -> run the real image against the
 # restored data -> assert the RESTORED CONTENT is there -> teardown.
 #
-# Why this exists: backup-prepare.sh takes a consistent sqlite snapshot of
+# Why this exists: the nightly staging takes a consistent sqlite snapshot of
 # nocodb's DB, and that snapshot is verified to open and pass integrity_check.
 # That is NOT the same as proving it restores. The restore has a step no
 # integrity check can exercise: the staged tree holds the PVC rsync (data/) with
@@ -92,8 +92,8 @@ prod_image=$(ssh "${SSH_OPTS[@]}" root@amun.vpn \
 [ -n "$prod_image" ] || fail "could not read the live nocodb image from amun (a drill that cannot check itself against production is not evidence)"
 log "image: $prod_image"
 
-[ -f "$SRC/noco.db" ] || fail "$SRC/noco.db missing — has backup-prepare.sh run?"
-[ -d "$SRC/data" ]    || fail "$SRC/data missing — has backup-prepare.sh run?"
+[ -f "$SRC/noco.db" ] || fail "$SRC/noco.db missing — has the nightly staging run?"
+[ -d "$SRC/data" ]    || fail "$SRC/data missing — has the nightly staging run?"
 
 # What production holds right now. The restored copy is compared against this,
 # so an empty-init masquerading as healthy cannot pass.

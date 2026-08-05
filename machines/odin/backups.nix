@@ -15,13 +15,13 @@
   # sqlite is here for the same reason: drill-nocodb.sh inspects the RESTORED
   # database on odin to prove the restore actually carried the data, rather than
   # nocodb having silently initialised a fresh empty DB and served HTTP 200 off
-  # it. Note odin does not need sqlite for the backup itself — backup-prepare.sh
+  # it. Note odin does not need sqlite for the backup itself — the staging step
   # only ever runs sqlite3 on amun/isis over SSH, out of those hosts' closures.
   environment.systemPackages = [ pkgs.restic pkgs.sqlite ];
 
-  # backup-prepare.sh ships file paths to amun via SSH stdin so the
+  # the staging step ships file paths to amun via SSH stdin so the
   # toktok-workspace backup step doesn't require installing a script
-  # on amun. The source of truth lives next to backup-prepare.sh and
+  # on amun. The source of truth lives beside the backup table and
   # is deployed to /etc/backup-preview.py via environment.etc, where
   # the prepare script can `< /etc/backup-preview.py` it into the
   # remote python3.
@@ -62,7 +62,7 @@
   # nothing else holds. The mac initiates, which the one-way rule allows.
   #
   # It lands in /var/backup-staging, so the existing nightly restic snapshot
-  # picks it up with no change to backup-prepare.sh — the staging tree is
+  # picks it up with no change to the staging step — the staging tree is
   # backed up wholesale (`paths = [ "/var/backup-staging" ]`), and every
   # --delete rsync in that script is scoped to the amun/ or isis/ subtree, so
   # a third top-level dir is left alone.
@@ -98,7 +98,7 @@
   systemd.tmpfiles.rules = [
     "d /backup/restic 2750 root restic-offsite -"
     # Owned by the pushing user so rrsync can write into it. Not under
-    # amun/ or isis/ — those are rsync --delete targets in backup-prepare.sh
+    # amun/ or isis/ — those are rsync --delete targets in the staging step
     # and anything parked inside one would be erased on the next run.
     "d /var/backup-staging/mac 0750 mac-archive mac-archive -"
   ];
@@ -151,11 +151,12 @@
     # eleventh resumes at the eleventh instead of re-dumping every database to
     # get back there.
     #
-    # backup-prepare.sh is KEPT, not deleted. It is the rollback: revert this
-    # one line and the old path is live again, which is why it must stay
-    # correct — including the vaultwarden sidecar cleanup, which the reconciler
-    # does not do (its artifacts assert freshness, not that the tree holds only
-    # what is declared; the two stale files were removed by hand at cutover).
+    # backup-prepare.sh was KEPT as the rollback until 2026-08-05, when it was
+    # deleted: it had not run since the cutover, and the five tests that held it
+    # in lockstep with the plan went with it. git history is the rollback now.
+    # One thing it did that the reconciler does not: the vaultwarden sidecar
+    # cleanup (an artifact asserts freshness, not that the tree holds ONLY what
+    # is declared). The two stale files were removed by hand at cutover.
     #
     # By store path, not `plan-run` on PATH: this pins the staging step to the
     # binary this generation was built and tested with. See plan-run.nix.

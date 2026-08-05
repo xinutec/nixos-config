@@ -92,25 +92,6 @@
     {
       "argv": [
         "nix",
-        "develop",
-        "..",
-        "--no-warn-dirty",
-        "--command",
-        "cargo",
-        "test",
-        "-p",
-        "plan-core",
-        "--test",
-        "backup"
-      ],
-      "cwd": "../xinutec-infra/plan",
-      "env": {},
-      "name": "the reconciler's cross-checks against backup-prepare.sh",
-      "timeout_s": 1800
-    },
-    {
-      "argv": [
-        "nix",
         "run",
         "git+file:../dev-lint?ref=HEAD",
         "--",
