@@ -13,7 +13,13 @@ let
   isis = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFXU6IYZCUEdYeu4I83e8kp9haP7DhajHWXuajwxWVCB";
   odin = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
 
-  allHosts = [ amun isis odin ];
+  # The house box (#726), installed 2026-08-10. Not a Kubernetes node and not
+  # public, but it is a NixOS host, so it needs every secret base-configuration
+  # declares unconditionally — which is three of the four below, not just its
+  # own WireGuard key.
+  geb = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHknQkqhrNDTXrL0o6omTOb/1LZNF4/IWbMrGgpgKzPZ";
+
+  allHosts = [ amun isis odin geb ];
 in {
   # Grafana Cloud / Mimir push password — every host runs the alloy
   # metrics agent, so every host needs it.
@@ -30,6 +36,7 @@ in {
   "wireguard-amun.age".publicKeys = [ amun admin ];
   "wireguard-isis.age".publicKeys = [ isis admin ];
   "wireguard-odin.age".publicKeys = [ odin admin ];
+  "wireguard-geb.age".publicKeys = [ geb admin ];
 
   # Root user's SSH private keys — one shared keypair of each type
   # across all hosts, used for inter-host root SSH (backup rsyncs and

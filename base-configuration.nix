@@ -15,6 +15,39 @@ let
     url = "https://github.com/ryantm/agenix/archive/refs/tags/0.15.0.tar.gz";
     sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
   };
+
+  # Nodes the VPN may never initiate toward — see `oneWay` in options.nix. The
+  # rules below are GENERATED from this list, so marking a node in network.nix
+  # is the whole change; there is no second place that has to be remembered,
+  # which is what went wrong when the mac-mini rules were six literal lines.
+  # Deduplicated because `nodes` aliases the master, so attrValues repeats it.
+  oneWayNodes =
+    lib.unique (builtins.filter (n: n.oneWay or false) (builtins.attrValues net.nodes));
+
+  # Teardown for one peer. Also used on its own by extraStopCommands, and run
+  # before the inserts so a firewall reload is idempotent rather than stacking
+  # a fresh copy of every rule.
+  oneWayTeardown = node: ''
+    iptables -w -D FORWARD -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
+    iptables -w -D FORWARD -d ${node.vpn} -j DROP 2>/dev/null || true
+    iptables -w -D OUTPUT -d ${node.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
+  '';
+
+  # The peer may initiate into the VPN; nothing here — this host, its pods, or
+  # forwarded peer traffic — may initiate toward it. Only return traffic for
+  # connections the peer opened gets through. The peer is expected to enforce
+  # the same locally (mac-mini uses pf); this is defence in depth.
+  #
+  # With more than one peer the inserts interleave, but each peer's ACCEPT is
+  # inserted immediately before its own DROP and both match on that peer's
+  # address alone, so the pair stays correctly ordered at any count.
+  oneWayRules = node: ''
+    # One-way VPN for ${node.name} (${node.vpn}).
+  '' + oneWayTeardown node + ''
+    iptables -w -I FORWARD 1 -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    iptables -w -I FORWARD 2 -d ${node.vpn} -j DROP
+    iptables -w -I OUTPUT 1 -d ${node.vpn} -m conntrack --ctstate NEW -j DROP
+  '';
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -171,25 +204,8 @@ in {
         iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
           toString net.k8sApiPort
         } -j nixos-fw-accept
-
-        # One-way VPN for mac-mini (${net.nodes.mac-mini.vpn}): the Mac may
-        # initiate connections into the VPN, but nothing on the VPN — this
-        # host, its pods, or forwarded peer traffic — may initiate toward the
-        # Mac. Only return traffic for Mac-initiated connections passes. The
-        # Mac enforces the same with pf; this is defense in depth (see
-        # xinutec-infra/mac-mini.md). -D before -I keeps reloads idempotent.
-        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
-        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -j DROP 2>/dev/null || true
-        iptables -w -I FORWARD 1 -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-        iptables -w -I FORWARD 2 -d ${net.nodes.mac-mini.vpn} -j DROP
-        iptables -w -D OUTPUT -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
-        iptables -w -I OUTPUT 1 -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate NEW -j DROP
-      '';
-      extraStopCommands = ''
-        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
-        iptables -w -D FORWARD -d ${net.nodes.mac-mini.vpn} -j DROP 2>/dev/null || true
-        iptables -w -D OUTPUT -d ${net.nodes.mac-mini.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
-      '';
+      '' + lib.concatMapStrings oneWayRules oneWayNodes;
+      extraStopCommands = lib.concatMapStrings oneWayTeardown oneWayNodes;
     };
   };
 

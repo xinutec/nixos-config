@@ -104,13 +104,42 @@
 
     # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
     # the VPN may initiate toward it (it is the offsite-backup host; see
-    # xinutec-infra/mac-mini.md). Enforced by firewall rules in
-    # base-configuration.nix keyed on this vpn address, plus pf on the Mac
-    # itself. Key generated on the Mac 2026-06-10; private key never leaves it.
+    # xinutec-infra/mac-mini.md). Enforced by the firewall rules that
+    # base-configuration.nix generates for every node with `oneWay`, plus pf on
+    # the Mac itself. Key generated on the Mac 2026-06-10; private key never
+    # leaves it.
     mac-mini = {
       name = "mac-mini";
       vpn = "10.100.0.11";
       publicKey = "qe0nIvj/UUn4d3gOt/BC5VHKSqpkzhq16+jvYPDxCyg=";
+      oneWay = true;
+    };
+
+    # The house's own NixOS box: storage, no Kubernetes — odin's shape rather
+    # than isis's. ONE-WAY like mac-mini, and for the same reason: it sits on a
+    # home LAN behind the router, so the fleet has no business dialling into it.
+    #
+    # No ipv4/ipv6: it has no public address at all. It reaches the VPN by
+    # dialling amun, which is the only direction that has to work.
+    #
+    # Installed 2026-08-10 on NixOS 26.05 (#726). Both keys were generated ON
+    # the machine; only the public one is here, and unlike mac-mini the private
+    # key does go into agenix (wireguard-geb.age), because that is how every
+    # NixOS host in this fleet carries its own.
+    geb = {
+      name = "geb";
+      vpn = "10.100.0.5";
+      publicKey = "VCTpVsYEoDmifhS8WGBQ6ejdRNW3rJoTRvU8275iWW0=";
+      # The interface carrying its default route, which today is wifi. There IS
+      # an ethernet port (enp1s0, down for want of a cable); swap this when the
+      # cable exists, because the 396G restic repo and 326G Nextcloud mirror it
+      # is meant to hold will not seed pleasantly over wifi.
+      externalInterface = "wlp0s20f3";
+      oneWay = true;
+      # A new box with no service on it yet — no storage until the 6 TB HDD is
+      # freed (#697), so "no handshake" is not yet a fault worth waking anyone.
+      # Flip to false when it becomes a backup target and being down is real.
+      intermittent = true;
     };
 
     # Dasha's phone. Private key generated on the Mac 2026-07-08, lives only in

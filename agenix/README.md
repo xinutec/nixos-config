@@ -91,6 +91,41 @@ can only be re-keyed from a host that can still decrypt it. If several
 hosts are rebuilt at once, update all their keys in `secrets.nix` and
 run `agenix --rekey` once.
 
+### ⚠ `--rekey` can do nothing and still look like it worked
+
+Observed onboarding geb, 2026-08-10. `agenix --rekey` prints
+`rekeying <file>...` for every secret and then, for each one,
+`<file> wasn't changed, skipping re-encryption` — and skips it. It
+decides by whether the PLAINTEXT changed, which during a re-key is
+exactly what does not change. Adding a host to `publicKeys` therefore
+had no effect on any of the three shared secrets, while the output read
+as success. The failure surfaces later and elsewhere: the new host's
+first `nixos-rebuild switch` fails at activation, on a repo that was
+already committed and pushed.
+
+**Verify the recipients, not the message.** An age file lists one `->`
+stanza per recipient in its header, so the count is readable directly —
+the files are binary, hence `grep -a`:
+
+```
+for f in *.age; do printf '%-28s %s\n' "$f" "$(head -c 4000 "$f" | grep -ac '^-> ')"; done
+```
+
+`allHosts` secrets should show one stanza per host plus one for the
+admin key. If a re-key was skipped the count is simply unchanged.
+
+To actually re-key, decrypt and re-encrypt explicitly:
+
+```
+age -d -i ~/.config/age/xinutec-fleet-admin.txt <file>.age > /tmp/plain
+age -r "<host1 key>" … -r "<admin key>" -o <file>.age /tmp/plain
+```
+
+Then confirm two things empirically rather than by inspection: that the
+NEW host can decrypt it with `/etc/ssh/ssh_host_ed25519_key`, and that
+an EXISTING host still can. Re-encrypting from scratch is also how a
+host gets silently locked out.
+
 ## After a rebuild — known_hosts
 
 `/root/.ssh/known_hosts` is **not** an agenix secret (it holds host

@@ -12,16 +12,22 @@ let
         description = "The node hostname part before '.xinutec.org' (required).";
       };
 
+      # Null for a node that has no public address of its own — geb sits behind
+      # the house router, and only the VPN hub is ever dialled by name. The one
+      # reader that matters is the WireGuard endpoint in base-configuration.nix,
+      # and it reads the MASTER's ipv4, which is always set.
       ipv4 = mkOption {
-        type = types.str;
+        type = types.nullOr types.str;
+        default = null;
         example = "219.38.29.10";
-        description = "The public IPv4 address of the node.";
+        description = "The public IPv4 address of the node, or null if it has none.";
       };
 
       ipv6 = mkOption {
-        type = types.str;
+        type = types.nullOr types.str;
+        default = null;
         example = "2001:41d0:2:7a85::1";
-        description = "The public IPv6 address of the node.";
+        description = "The public IPv6 address of the node, or null if it has none.";
       };
 
       vpn = mkOption {
@@ -40,6 +46,19 @@ let
         type = types.str;
         example = "eth0";
         description = "External network interface for the node (check ifconfig for the interface with the public IP address).";
+      };
+
+      oneWay = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          The node may initiate into the VPN, but nothing on the VPN may
+          initiate toward it. Enforced by firewall rules in
+          base-configuration.nix, generated for every node carrying this flag —
+          so marking a node here is what creates the rules, and there is no
+          second place to remember. The node is expected to enforce the same
+          locally (mac-mini does it with pf); this side is defence in depth.
+        '';
       };
 
       intermittent = mkOption {
