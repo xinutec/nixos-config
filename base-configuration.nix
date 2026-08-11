@@ -24,14 +24,29 @@ let
   oneWayNodes =
     lib.unique (builtins.filter (n: n.oneWay or false) (builtins.attrValues net.nodes));
 
+  # The VPN address of a node named in some other node's `reachableFrom`.
+  # `throw` rather than a silent skip: a misspelled name would generate no rule
+  # at all, which reads exactly like the exception having been granted — and the
+  # thing being granted is the right to open connections to a machine the fleet
+  # is otherwise forbidden to touch.
+  vpnOf = named:
+    (net.nodes.${named} or (throw
+      "reachableFrom names ${named}, which is not a node in network.nix"
+    )).vpn;
+
   # Teardown for one peer. Also used on its own by extraStopCommands, and run
   # before the inserts so a firewall reload is idempotent rather than stacking
-  # a fresh copy of every rule.
-  oneWayTeardown = node: ''
-    iptables -w -D FORWARD -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
-    iptables -w -D FORWARD -d ${node.vpn} -j DROP 2>/dev/null || true
-    iptables -w -D OUTPUT -d ${node.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
-  '';
+  # a fresh copy of every rule. The admitted-peer deletes come first for the
+  # same reason the rest do.
+  oneWayTeardown = node:
+    (lib.concatMapStrings (peer: ''
+      iptables -w -D FORWARD -s ${vpnOf peer} -d ${node.vpn} -j ACCEPT 2>/dev/null || true
+    '') (node.reachableFrom or [ ]))
+    + ''
+      iptables -w -D FORWARD -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
+      iptables -w -D FORWARD -d ${node.vpn} -j DROP 2>/dev/null || true
+      iptables -w -D OUTPUT -d ${node.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
+    '';
 
   # The peer may initiate into the VPN; nothing here — this host, its pods, or
   # forwarded peer traffic — may initiate toward it. Only return traffic for
@@ -41,13 +56,26 @@ let
   # With more than one peer the inserts interleave, but each peer's ACCEPT is
   # inserted immediately before its own DROP and both match on that peer's
   # address alone, so the pair stays correctly ordered at any count.
+  #
+  # `reachableFrom` names the exceptions. Each is inserted at position 2 AFTER
+  # the DROP goes in at 2, which puts it above the DROP and below the
+  # ESTABLISHED accept — so an admitted peer may open a connection and nobody
+  # else may. Several admits stack among themselves in reverse order, which does
+  # not matter: they are all ACCEPTs and they all sit above the one DROP.
+  #
+  # The OUTPUT rule is deliberately NOT excepted. It stops this host dialling
+  # the peer itself, and forwarding somebody else's connection is not a reason
+  # to grant your own.
   oneWayRules = node: ''
     # One-way VPN for ${node.name} (${node.vpn}).
   '' + oneWayTeardown node + ''
     iptables -w -I FORWARD 1 -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
     iptables -w -I FORWARD 2 -d ${node.vpn} -j DROP
     iptables -w -I OUTPUT 1 -d ${node.vpn} -m conntrack --ctstate NEW -j DROP
-  '';
+  '' + lib.concatMapStrings (peer: ''
+    # ${peer} may initiate toward ${node.name}.
+    iptables -w -I FORWARD 2 -s ${vpnOf peer} -d ${node.vpn} -j ACCEPT
+  '') (node.reachableFrom or [ ]);
 in {
   imports = [
     # Include the results of the hardware scan.

@@ -132,10 +132,17 @@
       publicKey = "VCTpVsYEoDmifhS8WGBQ6ejdRNW3rJoTRvU8275iWW0=";
       # The interface carrying its default route, which today is wifi. There IS
       # an ethernet port (enp1s0, down for want of a cable); swap this when the
-      # cable exists, because the 396G restic repo and 326G Nextcloud mirror it
-      # is meant to hold will not seed pleasantly over wifi.
+      # cable exists, because whatever it ends up storing will seed over this
+      # link first, and 25 MB/s is what wifi measures here.
       externalInterface = "wlp0s20f3";
       oneWay = true;
+      # ...with one exception. The Mac administers it, and it does so today only
+      # by being on the same LAN — 192.168.1.x, no VPN involved. That works
+      # until the Mac leaves the house, at which point geb becomes unreachable
+      # from the one machine that is supposed to reach it. Naming mac-mini here
+      # makes the reachability a property rather than a side effect of both
+      # being at home. Nothing else on the VPN gains anything.
+      reachableFrom = [ "mac-mini" ];
       # A new box with no service on it yet — no storage until the 6 TB HDD is
       # freed (#697), so "no handshake" is not yet a fault worth waking anyone.
       # Flip to false when it becomes a backup target and being down is real.

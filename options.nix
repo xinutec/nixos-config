@@ -58,6 +58,28 @@ let
           so marking a node here is what creates the rules, and there is no
           second place to remember. The node is expected to enforce the same
           locally (mac-mini does it with pf); this side is defence in depth.
+
+          For an exception, name it in `reachableFrom`.
+        '';
+      };
+
+      reachableFrom = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        example = [ "mac-mini" ];
+        description = ''
+          Nodes that MAY initiate toward this one-way node, by name. Everything
+          not named here still cannot, so the exception is granted to a peer
+          rather than to a class, and reading the node tells you who.
+
+          Names, not addresses, and an unknown name is an eval error: a typo
+          must not silently generate no rule and leave the exception looking
+          granted. Only meaningful on a node with `oneWay`, since a node the VPN
+          may already reach has nothing to except.
+
+          It admits FORWARDed traffic only. The OUTPUT rule stays, so the hub
+          itself still may not dial the node — being the machine that forwards
+          somebody else's connection is not a reason to open your own.
         '';
       };
 
