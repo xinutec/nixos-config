@@ -14,6 +14,7 @@ in {
     ./plan-run.nix
     ./plan-settings.nix
     ./picade-health.nix
+    ./plan-picade.nix
   ];
 
   # List packages installed in system profile. To search, run:
