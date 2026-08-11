@@ -1,7 +1,13 @@
-# fleetwatch picade internal-health producer, on amun.
+# fleetwatch picade internal-health producer, on isis.
 #
-# Sibling to vpn-nodes.nix. That one reports whether each picade is *reachable*
-# over WireGuard; this one reports whether a reachable cabinet is actually
+# MOVED FROM AMUN 2026-08-11, with the rest of the picade fleet. amun cannot
+# build plan-run (rustc 1.86 against the 1.88 let-chains need) and is held on
+# 25.05 until it is reinstalled, so the fleet moved to isis instead of waiting —
+# which is also the reinstall plan's direction. vpn-nodes.nix stayed behind
+# deliberately: it reads `wg show` on the WireGuard HUB, which only amun is.
+#
+# Sibling to that module. It reports whether each picade is *reachable* over
+# WireGuard; this one reports whether a reachable cabinet is actually
 # healthy — USB stick on the bus, no ext4 errors, config in sync, wpa/wg fine —
 # the failures that hid behind "every systemd unit is green" on picade2 (see the
 # picade-sd-resilience notes in xinutec-infra). It runs `picade fleetwatch-push`,
@@ -13,13 +19,24 @@
 # path on purpose, the same package the operator runs by hand. It is pure-stdlib
 # at runtime, so we invoke it with a plain python3 plus ssh/rsync on PATH rather
 # than its nix-shell wrapper (which would need to evaluate on every timer tick).
-# HOME=/root so ssh finds root's keys/known_hosts — root@amun already reaches the
-# picades over WG, which is exactly what the manual `picade health` relies on.
+# HOME=/root so ssh finds root's keys/known_hosts — root@isis reaches every
+# cabinet over WG with the shared fleet key (verified 2026-08-11 against
+# picade0-2, the three that are up), which is what `picade health` relies on.
 #
-# Ingest token: reuses amun's existing /var/lib/fleetwatch/token (see
-# vpn-nodes.nix) — fleetwatch derives `source` from it, so this writes as
-# amun/picade-health. No new secret. Until the file exists the run fails visibly
-# in the journal and fleetwatch simply shows no picade-health data yet.
+# ⚠ INGEST TOKEN: THIS IS THE ONE THING THE MOVE COULD NOT CARRY.
+# fleetwatch derives `source` from the token, so a producer can only ever write
+# as its mapped source — that is the whole guarantee the token design has. On
+# amun this reused the existing /var/lib/fleetwatch/token and wrote as
+# `amun/picade-health`; isis has no such token, and reusing amun's would make
+# isis write as amun, which is a lie the design exists to prevent.
+#
+# So isis needs its own `isis:<token>` pair in FLEETWATCH_TOKENS, and the source
+# becomes `isis/picade-health`. Historical `amun/picade-health` data keeps the
+# old name and stops being added to; nothing rewrites it.
+#
+# Until /var/lib/fleetwatch/token exists here the run fails visibly in the
+# journal and fleetwatch simply shows no picade-health data yet — which is the
+# honest state while the token is being minted, not a silent gap.
 { config, pkgs, lib, ... }:
 
 let
@@ -42,7 +59,7 @@ in
     };
     serviceConfig = {
       Type = "oneshot";
-      # Runs as root (default): root@amun is the identity that can ssh to every
+      # Runs as root (default): root@isis is the identity that can ssh to every
       # cabinet over the VPN.
       ExecStart = ''
         ${pkgs.python3}/bin/python3 -m picade_fleet.fleetwatch \
@@ -50,8 +67,8 @@ in
           --url https://fleetwatch.xinutec.org/api/reports \
           --interval 900
       '';
-      # Shares /var/lib/fleetwatch with vpn-nodes (root:root 0700); declaring it
-      # here too keeps this unit self-sufficient if that one is ever removed.
+      # On amun this shared /var/lib/fleetwatch with vpn-nodes; here it is the
+      # only user of the directory, so declaring it is what creates it.
       StateDirectory = "fleetwatch";
       StateDirectoryMode = "0700";
     };

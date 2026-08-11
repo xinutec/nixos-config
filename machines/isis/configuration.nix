@@ -6,7 +6,15 @@
 
 let net = import ../../network.nix;
 in {
-  imports = [ ../../base-configuration.nix ];
+  # The picade fleet moved here from amun 2026-08-11: plan-run cannot build on
+  # amun's held 25.05 (rustc 1.86 < the 1.88 let-chains need), and moving a
+  # service off amun is the reinstall plan's direction anyway.
+  imports = [
+    ../../base-configuration.nix
+    ./plan-run.nix
+    ./plan-settings.nix
+    ./picade-health.nix
+  ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget

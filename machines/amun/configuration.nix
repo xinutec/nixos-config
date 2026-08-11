@@ -6,7 +6,10 @@
 
 let net = import ../../network.nix;
 in {
-  imports = [ ../../base-configuration.nix ./md-healthcheck.nix ./vpn-nodes.nix ./picade-health.nix ];
+  # vpn-nodes stays here and picade-health does not: the first reads `wg show`
+  # on the WireGuard HUB, which only amun is, while the second only needs to
+  # reach the cabinets — which isis does equally well over the same tunnel.
+  imports = [ ../../base-configuration.nix ./md-healthcheck.nix ./vpn-nodes.nix ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
