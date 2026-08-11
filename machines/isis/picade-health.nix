@@ -37,7 +37,7 @@
 # Until /var/lib/fleetwatch/token exists here the run fails visibly in the
 # journal and fleetwatch simply shows no picade-health data yet — which is the
 # honest state while the token is being minted, not a silent gap.
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, planRun, ... }:
 
 let
   pkgDir = "/home/pi/picade_fleet";
@@ -50,9 +50,22 @@ in
     # failure is the honest signal, exactly as in vpn-nodes.nix.
     after = [ "wireguard-wg0.service" "network-online.target" ];
     wants = [ "network-online.target" ];
-    # ssh reaches the picades; rsync runs the drift dry-run against them. Both
-    # run locally on amun, so both belong on the service PATH.
-    path = [ pkgs.openssh pkgs.rsync ];
+    # ssh reaches the picades; rsync runs the drift dry-run against them; and
+    # plan-run is what now decides what "drift" means — `health.plan_drift`
+    # shells out to it and reads its `--simulate --json` report.
+    #
+    # ⚠ A UNIT'S `path` IS ITS WHOLE PATH. It does NOT include
+    # /run/current-system/sw/bin, so a package being in systemPackages does not
+    # put it here. Measured 2026-08-11, an hour after health started reading
+    # the plan: this list held only openssh and rsync, the run finished in 8s
+    # instead of 62s, and the push went out with six drift checks warning that
+    # no reading arrived. The tool was installed on the machine and invisible to
+    # the unit that needs it.
+    #
+    # `planRun` is the DERIVATION this generation was built and tested with,
+    # from plan-run.nix's `_module.args`, not the name `plan-run` resolved
+    # against whatever generation happens to be current when the timer fires.
+    path = [ pkgs.openssh pkgs.rsync planRun ];
     environment = {
       PYTHONPATH = pkgDir;
       HOME = "/root";

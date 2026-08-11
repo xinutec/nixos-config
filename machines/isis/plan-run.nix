@@ -34,9 +34,13 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    # 4409f7b — the commit that added `plans::picade`. Pinning anything earlier
-    # would package a runner that cannot answer `plan-run picade`.
-    rev = "4409f7ba3cc2911bdea52bb4e68ac036bad1453e";
+    # feb56e1 — the commit that made `--simulate --json` carry `looked`.
+    # `picade_fleet.health` reads exactly that array for its per-cabinet drift
+    # checks, so a runner older than this answers a report with no readings in
+    # it and every drift check warns. 4409f7b, the previous pin, is where
+    # `plans::picade` first existed and is the earliest that can answer
+    # `plan-run picade` at all.
+    rev = "feb56e15654ef693356dc16ac5440b46e8a3682e";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
