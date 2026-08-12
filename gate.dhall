@@ -82,12 +82,21 @@ in  { name = "nixos-config"
               , "--strict"
               , "machines/amun/vpn-nodes-push.py"
               , "machines/odin/backup_preview.py"
+              , "plan-fleetwatch-push.py"
               ]
         , timeout_s = 600
         }
       , G.Check::{
         , name = "pytest (operational Python)"
-        , argv = inNixShell [ "python", "-m", "pytest", "-q", "machines" ]
+        , argv =
+            inNixShell
+              [ "python"
+              , "-m"
+              , "pytest"
+              , "-q"
+              , "machines"
+              , "test_plan_fleetwatch_push.py"
+              ]
         , timeout_s = 600
         }
       , {-  `find` rather than `git ls-files '*.sh'`: the file list was

@@ -15,7 +15,15 @@ in {
     ./plan-settings.nix
     ./picade-health.nix
     ./plan-picade.nix
+    ../../plan-fleetwatch.nix
   ];
+
+  # #728: the firewall plan finds a rule nobody declared, and until this it had
+  # nowhere to say so. Read-only by construction — `plans::firewall` has no
+  # effects, deliberately: re-running the firewall script would rebuild the
+  # one-way block, and deleting an unaccountable rule unattended could be
+  # deleting the only thing holding a service up.
+  services.planFleetwatch.plans = [ "firewall" ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget

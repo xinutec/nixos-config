@@ -41,7 +41,8 @@
         "mypy",
         "--strict",
         "machines/amun/vpn-nodes-push.py",
-        "machines/odin/backup_preview.py"
+        "machines/odin/backup_preview.py",
+        "plan-fleetwatch-push.py"
       ],
       "cwd": ".",
       "env": {},
@@ -59,7 +60,8 @@
         "-m",
         "pytest",
         "-q",
-        "machines"
+        "machines",
+        "test_plan_fleetwatch_push.py"
       ],
       "cwd": ".",
       "env": {},

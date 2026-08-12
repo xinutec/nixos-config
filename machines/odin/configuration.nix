@@ -11,7 +11,13 @@ in {
     ./backups.nix
     ./plan-run.nix
     ./plan-settings.nix
+    ../../plan-fleetwatch.nix
   ];
+
+  # #728, and odin is the machine that most needs it: it is the one nobody logs
+  # into for weeks at a time. Read-only by construction — `plans::firewall` has
+  # no effects, deliberately.
+  services.planFleetwatch.plans = [ "firewall" ];
 
   # odin is a 4-thread Atom N2800 with 3 GB of RAM, and it now builds a Rust
   # program on every plan-run pin bump. amun is the same architecture with 8
