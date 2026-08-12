@@ -34,13 +34,18 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    # feb56e1 — the commit that made `--simulate --json` carry `looked`.
+    # c89e253 — the commit that stopped the verdict claiming more than the run
+    # established. `plan-picade-apply` had been reporting `all picade goals
+    # hold` on a fleet with two cabinets switched off since it was scheduled;
+    # it now says `12 picade goals hold, 8 could not be read`, and the JSON
+    # carries the three counts so a collector need not read the sentence.
+    #
+    # feb56e1, the previous pin, is where `--simulate --json` gained `looked`.
     # `picade_fleet.health` reads exactly that array for its per-cabinet drift
-    # checks, so a runner older than this answers a report with no readings in
-    # it and every drift check warns. 4409f7b, the previous pin, is where
-    # `plans::picade` first existed and is the earliest that can answer
-    # `plan-run picade` at all.
-    rev = "feb56e15654ef693356dc16ac5440b46e8a3682e";
+    # checks, so a runner older than THAT answers a report with no readings in
+    # it and every drift check warns. 4409f7b is where `plans::picade` first
+    # existed and is the earliest that can answer `plan-run picade` at all.
+    rev = "c89e25344d809385ef6537da3e15430e6adbdae5";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
