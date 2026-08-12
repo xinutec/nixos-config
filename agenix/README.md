@@ -30,6 +30,7 @@ fixed path. The NixOS modules reference those paths.
 | `wireguard-<host>.age` | that host + admin | the host's `wg0` private key, `base-configuration.nix` |
 | `root-ssh-ed25519.age` | all hosts + admin | `/root/.ssh/id_ed25519`, inter-host root SSH |
 | `root-ssh-rsa.age` | all hosts + admin | `/root/.ssh/id_rsa`, inter-host root SSH (legacy) |
+| `home-ingest-token.age` | geb + admin | the Govee pusher's bearer token, `machines/geb/configuration.nix` |
 | `hc-ping-md.age` | amun + admin | RAID heartbeat check ID, `machines/amun/md-healthcheck.nix` |
 | `hc-ping-backup.age` | odin + admin | backup check ID, `machines/odin/backups.nix` |
 | `hc-ping-drill.age` | odin + admin | restore-drill check ID, `machines/odin/drill/drill-run.sh` |

@@ -63,6 +63,13 @@ in {
   # One file per check rather than one shared file, on the wireguard
   # precedent: amun's RAID heartbeat and odin's backup are unrelated, and
   # neither host has any use for the other's.
+  # home.xinutec.org's ingest token — the bearer credential a sensor receiver
+  # POSTs readings with. The same value the Mac keeps in its Keychain and the
+  # phone app holds; geb is the third receiver and the first that can be given
+  # it declaratively. Only geb, because a token is a capability and the other
+  # three machines have no sensors to push.
+  "home-ingest-token.age".publicKeys = [ geb admin ];
+
   "hc-ping-md.age".publicKeys = [ amun admin ];
   "hc-ping-backup.age".publicKeys = [ odin admin ];
   "hc-ping-drill.age".publicKeys = [ odin admin ];

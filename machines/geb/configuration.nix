@@ -12,6 +12,17 @@
 
 { config, pkgs, lib, ... }:
 
+let
+  # The Govee pusher's runtime. bleak pulls in dbus-fast, which is what the
+  # reader uses to power-cycle the adapter between scan rounds.
+  goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
+
+  # geb's checkout of xinutec-infra, where the pusher and the shared modules
+  # live. That repository is private and this one is public, so the code cannot
+  # be fetched at evaluation time — every other machine's `nixos-rebuild` would
+  # then need credentials it has no reason to hold.
+  infra = "/opt/xinutec-infra";
+in
 {
   imports = [ ../../base-configuration.nix ];
 
@@ -75,4 +86,66 @@
       fsType = "ext4";
       options = [ "nofail" "x-systemd.device-timeout=30" ];
     };
+
+  # The Intel AX combo card's other half. Enabled to find out whether geb can
+  # hear the house's Govee hygrometers, which is a question about where it sits,
+  # not about the radio — so it has to be measured from here rather than argued.
+  #
+  # `powerOnBoot` because the only consumer is a passive advertisement scan: an
+  # adapter that comes up soft-blocked reads exactly like a sensor out of range,
+  # and this box is headless.
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
+
+  # The house's third Govee receiver, after the Mac and the pixel5 phone. It is
+  # the only one of the three that is always on, on mains, and doing nothing
+  # else — which is the point: measured 2026-08-09 the Mac hears nothing from
+  # the up-floor sensors, so the phone was the sole receiver for three rooms.
+  #
+  # Ingest token, decrypted at activation with geb's own host key. The pusher
+  # reads this exact path; there is no fallback, because a receiver that quietly
+  # finds some other token pushes nowhere.
+  age.secrets."home-ingest-token" = {
+    file = ../../agenix/home-ingest-token.age;
+    mode = "0400";
+  };
+
+  systemd.services.govee-push = {
+    description = "Scan the Govee BLE hygrometers and push their readings to home";
+    # Bluetooth is the whole job, and the pusher stamps each reading with its
+    # own capture time and spools on failure, so it does not wait on the
+    # network: a run during a router reboot buffers and replays.
+    after = [ "bluetooth.service" ];
+    requires = [ "bluetooth.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      # /var/lib/govee-push — the store-and-forward buffer, which must outlive
+      # a reboot to be worth anything.
+      StateDirectory = "govee-push";
+      # Clone if absent, and deliberately never pull: a timer that fetched code
+      # every run would deploy whatever was last pushed, half-finished or not.
+      # Updating geb is `git -C /opt/xinutec-infra pull`, on purpose.
+      ExecStartPre = ''
+        ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
+      '';
+      ExecStart = "${goveePython}/bin/python3 ${infra}/geb/govee-push.py";
+      # Powering the adapter off and on between scan rounds is a system-wide
+      # BlueZ operation, and reading the agenix secret needs root anyway.
+      User = "root";
+    };
+  };
+
+  systemd.timers.govee-push = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      # The :05 phase, against the Mac's :00/:10/:20…, so the two receivers'
+      # rows interleave rather than landing together.
+      OnCalendar = "*:05/10";
+      # A run is four flushed scan rounds plus delivery — comfortably inside the
+      # ten-minute slot, but a machine that has been asleep must not stack them.
+      AccuracySec = "30s";
+    };
+  };
 }
