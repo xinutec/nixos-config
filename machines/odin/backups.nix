@@ -122,7 +122,33 @@
     initialize   = true;
     passwordFile = config.age.secrets."restic-password".path;
 
-    paths = [ "/var/backup-staging" ];
+    # ⚠ `/var/backup-staging` was the ONLY path until 2026-08-12, which meant
+    # odin backed up amun, isis and the mac and NOT ITSELF. The repo lives here
+    # and stages the others into it, so the one host with no copy anywhere was
+    # the one holding everyone else's. Found by listing what a snapshot actually
+    # contains (`restic ls latest` → amun/, isis/, mac/, and no odin/) rather
+    # than by reading this file, where the absence looks like nothing at all.
+    #
+    # odin's unique state is small, because the machine is defined by
+    # `nixos-config` plus agenix: what is NOT in git is these three.
+    #   /root            .ssh, .config, drill, shell history      (~200 KB kept)
+    #   /home            pippijn's checkout, .unison, .local      (~19 MB)
+    #   /var/lib/private systemd DynamicUser state                (2.2 MB)
+    #
+    # Deliberately absent: /var/lib/docker (14 GB of buildfarm containers that
+    # pull again), /var/lib/grafana-agent (a WAL), /etc (generated, and
+    # /etc/nixos is this repository), and the nix store.
+    #
+    # ⚠ `/backup` is on the SAME filesystem as `/` (both /dev/sda2), so
+    # `--one-file-system` does not fence the repo out — only path selection does.
+    # Never add a path that contains /backup/restic, or restic starts backing up
+    # its own repository into itself.
+    paths = [
+      "/var/backup-staging"
+      "/root"
+      "/home"
+      "/var/lib/private"
+    ];
 
     timerConfig = {
       OnCalendar         = "02:30";
@@ -140,6 +166,11 @@
     extraBackupArgs = [
       "--one-file-system"
       "--exclude-caches"
+      # `--exclude-caches` only skips directories carrying a CACHEDIR.TAG, which
+      # ~/.cache does not — /root/.cache alone is 144 MB of nothing worth
+      # restoring. Named explicitly rather than trusting the tag convention.
+      "--exclude" "/root/.cache"
+      "--exclude" "/home/*/.cache"
       "--tag" "cluster"
     ];
 
