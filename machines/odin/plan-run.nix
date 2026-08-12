@@ -55,7 +55,14 @@ let
     #
     # MEASURED before and after: 36 staged artifacts before, 37 after, the new
     # one being stage-tasks-db.
-    rev = "c89e25344d809385ef6537da3e15430e6adbdae5";
+    #
+    # a5b9dcf, 2026-08-12: `plan-run firewall`, the seventh plan. Two `Includes`
+    # rows over `/etc/plan/declared-firewall.json` and `iptables -S`, so a rule
+    # nobody declared is a fact this host can be asked about rather than
+    # something somebody notices — #728, and #727 is what it would have caught.
+    # odin is the subject the ticket names first: no Kubernetes, so its live
+    # chains are ours plus two docker jumps and the comparison is nearly exact.
+    rev = "a5b9dcf10407a4e2d6493bdc7eadf0dc97b841fe";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source
