@@ -143,10 +143,15 @@
       # makes the reachability a property rather than a side effect of both
       # being at home. Nothing else on the VPN gains anything.
       reachableFrom = [ "mac-mini" ];
-      # A new box with no service on it yet — no storage until the 6 TB HDD is
-      # freed (#697), so "no handshake" is not yet a fault worth waking anyone.
-      # Flip to false when it becomes a backup target and being down is real.
-      intermittent = true;
+      # Flipped 2026-08-12: geb holds backups now (the 6 TB HDD is its /data,
+      # #697 closed), so it is the one class of machine where "no handshake"
+      # must be a fault — a backup target that is quietly down is indistinguishable
+      # from one that is working until the day it is needed. It qualifies on the
+      # other side too: it is a client peer, so it keepalives amun every 25s
+      # (base-configuration.nix) and its handshake was 8s old when this changed,
+      # well inside the pusher's 180s freshness window. Nothing here is
+      # intermittent by nature the way a phone or an arcade cabinet is.
+      intermittent = false;
     };
 
     # Dasha's phone. Private key generated on the Mac 2026-07-08, lives only in
