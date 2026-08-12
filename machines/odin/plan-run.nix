@@ -40,7 +40,22 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    rev = "5dbe20ef8a950a69795f94e249685cf030353236";
+    # c89e253 — 78 commits on from 5dbe20e, 24 of them touching plan/. Bumped
+    # 2026-08-12 as its own change rather than alongside a feature, because
+    # SEVEN of those alter what this host actually backs up and drills, and a
+    # backup-table change on the machine holding every backup deserves its own
+    # deploy and its own verification:
+    #
+    #   0dbaba6  the tasks database joins the table — a primary copy with no
+    #            git behind it, unlike the file-per-repo scheme it replaced
+    #   350efca  picade-home is staged from isis, not amun; the fleet moved
+    #   afa7dc9  the drill called nocodb drilled because Nextcloud was
+    #   d4046fd  a proof nothing performs is a claim, not a capability
+    #   b287840  every artifact says how its restore is proven
+    #
+    # MEASURED before and after: 36 staged artifacts before, 37 after, the new
+    # one being stage-tasks-db.
+    rev = "c89e25344d809385ef6537da3e15430e6adbdae5";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source
