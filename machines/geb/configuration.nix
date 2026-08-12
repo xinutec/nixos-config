@@ -57,4 +57,22 @@
   # mounting ~/.config/buildfarm/${config.node.name}.yml — a file geb has no
   # reason to have, so the container would restart-loop indefinitely.
   virtualisation.oci-containers.containers = lib.mkForce { };
+
+  # The 6 TB WD Elements freed from the Mac by #697 and reformatted ext4 here on
+  # 2026-08-12. It lives in configuration.nix, not hardware-configuration.nix,
+  # because the latter is generated and a regeneration would drop this.
+  #
+  # By UUID: the disk is USB, and sd* names are assigned in enumeration order,
+  # so a second external device would silently swap them.
+  #
+  # ⚠ `nofail` because geb is headless on wifi with no monitor attached. Without
+  # it, a disk that is unplugged, spun down or slow to enumerate stops the boot
+  # in emergency mode on a machine that cannot show you why. The device timeout
+  # bounds the wait rather than leaving it to the 90 s default, since a spinning
+  # USB disk that is not there is not going to appear.
+  fileSystems."/data" =
+    { device = "/dev/disk/by-uuid/2099398b-e6b1-4f31-9096-54a51edda1b3";
+      fsType = "ext4";
+      options = [ "nofail" "x-systemd.device-timeout=30" ];
+    };
 }
