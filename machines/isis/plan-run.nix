@@ -34,8 +34,13 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    # c89e253 — the commit that stopped the verdict claiming more than the run
-    # established. `plan-picade-apply` had been reporting `all picade goals
+    # a5b9dcf — `plan-run firewall`, the seventh plan: two `Includes` rows over
+    # `/etc/plan/declared-firewall.json` and `iptables -S`, so a rule nobody
+    # declared is a fact this host can be asked about rather than something
+    # somebody notices. #728, and #727 is what it would have caught.
+    #
+    # c89e253, the previous pin, is the commit that stopped the verdict
+    # claiming more than the run established. `plan-picade-apply` had been reporting `all picade goals
     # hold` on a fleet with two cabinets switched off since it was scheduled;
     # it now says `12 picade goals hold, 8 could not be read`, and the JSON
     # carries the three counts so a collector need not read the sentence.
@@ -45,7 +50,7 @@ let
     # checks, so a runner older than THAT answers a report with no readings in
     # it and every drift check warns. 4409f7b is where `plans::picade` first
     # existed and is the earliest that can answer `plan-run picade` at all.
-    rev = "c89e25344d809385ef6537da3e15430e6adbdae5";
+    rev = "a5b9dcf10407a4e2d6493bdc7eadf0dc97b841fe";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
