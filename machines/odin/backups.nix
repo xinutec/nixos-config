@@ -197,8 +197,39 @@
     # success, which is the one failure this whole port exists to make
     # impossible. Verified by hand first: a full apply ran 36/36 artifacts clean
     # on 2026-08-02 at 19:41–20:22 UTC before this line was written.
-    backupPrepareCommand =
-      "${planRun}/bin/plan-run backup --settings /etc/plan/settings.json --apply";
+    # ⚠ **A stage that cannot run must not cost the whole fleet its backup.**
+    # This was a bare command, so a non-transient staging failure exited the
+    # ExecStartPre and restic — which is in ExecStart, behind it — never ran at
+    # all. On 2026-08-12 the `picade-home` source had been moved off amun the
+    # day before; the reconciler correctly called it non-transient, and the
+    # night produced **no snapshot of anything**: not odin's own `/root` and
+    # `/home`, and not one of the amun, isis and Mac artifacts that had staged
+    # successfully minutes earlier. Blocking makes an incomplete backup
+    # impossible, which is a defensible thing to want — but the price it charges
+    # is *no* backup rather than a nearly complete one, and it recurs every night
+    # until somebody notices.
+    #
+    # So the failure is recorded and the run continues. `ExecStartPost` reads the
+    # marker, declines to check in, and fails the unit — the snapshot is taken,
+    # and the alarm still goes off. Loud and nearly complete beats silent and
+    # absent. Decided by Pippijn 2026-08-12.
+    #
+    # ⚠ **The missing artifact is STALE, not absent.** The staging tree is kept
+    # between runs (see below), so restic backs up the *previous* copy of
+    # whatever failed to refresh. That is better than nothing and worse than it
+    # looks: the snapshot will contain a plausible file with an old timestamp, so
+    # the unit failing is the only thing that says which artifact to distrust.
+    # Read the journal for the `[plan] blocked:` line before trusting a snapshot
+    # taken by a failed run.
+    #
+    # `if !` rather than `|| true`: the generated pre-start script runs under
+    # `set -e`, and this way the failure is caught rather than merely ignored.
+    backupPrepareCommand = ''
+      if ! ${planRun}/bin/plan-run backup --settings /etc/plan/settings.json --apply; then
+        echo "staging failed — backing up what IS staged, and failing this unit afterwards"
+        touch /run/restic-backups-cluster/staging-failed
+      fi
+    '';
     # Intentionally NO backupCleanupCommand. The staging tree is kept
     # between runs so that the next run's rsync is incremental (seconds
     # instead of hours) instead of starting from an empty directory.
@@ -231,8 +262,20 @@
       #
       # Still no `|| true` — an unreachable monitor fails this unit, as it
       # did before. A backup nobody can confirm is not a backup.
+      #
+      # ⚠ **And it does NOT check in for a run whose staging failed.** The
+      # snapshot was taken — that is the point of carrying on — but an artifact
+      # in it is the previous run's copy, so this is not a backup anyone should
+      # be told is good. No ping means healthchecks.io alerts by absence, which
+      # is the same way it caught the 2026-08-12 failure and does not depend on
+      # a failing unit remembering to report itself.
       ExecStartPost = pkgs.writeShellScript "restic-backup-ping" ''
         set -euo pipefail
+        if [ -e /run/restic-backups-cluster/staging-failed ]; then
+          echo "a stage did not run, so an artifact in this snapshot is stale;" >&2
+          echo "not checking in, and failing the unit — see the [plan] lines above" >&2
+          exit 1
+        fi
         id="$(cat ${config.age.secrets."hc-ping-backup".path})"
         exec ${pkgs.curl}/bin/curl -fsS "https://hc-ping.com/$id"
       '';
