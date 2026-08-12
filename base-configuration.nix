@@ -66,6 +66,92 @@ let
   # The OUTPUT rule is deliberately NOT excepted. It stops this host dialling
   # the peer itself, and forwarding somebody else's connection is not a reason
   # to grant your own.
+  # ── The rules this repository declares, AS DATA ────────────────────────────
+  #
+  # Rendered to /etc/plan/declared-firewall.json so the declared side of the
+  # fleet's firewall becomes something that can be READ. Nothing could read it
+  # before: rules come out of shell evaluation — `extraCommands` below is 92
+  # rendered lines with a function definition and a loop in it — so a static
+  # parse of the script is a guess, and running the script to find out is not a
+  # read. #727 is what that cost: a hand-added rule sat in amun's FORWARD chain
+  # for at least 88 days, undeclared, found because somebody happened to look.
+  #
+  # ⚠ Spelled in `iptables -S` FORM, not in the form the commands below are
+  # written in, and the difference is not cosmetic — it is the whole point of
+  # measuring rather than assuming. iptables renders a rule back canonically:
+  # `-d 10.100.0.5` returns as `-d 10.100.0.5/32`, `--ctstate ESTABLISHED,RELATED`
+  # returns as `RELATED,ESTABLISHED`, and `--dport 6443` gains a `-m tcp`. Every
+  # string here was copied from live output on geb (2026-08-12), not composed.
+  #
+  # ⚠ This is a SECOND rendering of the same values, not a generator for the
+  # first, and that is deliberate. Driving `extraCommands` from this list would
+  # mean reproducing its comments, its teardown ordering and its `-w` placement
+  # exactly — intricacy added to a firewall generator to remove intricacy from
+  # it. What keeps the two honest is the check that consumes this file: if the
+  # script and this list disagree, the comparison against the live chains is
+  # what says so. A drifting declaration is the thing being detected, not a
+  # weakness in detecting it.
+  #
+  # SCOPE: our rules only — the k8s API accepts and the one-way VPN block. NOT
+  # everything the NixOS firewall module generates, and not what Docker, k3s or
+  # kube-router inject. Reproducing the module's own output as data would
+  # duplicate its logic and become its own drift risk; #727 sat in a chain we
+  # own, so the scoped version still catches its shape.
+  declaredFirewall =
+    # The two container→API accepts, from the same `net` values `extraCommands`
+    # interpolates.
+    (map (proto: {
+      chain = "nixos-fw";
+      spec = "-A nixos-fw -s ${net.cluster} -p ${proto} -m ${proto} --dport ${
+          toString net.k8sApiPort
+        } -j nixos-fw-accept";
+      why = "containers reach the API and nothing else internal";
+    }) [ "tcp" "udp" ])
+    # The public port list, which is a declaration of ours even though the
+    # firewall MODULE renders it rather than `extraCommands`. `allowedTCPPorts`
+    # and `allowedUDPPorts` below are literally `[ net.vpnPort ]`, so this reads
+    # the same value and no second list can go stale.
+    #
+    # SSH's 22 is deliberately NOT here. It is opened implicitly by
+    # `services.openssh.openFirewall`, so declaring it would be this file
+    # asserting another module's default — and if that default ever changed, the
+    # check would go red at the declaration rather than at the cause.
+    ++ (map (proto: {
+      chain = "nixos-fw";
+      spec = "-A nixos-fw -p ${proto} -m ${proto} --dport ${
+          toString net.vpnPort
+        } -j nixos-fw-accept";
+      why = "WireGuard, one of the two remote lifelines";
+    }) [ "tcp" "udp" ])
+    # ...and every one-way node's block. Fleet-wide rather than per host: the
+    # rules go on every machine, which is what makes the VPN one-way at all.
+    ++ (lib.concatMap (node:
+      [
+        {
+          chain = "FORWARD";
+          spec =
+            "-A FORWARD -d ${node.vpn}/32 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT";
+          why = "return traffic for connections ${node.name} opened itself";
+        }
+      ] ++ (map (peer: {
+        chain = "FORWARD";
+        spec = "-A FORWARD -s ${vpnOf peer}/32 -d ${node.vpn}/32 -j ACCEPT";
+        why = "${peer} may initiate toward ${node.name}";
+      }) (node.reachableFrom or [ ])) ++ [
+        {
+          chain = "FORWARD";
+          spec = "-A FORWARD -d ${node.vpn}/32 -j DROP";
+          why = "nothing else may initiate toward ${node.name}";
+        }
+        {
+          chain = "OUTPUT";
+          spec =
+            "-A OUTPUT -d ${node.vpn}/32 -m conntrack --ctstate NEW -j DROP";
+          why =
+            "this host may not dial ${node.name} either; forwarding somebody else's connection is not a reason to grant your own";
+        }
+      ]) oneWayNodes);
+
   oneWayRules = node: ''
     # One-way VPN for ${node.name} (${node.vpn}).
   '' + oneWayTeardown node + ''
@@ -236,6 +322,12 @@ in {
       extraStopCommands = lib.concatMapStrings oneWayTeardown oneWayNodes;
     };
   };
+
+  # The declared side of #728's comparison, on disk where a probe can read it.
+  # Beside /etc/plan/settings.json rather than anywhere else, because a plan
+  # reads it and that directory is what a plan's inputs live in.
+  environment.etc."plan/declared-firewall.json".text =
+    builtins.toJSON { rules = declaredFirewall; };
 
   # WireGuard private key for this host — an agenix secret, decrypted
   # at activation to /run/agenix/wireguard-<host>. Each host carries
