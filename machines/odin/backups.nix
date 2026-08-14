@@ -80,16 +80,28 @@
     shell = "${pkgs.bash}/bin/bash";
     openssh.authorizedKeys.keys = [
       # rrsync confines the key to one directory. `-wo` makes it write-only, so
-      # a compromised mac can add to the archive but cannot read it back, and
-      # `-no-del` refuses --delete server-side — the append-only property is
-      # then structural rather than a flag the client script could grow later.
+      # a compromised mac can add to the archive but cannot read it back.
       # Neither /backup/restic (root-owned) nor anything else on the host is
       # reachable.
+      #
+      # `-no-del` was here until 2026-08-14 and made the archive append-only:
+      # Claude Code prunes its own old transcripts, and a mirror would have let
+      # that prune reach the only remaining copy. Measured before removing it —
+      # the mac held 24 main transcripts against this archive's 2,490, so the
+      # property was demonstrably load-bearing — but the 2,466 it was holding
+      # were empty sessions, median 23.7 KB, which is about what a transcript
+      # weighs when it is nothing but injected task-reminder boilerplate.
+      # Pippijn's call, on that evidence: they are copies of data held
+      # elsewhere and not worth mirroring for.
+      #
+      # ⚠ So deletions now propagate, and restic is the only history: retention
+      # here is keep-daily 7 / keep-weekly 4 / keep-monthly 6, so anything the
+      # mac drops is recoverable for about six months and then gone.
       #
       # rsync rather than SFTP because projects/ is append-mostly JSONL — the
       # largest transcript is ~480 MB and grows daily, so delta transfer is the
       # difference between a few MB a night and re-uploading the file.
-      ''command="${pkgs.rrsync}/bin/rrsync -wo -no-del /var/backup-staging/mac",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFZb+BRn1YUxmseeNCEU+cD9CzvOGdgcZmk4zqYwTb7i mac-mini-claude-archive''
+      ''command="${pkgs.rrsync}/bin/rrsync -wo /var/backup-staging/mac",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFZb+BRn1YUxmseeNCEU+cD9CzvOGdgcZmk4zqYwTb7i mac-mini-claude-archive''
     ];
   };
   users.groups.mac-archive = {};
