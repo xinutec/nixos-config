@@ -302,31 +302,15 @@
   # Weekly repo integrity check — separate unit, not coupled to the backup
   # timer. Reads 5% of the repo data on each run.
   #
-  # ⚠ 06:00, not 04:00, and the two hours are not padding. restic takes an
-  # EXCLUSIVE LOCK on the repository, so this and the nightly backup cannot
-  # overlap — and on 2026-08-16 they did: the backup ran 02:42→04:03 and this
-  # check died at 04:00:02 with `unable to create lock in backend: repository is
-  # already locked`, four minutes short.
+  # ⚠ 06:00 is SLACK, not the mechanism. restic's lock is exclusive, so this and
+  # the nightly backup cannot overlap — and on 2026-08-16 they did, this check
+  # dying at 04:00:02 four minutes before the backup released it. The backup
+  # takes 43–81 minutes and its ceiling is climbing, so 04:00 had simply been
+  # outgrown. What stops it recurring is `retry_lock_s` in plan-settings.nix,
+  # which makes the check WAIT; this hour is only there so it rarely has to.
   #
-  # 04:00 was chosen when the backup finished by 03:20. Measured over the nine
-  # nights to 2026-08-16 it takes 43–81 minutes and the ceiling is climbing:
-  # 03:12, 03:17, 03:22, 03:23, 03:27, 03:35, 03:38, 04:03. So this was not a
-  # freak — it is the first of a recurring collision, and the margin has to be
-  # sized to the worst night rather than the median. 06:00 clears 04:03 by two
-  # hours and still leaves the Sunday 12:00 drill alone.
-  #
-  # ⚠ THE HEALTHCHECKS SCHEDULE MUST MATCH. The `cluster-integrity` check is
-  # configured OnCalendar `Sun 06:00`; leaving it at 04:00 would alarm two hours
-  # before the job it watches has run, every week.
-  #
-  # The real fix is `restic --retry-lock`, so this waits for the backup instead
-  # of relying on a gap someone guessed — that is a plan-table change and a pin
-  # bump, filed rather than done here.
-  #
-  # ⚠ And note what found this: NOTHING DID, for as long as it mattered. The
-  # 04:00 failure was silent because the old unit reported to nobody, which is
-  # exactly the gap `plan-run integrity` closes. It surfaced only because
-  # somebody read the journal by hand while cutting the unit over.
+  # ⚠ THE HEALTHCHECKS SCHEDULE MUST MATCH — `cluster-integrity` is set to
+  # `Sun 06:00`. At 04:00 it would alarm two hours before the job it watches.
   systemd.timers.restic-check-cluster = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
@@ -438,16 +422,8 @@
     # attention that week anyway, and ordering nocodb first would let the
     # cheaper, soon-retired system block the crown jewel.
     #
-    # What the plan adds in exchange: the preflight is now two goals rather than
-    # a stage inside drill-run.sh (hence `--restore-only` in the effect), the
-    # image-match check REFUSES rather than remedies, the five-minute dbload
-    # check runs first so a broken dump is found before four hours are spent on
-    # it, and the check-in is a goal of its own instead of a line at the end of
-    # a script that only runs if everything before it did.
-    #
-    # `--host odin` is odin naming itself; see plan-settings.nix and the
-    # knownHosts block above for why that is an ssh loop rather than a local
-    # call.
+    # `--host odin` is odin naming itself — an ssh loop back to localhost, not a
+    # local call. The knownHosts block above is why that resolves.
     script = ''
       ${planRun}/bin/plan-run drill \
         --host odin --prod-host isis \

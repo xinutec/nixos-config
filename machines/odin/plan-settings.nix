@@ -52,24 +52,18 @@ let
       cluster = {
         path = "/backup/restic";
         password_file = "/run/agenix/restic-password";
-        # Wait up to two hours for the lock rather than dying on it.
+        # Wait for the lock rather than dying on it. restic's lock is EXCLUSIVE
+        # and this repository has a second writer — the nightly backup — which
+        # on 2026-08-16 was still holding it when the check started, so that
+        # week's verification never ran. A stagger only moves the collision;
+        # this removes it, because whenever the backup finishes, the check
+        # proceeds.
         #
-        # restic's lock is EXCLUSIVE, and this repository has a second writer:
-        # the nightly backup. On 2026-08-16 they collided — the backup ran
-        # 02:42→04:03 and the 04:00 check died on `repository is already
-        # locked`, four minutes short. That week's verification never happened
-        # and nothing said so.
-        #
-        # The check also moved to 06:00, but that is a margin against a backup
-        # that has grown from 43 to 81 minutes and is still growing, so it would
-        # need moving again. This makes the schedule stop being load-bearing:
-        # whenever the backup finishes, the check proceeds.
-        #
-        # Two hours because it is a ceiling on waiting, not a target — the
-        # observed worst case is a backup running 81 minutes, and the runner
-        # ADDS this to the effect's own timeout rather than spending it out of
-        # it, so a long wait cannot turn into a kill that reads like a hung
-        # restic.
+        # ⚠ Two hours is a CEILING ON WAITING, not a target, and the runner adds
+        # it to the effect's own timeout rather than spending it out of it. Were
+        # it spent, a long wait plus a half-hour check would be killed at two
+        # hours — and a timeout does not name its cause, where `repository is
+        # already locked` does.
         retry_lock_s = 7200;
       };
     };
