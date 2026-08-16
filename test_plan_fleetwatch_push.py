@@ -273,3 +273,40 @@ def test_a_report_with_no_predicted_field_still_reads() -> None:
     obj.pop("predicted", None)
     checks = _by_label(push.verdict_checks("firewall", 0, obj, ""))
     assert "pending" not in str(checks["firewall: outcome"]["observed"])
+
+
+def test_pending_goals_are_named_so_the_counts_add_up() -> None:
+    """⚠ Without this, drill read "2 held, 0 could not be read, 0 did not hold"
+    — every number true, and a clean bill of health for a five-goal plan whose
+    three stamps were missing."""
+    obj = _converged(held=2, unread=0, adrift=0, pending=3)
+    checks = _by_label(push.verdict_checks("drill", 2, obj, ""))
+    assert checks["drill: verified"]["observed"] == (
+        "2 held, 3 pending, 0 could not be read, 0 did not hold"
+    )
+
+
+def test_pending_does_not_enter_the_verdict() -> None:
+    """Outstanding work is what the `outcome` check reports. Saying it twice
+    would make one drifted plan look like two problems, and this check answers
+    a different question: how much could be READ."""
+    checks = _by_label(push.verdict_checks("drill", 2, _converged(pending=3), ""))
+    assert checks["drill: verified"]["verdict"] == "pass"
+    assert checks["drill: verified"]["value"] == 0.0
+
+
+def test_a_runner_too_old_to_report_pending_still_reports() -> None:
+    """⚠ Read tolerantly, unlike the other three counts.
+
+    `pending` arrived on 2026-08-17 and a host on an older pin does not emit it.
+    Requiring it would take the collector down until every pin moved — a
+    reporting outage to fix a reporting inaccuracy. Absent means "this runner
+    cannot tell me", and the sentence omits it.
+    """
+    obj = _converged(held=2)
+    obj.pop("pending", None)
+    checks = _by_label(push.verdict_checks("drill", 2, obj, ""))
+    assert checks["drill: verified"]["observed"] == (
+        "2 held, 0 could not be read, 0 did not hold"
+    )
+    assert checks["drill: verified"]["verdict"] == "pass"

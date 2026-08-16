@@ -94,7 +94,7 @@ let
     # closure and activate together, so there is no window in which an older
     # binary reads a newer settings file. Splitting it would add a deploy and
     # buy nothing.
-    rev = "c1cd2b841090c5b86680ba1244ee92b278229b9c";
+    rev = "26c86db78c53988f3d1ab3b5c7f029f4f3a6af72";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source

@@ -188,11 +188,31 @@ def verdict_checks(plan: str, code: int, obj: dict[str, object] | None,
         })
         return checks
 
+    # ⚠ `pending` is read TOLERANTLY, unlike the three above. It was added on
+    # 2026-08-17 and a host still running an older `plan-run` does not emit it —
+    # a hard requirement here would take the collector down until every pin
+    # moved, which is a reporting outage to fix a reporting inaccuracy. Absent
+    # means "this runner cannot tell me", and the sentence simply omits it.
+    #
+    # It does NOT enter the verdict. Outstanding work is already what the
+    # `outcome` check reports, and saying it twice would make one drifted plan
+    # look like two problems. This check answers "how much could be READ", which
+    # is unread + adrift and nothing else.
+    # ⚠ Named `outstanding` and not `pending`, because the outcome check above
+    # already has a `pending` and it counts something else: predicted STEPS.
+    # These are outstanding GOALS. They coincide for drill — three goals, three
+    # steps — which is exactly the kind of accident that makes two names for two
+    # things look like one.
+    outstanding = _count(obj, "pending")
+    counted = f"{held} held"
+    if outstanding:
+        counted += f", {outstanding} pending"
+    counted += f", {unread} could not be read, {adrift} did not hold"
     checks.append({
         "section": plan,
         "label": f"{plan}: verified",
         "verdict": "pass" if unread == 0 and adrift == 0 else "warn",
-        "observed": f"{held} held, {unread} could not be read, {adrift} did not hold",
+        "observed": counted,
         "value": float(unread + adrift),
         "unit": "goals",
     })
