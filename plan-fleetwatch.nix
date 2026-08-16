@@ -9,21 +9,24 @@
 # └────────────────────────────────────────────────────────────────────────────┘
 #
 # `plans` is a LIST because the shape is the same for every plan: run it
-# read-only, translate the verdict, POST. #728's `firewall` was the first and
-# `integrity` the second.
+# read-only, translate the verdict, POST. #728's `firewall` was the first,
+# `integrity` the second, `drill` the third.
 #
 # ⚠ This file used to say `backup`, `offsite` and `drill` were each one more
 # line. That was never measured, and on 2026-08-16 it was measured and is false
 # for all three — a list entry is the WIRING, not the work:
 #
 #   * `drill` and `deploy` take REQUIRED arguments (`--host`, `--prod-host`,
-#     `--app`…) and this module passes none, so they exit 3 — "a defect in the
-#     plan" — and would report `fail` every hour. They need the module to carry
-#     per-plan arguments first.
+#     `--app`…), and a list of bare names could not carry them, so they exited
+#     3 — "a defect in the plan" — and would have reported `fail` every hour.
+#     FIXED 2026-08-17 (#977): an entry may be `{ name; args; }`, and `drill`
+#     reports. `deploy` still does not: it needs four arguments and one entry
+#     per app, which is a different question, but the capability is here.
 #   * `backup --simulate` predicts its 37 staging steps every run, because
 #     staging is what that plan DOES rather than drift it has found. Exit 2, so
 #     it would report `warn` for ever: amber in the steady state is amber nobody
-#     reads. What it should say when nothing is wrong is an open question.
+#     reads. STILL OPEN — #978, and note it is not the same as `drill`'s amber,
+#     which arrives on day seven and means "the drill is due".
 #   * `offsite` runs on the Mac, which has no NixOS module at all.
 #
 # ⚠ INGEST TOKEN, and it is per machine. fleetwatch derives `source` from the
