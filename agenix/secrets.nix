@@ -73,4 +73,9 @@ in {
   "hc-ping-md.age".publicKeys = [ amun admin ];
   "hc-ping-backup.age".publicKeys = [ odin admin ];
   "hc-ping-drill.age".publicKeys = [ odin admin ];
+  # The weekly `restic check` on odin's own repository. Third of odin's
+  # dead-man's switches and the last one to get an id — the check did not exist
+  # until 2026-08-16, which is what #52 was actually waiting on once the runner
+  # learned to read an id from a file.
+  "hc-ping-integrity.age".publicKeys = [ odin admin ];
 }

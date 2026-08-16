@@ -41,10 +41,19 @@ let
       BackupStaging = "/var/backup-staging";
     };
 
-    # The backup plan names no repository. restic itself is run by the NixOS
-    # module, not by the reconciler; the reconciler only assembles what restic
-    # then reads.
-    repos = { };
+    # `backup` still names no repository — restic is run by the NixOS module
+    # there, and the reconciler only assembles what restic then reads.
+    #
+    # `integrity` does, because it runs restic itself: one `check
+    # --read-data-subset` against odin's own repository. The password is named
+    # by FILE and never read into the runner, so it cannot reach a log, an
+    # argument list or a core dump. Same path the restic module already uses.
+    repos = {
+      cluster = {
+        path = "/backup/restic";
+        password_file = "/run/agenix/restic-password";
+      };
+    };
 
     # `address` is why this file exists at all today. The plan names `isis`,
     # and on odin that name resolves to the PUBLIC address while `isis.vpn`
@@ -97,6 +106,11 @@ let
       # for every plan that never checks in.
       check_files = {
         drill = "/run/agenix/hc-ping-drill";
+        # The name the PLAN uses, so it is `cluster-integrity` and not
+        # `integrity` — `plans::integrity` says
+        # `NotifyMonitor { check = "cluster-integrity" }`, and `url_for` refuses
+        # a name it does not hold rather than guessing at a near miss.
+        cluster-integrity = "/run/agenix/hc-ping-integrity";
       };
     };
 

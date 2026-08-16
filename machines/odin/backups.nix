@@ -128,6 +128,11 @@
   # not exist yet on a fresh boot.
   age.secrets."hc-ping-backup".file = ../../agenix/hc-ping-backup.age;
   age.secrets."hc-ping-drill".file = ../../agenix/hc-ping-drill.age;
+  # Third switch, minted 2026-08-16. #52 read as "blocked on a healthchecks id"
+  # for months, which sounded like a decision nobody had taken; half of it was
+  # that a public settings file had nowhere to PUT an id, and that half was
+  # fixed by monitor.check_files. This is the other half.
+  age.secrets."hc-ping-integrity".file = ../../agenix/hc-ping-integrity.age;
 
   services.restic.backups.cluster = {
     repository   = "/backup/restic";
@@ -296,22 +301,69 @@
 
   # Weekly repo integrity check — separate unit, not coupled to the backup
   # timer. Reads 5% of the repo data on each run.
+  #
+  # ⚠ 06:00, not 04:00, and the two hours are not padding. restic takes an
+  # EXCLUSIVE LOCK on the repository, so this and the nightly backup cannot
+  # overlap — and on 2026-08-16 they did: the backup ran 02:42→04:03 and this
+  # check died at 04:00:02 with `unable to create lock in backend: repository is
+  # already locked`, four minutes short.
+  #
+  # 04:00 was chosen when the backup finished by 03:20. Measured over the nine
+  # nights to 2026-08-16 it takes 43–81 minutes and the ceiling is climbing:
+  # 03:12, 03:17, 03:22, 03:23, 03:27, 03:35, 03:38, 04:03. So this was not a
+  # freak — it is the first of a recurring collision, and the margin has to be
+  # sized to the worst night rather than the median. 06:00 clears 04:03 by two
+  # hours and still leaves the Sunday 12:00 drill alone.
+  #
+  # ⚠ THE HEALTHCHECKS SCHEDULE MUST MATCH. The `cluster-integrity` check is
+  # configured OnCalendar `Sun 06:00`; leaving it at 04:00 would alarm two hours
+  # before the job it watches has run, every week.
+  #
+  # The real fix is `restic --retry-lock`, so this waits for the backup instead
+  # of relying on a gap someone guessed — that is a plan-table change and a pin
+  # bump, filed rather than done here.
+  #
+  # ⚠ And note what found this: NOTHING DID, for as long as it mattered. The
+  # 04:00 failure was silent because the old unit reported to nobody, which is
+  # exactly the gap `plan-run integrity` closes. It surfaced only because
+  # somebody read the journal by hand while cutting the unit over.
   systemd.timers.restic-check-cluster = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun 04:00";
+      OnCalendar = "Sun 06:00";
       Persistent = true;
     };
   };
   systemd.services.restic-check-cluster = {
+    # `restic` by NAME now, not by store path: plan-run builds `restic --repo …`
+    # as an argv list and does not know where nix put it. curl is the check-in.
+    path = with pkgs; [ restic curl ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
     };
+    # `plan-run integrity --apply`, replacing the bare restic call.
+    #
+    # What the plan adds is the thing the shell could not do: **silence becomes
+    # visible.** The old unit reported to nothing, so a timer that stopped firing
+    # looked exactly like one that fired and passed — while `offsite` went on
+    # pinging green about the repository it copies FROM. The check-in is a goal
+    # of the plan, so a run that stops happening stops pinging and the switch
+    # goes red on its own.
+    #
+    # The repository and the check id are both named in plan-settings.nix, by
+    # PATH rather than by value; this unit names neither. The 5% subset and the
+    # six-day freshness window are in the plan's table, not here.
+    #
+    # ⚠ The window is 6 days against a 7-day timer, deliberately. At exactly 7 a
+    # Sunday run whose stamp was minutes past 04:00 last Sunday would judge
+    # itself satisfied and skip, silently, for ever. Same discipline as drill.
+    #
+    # By store path for the same reason the staging step is: this pins the check
+    # to the binary this generation was built and tested with.
     script = ''
-      ${pkgs.restic}/bin/restic -r /backup/restic \
-        --password-file ${config.age.secrets."restic-password".path} \
-        check --read-data-subset=5%
+      ${planRun}/bin/plan-run integrity \
+        --settings /etc/plan/settings.json --apply
     '';
   };
 
@@ -342,7 +394,7 @@
   # Weekly fast restore drill — runs every Sunday at 12:00 UTC.
   # Orchestrates: seed from staging → compose up → occ integrity checks
   # → teardown. See machines/odin/drill/ for the scripts.
-  # Staggered after the 02:30 backup and 04:00 restic check so all
+  # Staggered after the 02:30 backup and 06:00 restic check so all
   # three jobs never overlap on odin's single HDD.
   systemd.timers.drill-weekly = {
     wantedBy = [ "timers.target" ];
