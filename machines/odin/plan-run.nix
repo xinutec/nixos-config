@@ -62,7 +62,27 @@ let
     # something somebody notices — #728, and #727 is what it would have caught.
     # odin is the subject the ticket names first: no Kubernetes, so its live
     # chains are ours plus two docker jumps and the comparison is nearly exact.
-    rev = "a5b9dcf10407a4e2d6493bdc7eadf0dc97b841fe";
+    #
+    # 9d6d00c, 2026-08-16: `monitor.check_files` — a check id may be named by a
+    # FILE. Two commits on from a5b9dcf, one of them plan/README only, so the
+    # whole runtime difference is an optional settings field: the diff over
+    # plan/ touches settings.rs, three test files and the README, and no table,
+    # plan, probe or effect. Nothing this host stages, drills or backs up can
+    # change — and the staged artifact count was read back off the machine
+    # afterwards to say so rather than to assume it.
+    #
+    # ⚠ THIS BUMP IS DELIBERATELY AHEAD OF THE SETTINGS THAT NEED IT, and the
+    # order is the point rather than an accident of scheduling.
+    # `deny_unknown_fields` means a binary older than its settings REFUSES to
+    # start — correct, and loud, and the fix for the day this host silently ran
+    # without `address`. So the capability lands first and plan-settings.nix
+    # names `check_files` in a later change; the reverse order fails the unit.
+    #
+    # isis pins a5b9dcf still, and that is a choice rather than an oversight:
+    # its plans are `picade` and `firewall`, neither of which checks in, so the
+    # bump would buy it a rebuild and nothing else. plan-pin.sh reports the
+    # divergence on every commit, which is where that decision gets re-read.
+    rev = "9d6d00cc8b753ef95db0619d6ef18c6a7bc8e87d";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source
