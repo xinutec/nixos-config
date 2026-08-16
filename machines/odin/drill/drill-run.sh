@@ -10,16 +10,22 @@
 # Usage:
 #   ./drill-run.sh                  # fast drill (weekly default)
 #   ./drill-run.sh --full           # full drill via restic restore (monthly)
-#   ./drill-run.sh --restore-only   # skip the preflight stages; see below
+#   ./drill-run.sh --restore-only   # the plan is driving; restore and nothing else
 #
-# --restore-only exists for `plan-run drill`, which owns the two preflight
-# stages as facts of its own: DrillMatchesProduction and done:drill-dbload are
-# both established before it ever chooses to restore. Running them again here
-# would be a second description of a check that has already passed — and a second
-# description is what this whole port is removing.
+# --restore-only exists for `plan-run drill`, which owns both ENDS of this
+# script as facts of its own. At the front, DrillMatchesProduction and
+# done:drill-dbload are established before it ever chooses to restore; at the
+# back, an advisory NotifyMonitor is sent once every goal holds. Doing either
+# again here would be a second description of something that has already
+# happened — and a second description is what this whole port is removing.
+#
+# Read it as "the plan is driving", not as "skip the preflight". The check-in is
+# the part where the difference bites: this script's ping means "Nextcloud
+# restored", the plan's means "the whole drill passed, nocodb included".
 #
 # It is NOT the flag to use by hand. Invoked without it, this script still does
-# its own preflight, because a human running it directly has nothing else to.
+# its own preflight and its own ping, because a human running it directly has
+# nothing else to.
 
 set -euo pipefail
 
@@ -189,15 +195,28 @@ echo "=== drill-run PASSED $(date -u +%FT%TZ) ==="
 # so it comes from agenix rather than from this line. Only the base URL, which
 # is documentation rather than a capability, is still spelled out.
 #
-# This script runs from /etc/nixos under drill-weekly.service, not from the Nix
-# store, so the path is literal; the secret is declared in ../backups.nix beside
-# the unit. Root-only (0400), which this unit already is.
+# This script runs from /etc/nixos, not from the Nix store, so the path is
+# literal; the secret is declared in ../backups.nix. Root-only (0400).
 #
 # `|| true` on the whole thing, as before: the drill has already passed by the
 # time we get here, and a monitor that cannot be reached is a monitoring
 # problem, not a failed restore. If the ping is lost the switch fires anyway,
 # which is the safe direction to fail in.
-{
-  hc_id="$(cat /run/agenix/hc-ping-drill)"
-  curl -fsS "https://hc-ping.com/$hc_id" >/dev/null 2>&1
-} || true
+#
+# ⚠ NOT UNDER --restore-only, and this is the one place the flag guards
+# something other than the preflight. `plans::drill` has its own advisory
+# `NotifyMonitor` goal, sent after `done:drill-nocodb` — so the plan's ping means
+# "the whole drill passed", where this one means "Nextcloud restored". Leaving
+# both in would not merely double the ping: the earlier one reports success
+# while nocodb has not been drilled yet, so a nocodb failure would be invisible
+# to the switch. That is the state before the cutover, and cutting over is what
+# makes it fixable, so it is fixed here.
+#
+# Kept for the by-hand path, which has no plan behind it, on the same argument
+# the preflight is kept for.
+if [ "$PREFLIGHT" = yes ]; then
+  {
+    hc_id="$(cat /run/agenix/hc-ping-drill)"
+    curl -fsS "https://hc-ping.com/$hc_id" >/dev/null 2>&1
+  } || true
+fi

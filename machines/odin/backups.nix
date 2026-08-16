@@ -315,6 +315,30 @@
     '';
   };
 
+  # odin has to trust odin, because the drill reaches its own scripts over ssh.
+  #
+  # Every drill effect goes through `exec::over_ssh` — the plan was written to be
+  # driven from the Mac, and running it on the machine it names does not remove
+  # the hop, it turns it into a loop back to localhost. root's ~/.ssh/known_hosts
+  # here holds amun, isis and github, all added by hand over the years; `odin`
+  # was never among them, because nothing had ever asked odin to connect to
+  # itself. So the first thing `plan-run drill` did on this host was fail
+  # `Host key verification failed` — measured 2026-08-16, before this block.
+  #
+  # Declared rather than appended to known_hosts by hand, so it survives a
+  # reinstall and says why it exists. A host's PUBLIC key is public by
+  # definition — anyone who connects is shown it — so it costs this repo nothing
+  # to carry.
+  #
+  # ⚠ Only odin's own key is declared, and the rest of the fleet's trust is
+  # still hand-built per machine in root's known_hosts. That is a real gap and
+  # not one this change closes: it fixes what the drill needs, and leaves the
+  # general problem visible rather than half-solved.
+  programs.ssh.knownHosts.odin = {
+    hostNames = [ "odin" "odin.xinutec.org" "10.100.0.3" ];
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
+  };
+
   # Weekly fast restore drill — runs every Sunday at 12:00 UTC.
   # Orchestrates: seed from staging → compose up → occ integrity checks
   # → teardown. See machines/odin/drill/ for the scripts.
@@ -328,29 +352,54 @@
     };
   };
   systemd.services.drill-weekly = {
-    # openssh + sqlite are for drill-nocodb.sh: it ssh's to amun to run the
-    # container and reads the restored DB back. A unit's `path` is not the
-    # interactive PATH, so being in environment.systemPackages is NOT enough.
-    path = with pkgs; [ bash docker rsync zstd curl coreutils gnutar gawk openssh sqlite ];
+    # The scripts still need bash, docker, rsync and the rest — but they are no
+    # longer this unit's children. `plan-run` reaches them over ssh, so what
+    # they see is root's LOGIN environment on odin, not this `path`. What is
+    # left here is what plan-run itself execs: ssh, and curl for the check-in.
+    #
+    # Keeping the full list "just in case" would be worse than useless: it would
+    # read as the unit still owning the scripts' dependencies, and the day one
+    # of them broke, this line is where somebody would look first.
+    path = with pkgs; [ openssh curl ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
-      # The DR drill intentionally runs from the live /etc/nixos checkout so it
-      # exercises the CURRENT drill scripts + config, not a store-frozen copy —
-      # that's the whole point of a restore drill.
-      # ast-grep-ignore: nix-root-exec-mutable-etc
-      WorkingDirectory = "/etc/nixos/machines/odin/drill";
+      # No WorkingDirectory any more. The drill's directory is a fact about this
+      # machine, so it moved to plan-settings.nix where the rest of them live —
+      # still the live /etc/nixos checkout, deliberately, because a drill has to
+      # exercise the CURRENT scripts and not a store-frozen copy.
       TimeoutStartSec = "6h";
     };
-    # Both drills run; the unit fails if either does. drill-run.sh is Nextcloud
-    # (compose stack on odin); drill-nocodb.sh seeds on odin but runs its
-    # container on amun, because odin's Atom CPU cannot execute the nocodb image
-    # at all — see the header of that script.
+    # `plan-run drill --apply`, replacing the two bare script calls.
+    #
+    # By store path, for the reason the staging step is: this pins the drill to
+    # the binary this generation was built and tested with, where
+    # /run/current-system/sw/bin would resolve at run time to whatever is
+    # current by then.
+    #
+    # ⚠ ORDERING IS GATING, AND THAT IS A REAL BEHAVIOUR CHANGE. The unit used
+    # to run both scripts and fail if either did, so a broken Nextcloud restore
+    # still left nocodb drilled. Under the plan, `done:drill-restore` is a
+    # required goal ahead of `done:drill-nocodb`, so a failed Nextcloud restore
+    # blocks before nocodb is reached and that week's nocodb drill does not
+    # happen. Accepted deliberately: a failing Nextcloud restore demands
+    # attention that week anyway, and ordering nocodb first would let the
+    # cheaper, soon-retired system block the crown jewel.
+    #
+    # What the plan adds in exchange: the preflight is now two goals rather than
+    # a stage inside drill-run.sh (hence `--restore-only` in the effect), the
+    # image-match check REFUSES rather than remedies, the five-minute dbload
+    # check runs first so a broken dump is found before four hours are spent on
+    # it, and the check-in is a goal of its own instead of a line at the end of
+    # a script that only runs if everything before it did.
+    #
+    # `--host odin` is odin naming itself; see plan-settings.nix and the
+    # knownHosts block above for why that is an ssh loop rather than a local
+    # call.
     script = ''
-      rc=0
-      /etc/nixos/machines/odin/drill/drill-run.sh || rc=$?
-      /etc/nixos/machines/odin/drill/drill-nocodb.sh || rc=$?
-      exit $rc
+      ${planRun}/bin/plan-run drill \
+        --host odin --prod-host isis \
+        --settings /etc/plan/settings.json --apply
     '';
   };
 }

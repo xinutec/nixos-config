@@ -5,27 +5,28 @@
 # path, no login and no address, so the same plan is correct on a machine that
 # resolves them differently. See xinutec-infra/plan/runner/src/settings.rs.
 #
-# ┌─ WHY THIS FILE HOLDS NO CHECK ID ──────────────────────────────────────────┐
+# ┌─ WHY THIS FILE HOLDS NO CHECK ID, ONLY A PATH TO ONE ──────────────────────┐
 # │ `monitor.checks` is empty, and that is the point rather than an omission.  │
 # │ A healthchecks id is a bearer capability — whoever holds one can mark the  │
 # │ check up and silence the dead-man's switch it feeds — and THIS REPO IS     │
 # │ PUBLIC. The Mac's settings.json may hold ids because that repo is private; │
 # │ this one may not.                                                          │
 # │                                                                            │
-# │ Nothing is lost, because `plans::backup` never checks in. Staging is not   │
-# │ the thing being monitored: the backup's check-in belongs after RESTIC      │
-# │ succeeds, which is where it already is — restic-backups-cluster's          │
-# │ ExecStartPost, reading the id from /run/agenix/hc-ping-backup.             │
+# │ `plans::backup` never checks in, so for a long time nothing was lost.      │
+# │ Staging is not the thing being monitored: the backup's check-in belongs    │
+# │ after RESTIC succeeds, which is where it already is —                      │
+# │ restic-backups-cluster's ExecStartPost, reading /run/agenix/hc-ping-backup.│
 # │                                                                            │
-# │ An empty map is not a permissive default. `Monitor::url_for` refuses a     │
-# │ name it does not hold, so a plan that tried to check in from here would    │
-# │ stop rather than post to a guessed URL. A runner with no business pinging  │
-# │ anything says so.                                                          │
+# │ `plans::drill` DOES check in, and that is what `monitor.check_files` below │
+# │ is for: the id is named by PATH, decrypted by agenix at activation, and    │
+# │ read by the runner at the moment it sends the ping. The capability lives   │
+# │ in the age file; this repo only says where to find it. Same answer the     │
+# │ restic passwords already got.                                              │
 # │                                                                            │
-# │ NOTE for whoever wires `plan-run drill` on odin: that plan DOES check in,  │
-# │ and its id cannot come from here. It has to be read at run time from       │
-# │ /run/agenix/hc-ping-drill, which means the runner needs to accept a check  │
-# │ id by FILE the way it already accepts repository passwords by file.        │
+# │ An empty `checks` is still not a permissive default. `Monitor::url_for`    │
+# │ refuses a name it holds NEITHER way, so a plan that tried to check in as   │
+# │ something undeclared stops rather than posting to a guessed URL — and a    │
+# │ name declared BOTH ways is refused rather than resolved by precedence.     │
 # └────────────────────────────────────────────────────────────────────────────┘
 
 { pkgs, ... }:
@@ -51,6 +52,13 @@ let
     # /etc/hosts from network.nix. The shell this replaced always used .vpn.
     # Both answer, so naming the wrong one does not fail: it moves the whole
     # ~573 GB staging pull off the tunnel and reports success.
+    # `odin` is here for the drill, and it is odin talking to ITSELF. Every
+    # drill effect runs its script through `exec::over_ssh`, because the plan
+    # was written to be driven from the Mac; running it here does not make the
+    # ssh go away, it makes it a loop back to this machine. The cost is one
+    # connection per step against a four-hour restore, which is nothing — but
+    # it does mean odin has to trust odin's host key, declared in backups.nix
+    # beside the unit that needs it.
     hosts = {
       isis = {
         user = "root";
@@ -60,11 +68,36 @@ let
         user = "root";
         address = "amun.vpn";
       };
+      odin = { user = "root"; };
+    };
+
+    # Where the drill lives, and which production namespace it claims to
+    # mirror. Facts about the machines rather than about the plan: `plans::drill`
+    # names two hosts and nothing else.
+    #
+    # The directory is the live /etc/nixos checkout, deliberately, and NOT a
+    # store path — the drill has to exercise the CURRENT scripts and compose
+    # file, which is the whole point of a restore drill. The same reasoning the
+    # unit's WorkingDirectory carried before the cutover, and the same waiver:
+    # DL's nix-root-exec-mutable-etc is right about root units in general and
+    # deliberately wrong about this one. The waiver MOVED with the fact rather
+    # than being invented here — it sat on the WorkingDirectory line this
+    # replaces, and dev-lint caught the move, which is the rule working.
+    drill = {
+      # ast-grep-ignore: nix-root-exec-mutable-etc
+      dir = "/etc/nixos/machines/odin/drill";
+      namespace = "nextcloud";
     };
 
     monitor = {
       base_url = "https://hc-ping.com";
       checks = { };
+      # Read when the ping is sent, not when the settings load: agenix decrypts
+      # during activation, so resolving this at load would fail on a fresh boot
+      # for every plan that never checks in.
+      check_files = {
+        drill = "/run/agenix/hc-ping-drill";
+      };
     };
 
     # The runner's only state between runs: when each activity last succeeded.
