@@ -17,7 +17,14 @@ in {
   # #728, and odin is the machine that most needs it: it is the one nobody logs
   # into for weeks at a time. Read-only by construction — `plans::firewall` has
   # no effects, deliberately.
-  services.planFleetwatch.plans = [ "firewall" ];
+  #
+  # `integrity` is here because the weekly check's only other signal is a
+  # dead-man's switch: on 2026-08-16 it died on restic's lock and nobody knew
+  # for a week. The switch answers that now, but it answers LATE and only ever
+  # about the last run. This reads the stamp hourly, so the age of the last
+  # verification is a number somebody can look at rather than an alarm somebody
+  # waits for. It costs 12 ms — two stamp reads, no restic, no ssh.
+  services.planFleetwatch.plans = [ "firewall" "integrity" ];
 
   # odin is a 4-thread Atom N2800 with 3 GB of RAM, and it now builds a Rust
   # program on every plan-run pin bump. amun is the same architecture with 8

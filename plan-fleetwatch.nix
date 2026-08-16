@@ -9,9 +9,22 @@
 # └────────────────────────────────────────────────────────────────────────────┘
 #
 # `plans` is a LIST because the shape is the same for every plan: run it
-# read-only, translate the verdict, POST. #728's `firewall` is the first, and
-# `integrity` (#52), `backup`, `offsite` and `drill` are each a line here rather
-# than a copy of this file.
+# read-only, translate the verdict, POST. #728's `firewall` was the first and
+# `integrity` the second.
+#
+# ⚠ This file used to say `backup`, `offsite` and `drill` were each one more
+# line. That was never measured, and on 2026-08-16 it was measured and is false
+# for all three — a list entry is the WIRING, not the work:
+#
+#   * `drill` and `deploy` take REQUIRED arguments (`--host`, `--prod-host`,
+#     `--app`…) and this module passes none, so they exit 3 — "a defect in the
+#     plan" — and would report `fail` every hour. They need the module to carry
+#     per-plan arguments first.
+#   * `backup --simulate` predicts its 37 staging steps every run, because
+#     staging is what that plan DOES rather than drift it has found. Exit 2, so
+#     it would report `warn` for ever: amber in the steady state is amber nobody
+#     reads. What it should say when nothing is wrong is an open question.
+#   * `offsite` runs on the Mac, which has no NixOS module at all.
 #
 # ⚠ INGEST TOKEN, and it is per machine. fleetwatch derives `source` from the
 # bearer token, so a producer can only ever write as its own mapped source —
