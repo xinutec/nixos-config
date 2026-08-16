@@ -82,7 +82,19 @@ let
     # its plans are `picade` and `firewall`, neither of which checks in, so the
     # bump would buy it a rebuild and nothing else. plan-pin.sh reports the
     # divergence on every commit, which is where that decision gets re-read.
-    rev = "9d6d00cc8b753ef95db0619d6ef18c6a7bc8e87d";
+    #
+    # c1cd2b8, 2026-08-16: `Repo::retry_lock_s` — an acting restic command may
+    # WAIT for a contended lock instead of dying on it. Exactly one commit on
+    # from 9d6d00c touches plan/ outside its README, and it is this one.
+    #
+    # ⚠ Bumped in the SAME commit as the setting that uses it, and that is not
+    # the ordering mistake of 2026-08-02. The hazard there was a pin lagging its
+    # settings across SEPARATE deploys, with serde dropping a key it did not
+    # know. Here plan-run.nix and plan-settings.nix render into one system
+    # closure and activate together, so there is no window in which an older
+    # binary reads a newer settings file. Splitting it would add a deploy and
+    # buy nothing.
+    rev = "c1cd2b841090c5b86680ba1244ee92b278229b9c";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source
