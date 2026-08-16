@@ -39,7 +39,16 @@
 let
   cfg = config.services.planFleetwatch;
 
-  service = plan: {
+  # A list entry is either a bare name or `{ name; args; }`. Both forms rather
+  # than only the record because fourteen of the fifteen call sites have no
+  # arguments, and making every one of them write `{ name = "firewall"; args =
+  # []; }` would be paying for `drill` everywhere.
+  normalise = entry:
+    if builtins.isString entry then { name = entry; args = [ ]; }
+    else { inherit (entry) name; args = entry.args or [ ]; };
+
+  service = entry:
+    let plan = entry.name; in {
     name = "fleetwatch-plan-${plan}";
     value = {
       description = "Push the `${plan}` plan's verdict to fleetwatch";
@@ -66,6 +75,15 @@ let
         # Root: `iptables -S` needs CAP_NET_ADMIN, and the plan is read-only by
         # construction (`plans::firewall` has no effects at all), so this is a
         # privileged READ and never a privileged write.
+        # `--arg` is repeated rather than joined: `escapeShellArg` per element
+        # keeps a value with a space intact, where one flat string would be
+        # re-split by the shell this ExecStart is.
+        #
+        # ⚠ `--arg=VALUE`, with the equals sign, and NOT `--arg VALUE`. The
+        # values here are themselves flags (`--host`, `--prod-host`), and
+        # argparse refuses a separate value starting with `-` — it reads it as
+        # the next option. Shipped without the `=` first and the unit died on
+        # `--arg: expected one argument`.
         ExecStart = ''
           ${pkgs.python3}/bin/python3 ${./plan-fleetwatch-push.py} \
             --plan ${plan} \
@@ -73,7 +91,8 @@ let
             --settings /etc/plan/settings.json \
             --token-file ${cfg.tokenFile} \
             --url ${cfg.url} \
-            --interval ${toString cfg.intervalSeconds}
+            --interval ${toString cfg.intervalSeconds} \
+            ${lib.concatMapStringsSep " " (a: "--arg=${lib.escapeShellArg a}") entry.args}
         '';
         StateDirectory = "fleetwatch";
         StateDirectoryMode = "0700";
@@ -81,7 +100,8 @@ let
     };
   };
 
-  timer = plan: {
+  timer = entry:
+    let plan = entry.name; in {
     name = "fleetwatch-plan-${plan}";
     value = {
       description = "Run the `${plan}` fleetwatch push hourly";
@@ -102,13 +122,37 @@ in
 {
   options.services.planFleetwatch = {
     plans = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
+      type = lib.types.listOf (lib.types.either lib.types.str (lib.types.submodule {
+        options = {
+          name = lib.mkOption {
+            type = lib.types.str;
+            description = "The plan, as `plan-run` names it.";
+          };
+          args = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ ];
+            description = ''
+              Arguments the plan REQUIRES and the collector cannot guess.
+              `drill` needs `--host` and `--prod-host`; without them it exits 3
+              and reports a red every hour for ever.
+
+              ⚠ Not a place for `--apply`. The push script always passes
+              `--simulate`, and `plan-run` refuses the two together rather than
+              resolving them by precedence, so the read-only property is the
+              runner's guarantee and not this module's promise.
+            '';
+          };
+        };
+      }));
       default = [ ];
-      example = [ "firewall" ];
+      example = [ "firewall" { name = "drill"; args = [ "--host" "odin" ]; } ];
       description = ''
         Plans to run read-only and report. Each gets its own service and timer,
         and its own fleetwatch collector name (`plan-<name>`), so one plan going
         noisy can be muted without silencing the others.
+
+        An entry is a bare name, or `{ name; args; }` when the plan takes
+        arguments.
       '';
     };
 
@@ -143,7 +187,7 @@ in
   };
 
   config = lib.mkIf (cfg.plans != [ ]) {
-    systemd.services = lib.listToAttrs (map service cfg.plans);
-    systemd.timers = lib.listToAttrs (map timer cfg.plans);
+    systemd.services = lib.listToAttrs (map (e: service (normalise e)) cfg.plans);
+    systemd.timers = lib.listToAttrs (map (e: timer (normalise e)) cfg.plans);
   };
 }

@@ -146,3 +146,130 @@ def test_ulid_is_26_crockford_characters_and_moves() -> None:
     a, b = push.ulid(), push.ulid()
     assert len(a) == 26 and set(a) <= set(push._CROCKFORD)
     assert a != b, "a fixed id would make fleetwatch dedupe every report but one"
+
+
+def test_extra_arguments_reach_plan_run_after_simulate(monkeypatch: Any) -> None:
+    """`drill` needs `--host`/`--prod-host`, and the collector cannot guess them.
+
+    Pinned at the argv, not at the parser, because the defect this closes was
+    never about parsing: `plans = [ "drill" ]` produced a well-formed command
+    that exited 3 — "a defect in the plan" — and reported a red every hour for
+    ever. The module's own comment claimed such a plan was one more line.
+    """
+    seen: dict[str, Any] = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = "{}"
+        stderr = ""
+
+    def _fake(argv: list[str], **kw: Any) -> _Proc:
+        seen["argv"] = argv
+        return _Proc()
+
+    monkeypatch.setattr(push.subprocess, "run", _fake)
+    push.run_plan("/bin/plan-run", "drill", "/etc/plan/settings.json",
+                  ["--host", "odin", "--prod-host", "isis"])
+
+    assert seen["argv"] == [
+        "/bin/plan-run", "drill", "--settings", "/etc/plan/settings.json",
+        "--simulate", "--json", "--host", "odin", "--prod-host", "isis",
+    ]
+
+
+def test_extra_arguments_cannot_displace_simulate(monkeypatch: Any) -> None:
+    """⚠ The read-only property must not depend on what is in the settings.
+
+    `--simulate` is emitted BEFORE the extras, so nothing passed here can take
+    its place. If someone puts `--apply` in `args`, both flags reach the runner
+    and it refuses the pair outright rather than resolving them by precedence —
+    the run fails loudly instead of converging something unattended.
+    """
+    seen: dict[str, Any] = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = "{}"
+        stderr = ""
+
+    def _fake(argv: list[str], **kw: Any) -> _Proc:
+        seen["argv"] = argv
+        return _Proc()
+
+    monkeypatch.setattr(push.subprocess, "run", _fake)
+    push.run_plan("/bin/plan-run", "drill", "/s.json", ["--apply"])
+
+    argv = seen["argv"]
+    assert "--simulate" in argv, "a collector must never be able to lose --simulate"
+    assert argv.index("--simulate") < argv.index("--apply")
+
+
+def test_no_extra_arguments_is_the_ordinary_case(monkeypatch: Any) -> None:
+    """Fourteen of fifteen call sites pass nothing; that path must stay bare."""
+    seen: dict[str, Any] = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = "{}"
+        stderr = ""
+
+    def _fake(argv: list[str], **kw: Any) -> _Proc:
+        seen["argv"] = argv
+        return _Proc()
+
+    monkeypatch.setattr(push.subprocess, "run", _fake)
+    push.run_plan("/bin/plan-run", "firewall", "/s.json")
+    assert seen["argv"][-1] == "--json"
+
+
+def test_an_extra_argument_that_looks_like_a_flag_parses() -> None:
+    """⚠ The values ARE flags, and that is what broke this on odin.
+
+    `--arg --host` makes argparse refuse with *expected one argument*: a
+    separate value beginning with `-` is read as the next option. Only the
+    `--arg=VALUE` form takes it literally. The unit failed on its first run,
+    with the whole chain otherwise correct.
+    """
+    ns = push.parser().parse_args([
+        "--plan", "drill",
+        "--arg=--host", "--arg=odin", "--arg=--prod-host", "--arg=isis",
+    ])
+    assert ns.arg == ["--host", "odin", "--prod-host", "isis"]
+
+
+def test_no_extra_arguments_parses_to_an_empty_list() -> None:
+    """The bare form must not need `--arg` at all, or fourteen call sites pay
+    for the one that needs it."""
+    assert push.parser().parse_args(["--plan", "firewall"]).arg == []
+
+
+def test_a_warn_says_how_many_steps_are_pending() -> None:
+    """⚠ "warn: all goals hold" reads like a broken dashboard.
+
+    Under `--simulate` the verdict comes from the exit code and the words come
+    from the report, and those describe different moments: `outcome`/`detail`
+    are about the END of the predicted trajectory, exit 2 means steps were
+    predicted to get there. The count is what makes the amber mean something.
+    """
+    obj = _converged(detail="all drill goals hold", predicted=[{}, {}, {}])
+    checks = _by_label(push.verdict_checks("drill", 2, obj, ""))
+    assert checks["drill: outcome"]["verdict"] == "warn"
+    assert checks["drill: outcome"]["observed"] == (
+        "3 step(s) pending — converged: all drill goals hold"
+    )
+
+
+def test_a_converged_run_with_nothing_pending_does_not_say_zero() -> None:
+    """`0 step(s) pending` on a green check is noise; the ordinary case stays
+    the plain sentence it was."""
+    checks = _by_label(push.verdict_checks("firewall", 0, _converged(predicted=[]), ""))
+    assert checks["firewall: outcome"]["observed"] == "converged: all firewall goals hold"
+
+
+def test_a_report_with_no_predicted_field_still_reads() -> None:
+    """An older runner, or a shape change: absence must not crash the collector
+    or invent a count."""
+    obj = _converged()
+    obj.pop("predicted", None)
+    checks = _by_label(push.verdict_checks("firewall", 0, obj, ""))
+    assert "pending" not in str(checks["firewall: outcome"]["observed"])

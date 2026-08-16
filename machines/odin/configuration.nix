@@ -24,7 +24,22 @@ in {
   # about the last run. This reads the stamp hourly, so the age of the last
   # verification is a number somebody can look at rather than an alarm somebody
   # waits for. It costs 12 ms — two stamp reads, no restic, no ssh.
-  services.planFleetwatch.plans = [ "firewall" "integrity" ];
+  #
+  # `drill` needs its two hosts named, which is why it is a record and not a
+  # bare string: the plan was written to be driven from the Mac, so every effect
+  # goes over ssh even when it is odin talking to odin.
+  #
+  # ⚠ Unlike `integrity`, this one is EXPECTED to go amber, and that is the
+  # point: the drill's freshness window is six days against a seven-day timer,
+  # so it reads pass for six and amber on the seventh — amber exactly when the
+  # drill is due. Do not "fix" that by widening the window; the window being
+  # shorter than the period is what stops a run judging itself satisfied and
+  # skipping for ever.
+  services.planFleetwatch.plans = [
+    "firewall"
+    "integrity"
+    { name = "drill"; args = [ "--host" "odin" "--prod-host" "isis" ]; }
+  ];
 
   # odin is a 4-thread Atom N2800 with 3 GB of RAM, and it now builds a Rust
   # program on every plan-run pin bump. amun is the same architecture with 8

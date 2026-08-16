@@ -66,8 +66,23 @@ def ulid() -> str:
     return "".join(reversed(out))
 
 
-def run_plan(plan_run: str, plan: str, settings: str) -> tuple[int, dict[str, object] | None, str]:
-    """`plan-run <plan> --settings … --simulate --json`, as (exit, object, stderr).
+def run_plan(
+    plan_run: str, plan: str, settings: str, extra: list[str] | None = None
+) -> tuple[int, dict[str, object] | None, str]:
+    """`plan-run <plan> --settings … --simulate --json [extra…]`, as (exit, object, stderr).
+
+    `extra` carries the arguments a plan REQUIRES and this collector cannot
+    guess: `drill` needs `--host`/`--prod-host`, `deploy` needs four. Without
+    them those plans exit 3 — "a defect in the plan" — and this would report a
+    red every hour for ever, which is why the module's own comment claiming they
+    were each one more line here was wrong.
+
+    ⚠ `--apply` is not reachable through it. `extra` is appended AFTER
+    `--simulate`, and `plan-run` refuses `--apply --simulate` together rather
+    than resolving them by precedence, so a settings file that smuggled the flag
+    in makes the run fail loudly instead of converging something unattended.
+    That refusal is the runner's, not this script's, and it is what keeps this
+    module's observe-only property from depending on the module.
 
     stdout carries exactly one object by construction — the runner sends its
     progress narration to stderr under `--json` precisely so a collector need
@@ -76,7 +91,7 @@ def run_plan(plan_run: str, plan: str, settings: str) -> tuple[int, dict[str, ob
     plan that ran and found nothing.
     """
     proc = subprocess.run(
-        [plan_run, plan, "--settings", settings, "--simulate", "--json"],
+        [plan_run, plan, "--settings", settings, "--simulate", "--json", *(extra or [])],
         capture_output=True,
         text=True,
         timeout=600,
@@ -119,11 +134,21 @@ def verdict_checks(plan: str, code: int, obj: dict[str, object] | None,
     # drifted and the run correctly declined to change it.
     status = {0: "pass", 1: "fail", 2: "warn", 3: "fail"}.get(code, "fail")
     fact = str(obj.get("fact", ""))
+    # ⚠ A WARN whose text says "all goals hold" reads like a broken dashboard.
+    # The verdict comes from the exit code and the words come from the report,
+    # and under `--simulate` those describe different moments: `outcome` and
+    # `detail` are about the END of the predicted trajectory, while exit 2 means
+    # steps were predicted to get there. Saying how many is what makes the amber
+    # mean something — for `drill` it is "the drill has not run", which is the
+    # whole reason it is reported at all.
+    predicted = obj.get("predicted")
+    pending = len(predicted) if isinstance(predicted, list) else 0
+    said = f"{outcome}: {detail}" if detail else outcome
     checks: list[dict[str, object]] = [{
         "section": plan,
         "label": f"{plan}: outcome",
         "verdict": status,
-        "observed": f"{outcome}: {detail}" if detail else outcome,
+        "observed": f"{pending} step(s) pending — {said}" if pending else said,
     }]
     if fact:
         # WHICH goal, not just that one failed. The firewall plan's two rows are
@@ -224,7 +249,17 @@ def post(url: str, token: str, report: dict[str, object]) -> int:
         return 1
 
 
-def main() -> int:
+def parser() -> argparse.ArgumentParser:
+    """The CLI, separately so a test can reach it.
+
+    ⚠ **`--arg` must be given as `--arg=VALUE`.** Its values ARE flags —
+    `--host`, `--prod-host` — and argparse refuses a separate value beginning
+    with `-`, on the reasonable assumption that it is the next option. Written
+    as `--arg --host` the unit dies with *expected one argument*, which is what
+    happened on odin the first time this shipped. The `=` form takes the value
+    literally. `plan-fleetwatch.nix` renders it that way; anything else calling
+    this must too.
+    """
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--plan", required=True, help="plan name, e.g. firewall")
     ap.add_argument("--plan-run", default="plan-run", help="path to the plan-run binary")
@@ -235,12 +270,24 @@ def main() -> int:
                     help="seconds between scheduled runs; fleetwatch uses it to "
                          "decide when this producer has gone silent")
     ap.add_argument("--dry-run", action="store_true", help="print the report instead of POSTing")
-    args = ap.parse_args()
+    # Repeatable rather than one string to split: a value containing a space
+    # would be silently torn in two by a split, and this is how a plan is told
+    # which host it is about. argparse hands the list to the runner as argv, so
+    # there is no shell between them and nothing to quote.
+    ap.add_argument("--arg", action="append", default=[], metavar="ARG",
+                    help="extra argument for plan-run, as --arg=VALUE; repeat "
+                         "for each. `drill` needs --host and --prod-host, which "
+                         "this cannot guess")
+    return ap
+
+
+def main() -> int:
+    args = parser().parse_args()
 
     started = time.monotonic()
     collected_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
     try:
-        code, obj, stderr = run_plan(args.plan_run, args.plan, args.settings)
+        code, obj, stderr = run_plan(args.plan_run, args.plan, args.settings, args.arg)
     except (OSError, subprocess.SubprocessError) as e:
         # Tool breakage is reported as a red check, not as silence. A producer
         # that dies quietly looks exactly like a fleet with nothing to say.
