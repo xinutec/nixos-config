@@ -35,9 +35,18 @@ in {
   # drill is due. Do not "fix" that by widening the window; the window being
   # shorter than the period is what stops a run judging itself satisfied and
   # skipping for ever.
+  #
+  # `backup-report` is NOT `backup`, and the distinction is #978. Reading the
+  # staging plan itself asks "what would a run do?", whose answer for a plan that
+  # stages is "all of it" — 37 steps and exit 2 for the eighteen hours a day the
+  # next run is genuinely due, which is a permanently amber row nobody reads.
+  # `backup-report` asks whether the last run succeeded and how old it is, over a
+  # 26-hour window, and it is read-only by construction: no goal in it has a
+  # remedy, so `--apply` could not stage anything either.
   services.planFleetwatch.plans = [
     "firewall"
     "integrity"
+    "backup-report"
     { name = "drill"; args = [ "--host" "odin" "--prod-host" "isis" ]; }
   ];
 
