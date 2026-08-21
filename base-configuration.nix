@@ -395,7 +395,7 @@ in {
     mutableUsers = false;
 
     users = {
-      root.openssh.authorizedKeys.keys = sshKeys.pippijn;
+      root.openssh.authorizedKeys.keys = sshKeys.root;
 
       pippijn = {
         uid = 1000;
