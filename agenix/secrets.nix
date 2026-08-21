@@ -30,6 +30,30 @@ in {
   # re-onboarded without losing access to the repo.
   "restic-password.age".publicKeys = [ odin admin ];
 
+  # The Mac's two restic passwords. NOTHING IN THIS REPOSITORY READS THEM —
+  # `offsite` and the geb backups run on the Mac, which has no NixOS module at
+  # all (plan-fleetwatch.nix says so). They are here to be REPLICATED, not to be
+  # consumed, and that is the whole point of the entry.
+  #
+  # Until 2026-08-21 each existed in exactly two places, both in the house and
+  # both attached to the same Mac: the internal disk, and the recovery bundle on
+  # /Volumes/Backup. `geb.dhall` backs the directory up into /data/restic-mac on
+  # geb, which looks like a third copy and is not one — that repo is unlocked by
+  # geb-password, so the copy is inside the box it opens. Lose the Mac and that
+  # disk together and /data/restic-mac is unopenable: observe-data, recall,
+  # dicom-scan-download, the credential exports (#836).
+  #
+  # ⚠ ODIN, NOT GEB, and the difference is the point. geb HOLDS
+  # /data/restic-mac; encrypting its password to it would put the repository and
+  # the key to it on one machine. odin holds neither, and is in-datacenter — so
+  # this is also the copy that survives the house. Same rule as
+  # restic-password.age above, for the same reason.
+  #
+  # The admin key decrypts both, as everywhere here — but it lives in those same
+  # two in-house places, so it is odin that makes this a real third copy.
+  "geb-restic-password.age".publicKeys = [ odin admin ];
+  "offsite-restic-password.age".publicKeys = [ odin admin ];
+
   # WireGuard private keys — one per host. The VPN is hub-and-spoke,
   # so a host only ever needs its own key; each is encrypted just to
   # that host plus the admin key.
