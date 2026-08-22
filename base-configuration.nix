@@ -351,6 +351,22 @@ in {
     symlink = false;
   };
 
+  # Root's ssh must NAME the fleet key, because `id_fleet` is deliberately not on
+  # OpenSSH's default identity list (see the agenix entry above). Without this
+  # line, removing `id_rsa` and `id_ed25519` would leave root's outbound ssh
+  # offering no key at all — and the thing that would notice is odin's nightly
+  # backup, at 02:00, by failing.
+  #
+  # `localuser`, not `user`: in ssh_config `Match user` is the REMOTE username
+  # being connected as, which is not the question. Identities accumulate rather
+  # than first-win, and config-named ones are offered before the defaults, so
+  # this holds whether or not the old keys are still on disk — which is what
+  # makes it verifiable before they are removed rather than after.
+  programs.ssh.extraConfig = ''
+    Match localuser root
+      IdentityFile /root/.ssh/id_fleet
+  '';
+
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
     wg0 = let
