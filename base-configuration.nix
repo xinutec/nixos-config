@@ -333,6 +333,24 @@ in {
     symlink = false;
   };
 
+  # The fleet's own inter-host root key (#1049 step 1). Deployed ALONGSIDE the
+  # two above, not instead of them: authorizing a key and holding it are separate
+  # rebuilds on four hosts, and a host that received the new private key before
+  # its peers authorized the public one could reach none of them.
+  #
+  # ⚠ `id_fleet`, deliberately not `id_ed25519`. OpenSSH's default identity list
+  # is `id_rsa` then `id_ed25519`, so a key at either name is picked up by every
+  # ssh on the host whether or not anyone meant it to be — which is how the RSA
+  # key above came to carry every recurring inter-host login while the ed25519
+  # one, the key #1049 is named for, managed 7 in 30 days. A name outside the
+  # default list means the fleet key is used where it is NAMED and nowhere else.
+  age.secrets."root-ssh-fleet" = {
+    file = ./agenix/root-ssh-fleet.age;
+    path = "/root/.ssh/id_fleet";
+    mode = "0600";
+    symlink = false;
+  };
+
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface arbitrarily.
     wg0 = let

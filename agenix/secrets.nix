@@ -68,6 +68,21 @@ in {
   "root-ssh-ed25519.age".publicKeys = allHosts ++ [ admin ];
   "root-ssh-rsa.age".publicKeys = allHosts ++ [ admin ];
 
+  # The fleet's OWN inter-host root key (#1049 step 1), generated 2026-08-22 for
+  # this purpose and nothing else.
+  #
+  # ⚠ WHY A THIRD KEY RATHER THAN A RE-KEY OF THE TWO ABOVE. Their public halves
+  # are `pippijn@xinutec.org` — the same key Pippijn logs in with personally. So
+  # the private half of a PERSONAL identity sits in /root/.ssh on four hosts, two
+  # of them internet-facing: reading one host's disk yields the credential that
+  # is him. `fleet-root@xinutec` has no second job, appears in no personal key
+  # list, and can therefore be rotated, confined or revoked without asking what
+  # else it opens.
+  #
+  # The two above stay recipients until this one is verified on every edge; they
+  # go in the same change that stops deploying them.
+  "root-ssh-fleet.age".publicKeys = allHosts ++ [ admin ];
+
   # healthchecks.io check IDs. A check ID is a bearer capability, not a
   # name: anyone holding one can GET it to mark the check UP, which
   # SILENCES the dead-man's switch, or GET /fail to raise a false alarm.
