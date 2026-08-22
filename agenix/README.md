@@ -28,12 +28,35 @@ fixed path. The NixOS modules reference those paths.
 | `grafana-agent-password.age` | all hosts + admin | alloy → Grafana/Mimir, `grafana-alloy.nix` |
 | `restic-password.age` | odin + admin | restic backup / check / drill, `machines/odin/backups.nix` |
 | `wireguard-<host>.age` | that host + admin | the host's `wg0` private key, `base-configuration.nix` |
-| `root-ssh-ed25519.age` | all hosts + admin | `/root/.ssh/id_ed25519`, inter-host root SSH |
-| `root-ssh-rsa.age` | all hosts + admin | `/root/.ssh/id_rsa`, inter-host root SSH (legacy) |
+| `root-ssh-fleet.age` | all hosts + admin | `/root/.ssh/id_fleet`, inter-host root SSH |
+| `root-ssh-ed25519.age` | all hosts + admin | **nothing, since 2026-08-22** — see below |
+| `root-ssh-rsa.age` | all hosts + admin | **nothing, since 2026-08-22** — see below |
 | `home-ingest-token.age` | geb + admin | the Govee pusher's bearer token, `machines/geb/configuration.nix` |
 | `hc-ping-md.age` | amun + admin | RAID heartbeat check ID, `machines/amun/md-healthcheck.nix` |
 | `hc-ping-backup.age` | odin + admin | backup check ID, `machines/odin/backups.nix` |
 | `hc-ping-drill.age` | odin + admin | restore-drill check ID, `machines/odin/drill/drill-run.sh` |
+
+### The two `root-ssh-{ed25519,rsa}` secrets consume nothing
+
+They were `/root/.ssh/id_{ed25519,rsa}` on every host until 2026-08-22, and #1049
+is what they were. Their public halves are `pippijn@xinutec.org` — the key
+Pippijn logs in with — so the fleet authenticated to itself using a personal
+identity, and the private half of that identity sat on four machines, two of them
+internet-facing. Root on any host was root on every host, and on him.
+
+`root-ssh-fleet.age` replaces them: generated for the job, in no personal key
+list, so it can be rotated or confined without asking what else it opens.
+
+They are kept rather than deleted for one reason and it is not sentiment. This
+repository is **public**, so their ciphertext is in the git history permanently
+and removing the files buys no secrecy at all; what deletion could cost is
+Pippijn's only copy of a key he still uses personally. The follow-up that would
+actually help is rotating that personal key, which is his to make.
+
+⚠ Anything restored from a backup predating 2026-08-22 brings `id_rsa` and
+`id_ed25519` back to `/root/.ssh` — and both names are on OpenSSH's default
+identity list, so they would silently resume carrying inter-host logins. Check
+for them after any restore.
 
 ### Why a check ID is a secret
 

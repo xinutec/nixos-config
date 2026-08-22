@@ -116,10 +116,12 @@ in
   # credential — a general shell it genuinely needs (measured; see #1049). The
   # bound here is on WHERE the key may be used, which is the property that
   # closes the mesh. Narrowing WHAT it may run is a separate, harder question.
+  # ⚠ `sharedEd25519` and `sharedRsa` ARE NOT HERE, as of 2026-08-22. That is the
+  # point of #1049: they are `pippijn@xinutec.org`, so while root accepted them
+  # the fleet authenticated to itself with a credential that is also a person.
+  # They remain in the `pippijn` list above, where a personal key belongs.
   root = [
     macMini
     "${fromOdin} ${fleetRoot}"
-    "${fromOdin} ${sharedEd25519}"
-    "${fromOdin} ${sharedRsa}"
   ];
 }

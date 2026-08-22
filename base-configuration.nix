@@ -320,23 +320,25 @@ in {
   # activation straight to /root/.ssh/ (symlink = false: a real file
   # where ssh expects it, no symlink/ramfs indirection). One shared
   # keypair of each type fleet-wide, for inter-host root SSH.
-  age.secrets."root-ssh-ed25519" = {
-    file = ./agenix/root-ssh-ed25519.age;
-    path = "/root/.ssh/id_ed25519";
-    mode = "0600";
-    symlink = false;
-  };
-  age.secrets."root-ssh-rsa" = {
-    file = ./agenix/root-ssh-rsa.age;
-    path = "/root/.ssh/id_rsa";
-    mode = "0600";
-    symlink = false;
-  };
+  # ⚠ `root-ssh-ed25519` and `root-ssh-rsa` ARE NO LONGER DEPLOYED, as of
+  # 2026-08-22. Their public halves are `pippijn@xinutec.org`, so their private
+  # halves were a personal identity sitting in /root/.ssh on four hosts, two of
+  # them internet-facing. Reading one host's disk yielded the credential that is
+  # him. They are replaced by the key below, which has no second job.
+  #
+  # ⚠ REMOVING THE age.secrets ENTRY DOES NOT REMOVE THE FILE. agenix writes at
+  # activation and never deletes, so the stale `/root/.ssh/id_{rsa,ed25519}`
+  # were deleted by hand on all four hosts in the same change. A host restored
+  # from a backup older than this brings them back — and would then use them by
+  # default, since both names ARE on OpenSSH's default identity list.
+  #
+  # The `.age` files stay in `agenix/`. This repository is public, so their
+  # ciphertext is already in history for good and deleting them buys nothing;
+  # what it could cost is Pippijn's only copy of a key he still uses. The right
+  # follow-up is rotating that personal key, which is his call and is noted on
+  # #1049 rather than done here.
 
-  # The fleet's own inter-host root key (#1049 step 1). Deployed ALONGSIDE the
-  # two above, not instead of them: authorizing a key and holding it are separate
-  # rebuilds on four hosts, and a host that received the new private key before
-  # its peers authorized the public one could reach none of them.
+  # The fleet's own inter-host root key (#1049 step 1).
   #
   # ⚠ `id_fleet`, deliberately not `id_ed25519`. OpenSSH's default identity list
   # is `id_rsa` then `id_ed25519`, so a key at either name is picked up by every
