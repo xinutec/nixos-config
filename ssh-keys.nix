@@ -20,6 +20,35 @@ let
   macMini =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIODCVuDCe0SWwm5ZwG6yqwXD/8LcLxDvmCK8ZQB9W9N0 pippijn@mac-mini";
 
+  # Pippijn's other devices. These lived ONLY in `~pippijn/.ssh/authorized_keys`
+  # — a plain file, hand-copied to four hosts, dated 9 July, not in git and not
+  # touched by `nixos-rebuild` — until they were moved here 2026-08-22.
+  #
+  # ⚠ WHY THAT FILE WAS A PROBLEM even though every key in it was Pippijn's. It
+  # sat outside review: nothing listed its contents, nothing diffed them between
+  # hosts, and a rebuild could neither add to it nor take from it. What it held
+  # when finally read was two keys named for Google corporate machines,
+  # `pippijn@pip.lon.corp.google.com` and `pippijn@pip.c.googlers.com`, still
+  # authorized on both internet-facing hosts and used 7 times in 90 days. They
+  # were removed the same day. A standing credential nobody can enumerate is the
+  # shape of the fault, not which machine it happened to name.
+  #
+  # A fifth entry, `pippijn@Mac.communityfibre.co.uk`, was byte-identical to
+  # `macMini` above under a different comment — so the file's real content was
+  # these three plus a duplicate.
+  #
+  # Logins as `pippijn` on isis over the 90 days to 2026-08-22, which is what
+  # says these are live rather than inherited: roam.internal 25, JuiceSSH 0,
+  # Termux 0. The two phone keys reach the Mac and the console tunnel rather than
+  # the fleet directly; they are declared because removing a path Pippijn holds
+  # is his call, not a tidy-up.
+  juiceSsh =
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMj378KHiDT4caf5n0vGOFU9WJo8QeWO0Hsb+4VCumpq JuiceSSH";
+  termux =
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPvQ3V6Vr8L+ckUBinwDYLLkortxz5S8tVGGKMSEcpdU u0_a522@localhost";
+  roamMac =
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8e2iWRYdr+Wzy9uBca/VLzexcWCnHwYb8TQhaeGA7j pippijn@pippijn-mac.roam.internal";
+
   # The shared fleet keys. Their private halves live on all four hosts.
   sharedEd25519 =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFE2kAUmlendXKv1GGul0q/Nys/mGbMvBsdGvfqUzymK pippijn@xinutec.org";
@@ -56,8 +85,19 @@ let
 in
 {
   # The person: installed on the `pippijn` user, unrestricted.
+  #
+  # ⚠ THIS LIST IS NOW THE WHOLE ANSWER for the `pippijn` account. sshd consults
+  # both `/etc/ssh/authorized_keys.d/pippijn`, which this writes, and
+  # `~pippijn/.ssh/authorized_keys`, which it cannot see; the second held three
+  # of these keys and two nobody had enumerated. The home file is deleted on
+  # every host as of 2026-08-22, so what is written here is what may log in — but
+  # nothing ENFORCES that, because a file a rebuild does not manage is a file a
+  # rebuild cannot remove. Re-creating it puts the fleet back where it was.
   pippijn = [
     macMini
+    juiceSsh
+    termux
+    roamMac
     sharedEd25519
     sharedRsa
   ];
