@@ -360,10 +360,21 @@ in {
   # backup, at 02:00, by failing.
   #
   # `localuser`, not `user`: in ssh_config `Match user` is the REMOTE username
-  # being connected as, which is not the question. Identities accumulate rather
-  # than first-win, and config-named ones are offered before the defaults, so
-  # this holds whether or not the old keys are still on disk — which is what
-  # makes it verifiable before they are removed rather than after.
+  # being connected as, which is not the question.
+  #
+  # ⚠ NAMING AN IdentityFile REPLACES ROOT'S DEFAULT LIST — it does not add to
+  # it. Measured 2026-08-22 with `ssh -v -T git@github.com` from odin: the only
+  # line is `Offering public key: /root/.ssh/id_fleet`, and nothing else is
+  # tried. That is the behaviour this file WANTS for the fleet, and it broke the
+  # one root ssh consumer outside the fleet in the same breath: `/etc/nixos` had
+  # a `git@github.com:` remote on amun, isis and odin, authenticated with the
+  # very personal key #1049 is removing, and the fetch died on
+  # `Permission denied (publickey)`.
+  #
+  # Fixed where the credential was, not where the symptom was: all three now use
+  # the HTTPS remote geb always had. The repository is public, so a read-only
+  # fetch needs no credential at all, and root holding a GitHub key was itself
+  # a thing worth not having.
   programs.ssh.extraConfig = ''
     Match localuser root
       IdentityFile /root/.ssh/id_fleet
