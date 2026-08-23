@@ -50,25 +50,11 @@ let
   roamMac =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8e2iWRYdr+Wzy9uBca/VLzexcWCnHwYb8TQhaeGA7j pippijn@pippijn-mac.roam.internal";
 
-  # ⚠ `sharedEd25519` AND `sharedRsa` WERE HERE UNTIL 2026-08-23, and they are
-  # gone rather than moved. Both were `pippijn@xinutec.org`: one keypair that was
-  # simultaneously Pippijn's personal key and, as agenix `root-ssh-{ed25519,rsa}`
-  # at /root/.ssh on all four hosts, the fleet's shared root key. #1049 took them
-  # off root's list on 2026-08-22; this takes them off the person's too, which
-  # ends the keypair.
-  #
-  # WHY RETIRED RATHER THAN ROTATED. Their private halves sat encrypted in
-  # `agenix/root-ssh-{ed25519,rsa}.age` — in a PUBLIC repository, current tree
-  # and history both, recipients being the four host keys plus admin. So anyone
-  # who reached root on amun or isis, the two internet-facing machines, could
-  # decrypt a credential that logged in as Pippijn. Rotating would have replaced
-  # a key nothing used: `Accepted publickey for pippijn` with either fingerprint
-  # over the 90 days to 2026-08-23 was 0 on isis, 0 on amun, 0 on odin. The Mac,
-  # JuiceSSH, Termux and roam.internal keys below already reach every host.
-  #
-  # Deleting the `.age` files does NOT unpublish them — git history keeps what it
-  # was given. What makes the exposure worthless is that the key they protect no
-  # longer opens anything, which is this removal and not the deletion.
+  # ⚠ `pippijn@xinutec.org` (ed25519 AND RSA) WAS HERE UNTIL 2026-08-23 and is
+  # RETIRED, not moved — do not re-add it to either list. It was simultaneously
+  # Pippijn's personal key and, as agenix `root-ssh-{ed25519,rsa}`, the fleet's
+  # inter-host root credential, which is #1049. Why it was retired rather than
+  # rotated, and why deleting its ciphertext bought nothing: `agenix/README.md`.
 
   # The fleet's OWN inter-host root key (#1049 step 1), generated 2026-08-22.
   # Private half: agenix `root-ssh-fleet`, at /root/.ssh/id_fleet on all four

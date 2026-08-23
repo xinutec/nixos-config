@@ -316,46 +316,21 @@ in {
   age.secrets."wireguard-${config.node.name}".file =
     ./agenix/wireguard-${config.node.name}.age;
 
-  # Root user's SSH private keys — agenix secrets, decrypted at
-  # activation straight to /root/.ssh/ (symlink = false: a real file
-  # where ssh expects it, no symlink/ramfs indirection). One shared
-  # keypair of each type fleet-wide, for inter-host root SSH.
-  # ⚠ `root-ssh-ed25519` and `root-ssh-rsa` ARE GONE, undeployed 2026-08-22 and
-  # deleted from this repository 2026-08-23. Their public halves were
-  # `pippijn@xinutec.org`, so their private halves were a personal identity
-  # sitting in /root/.ssh on four hosts, two of them internet-facing. Reading one
-  # host's disk yielded the credential that is him. They are replaced by the key
-  # below, which has no second job.
-  #
-  # ⚠ AND THE CIPHERTEXT WAS PUBLISHED. The `.age` files lived in this repo,
-  # which is public, encrypted to the four host keys plus admin — so root on
-  # amun or isis decrypted a key that logged in as Pippijn. Deleting the files
-  # does not unpublish them; git history keeps what it was given. What makes the
-  # exposure worthless is that the keypair is retired on both lists in
-  # `ssh-keys.nix`, so it opens nothing. Measured before retiring, not assumed:
-  # `Accepted publickey for pippijn` with either fingerprint over the 90 days to
-  # 2026-08-23 was 0 on isis, 0 on amun, 0 on odin.
-  #
-  # ⚠ REMOVING THE age.secrets ENTRY DOES NOT REMOVE THE FILE. agenix writes at
-  # activation and never deletes, so the stale `/root/.ssh/id_{rsa,ed25519}`
-  # were deleted by hand on all four hosts in the same change. A host restored
-  # from a backup older than this brings them back — and would then use them by
-  # default, since both names ARE on OpenSSH's default identity list.
-  #
-  # The `.age` files stay in `agenix/`. This repository is public, so their
-  # ciphertext is already in history for good and deleting them buys nothing;
-  # what it could cost is Pippijn's only copy of a key he still uses. The right
-  # follow-up is rotating that personal key, which is his call and is noted on
-  # #1049 rather than done here.
+  # ⚠ agenix WRITES AT ACTIVATION AND NEVER DELETES. The retired
+  # `root-ssh-{ed25519,rsa}` entries were dropped here 2026-08-22, which left
+  # their files on disk — `/root/.ssh/id_{rsa,ed25519}` had to be moved aside by
+  # hand on all four hosts. **A host restored from a backup older than that
+  # brings them back**, and both names are on OpenSSH's default identity list, so
+  # they would silently resume carrying inter-host root logins with a key that is
+  # also Pippijn. `fleet_health.py` asserts their absence for that reason.
+  # What they were and why they are gone: `agenix/README.md`, #1049.
 
   # The fleet's own inter-host root key (#1049 step 1).
   #
-  # ⚠ `id_fleet`, deliberately not `id_ed25519`. OpenSSH's default identity list
-  # is `id_rsa` then `id_ed25519`, so a key at either name is picked up by every
-  # ssh on the host whether or not anyone meant it to be — which is how the RSA
-  # key above came to carry every recurring inter-host login while the ed25519
-  # one, the key #1049 is named for, managed 7 in 30 days. A name outside the
-  # default list means the fleet key is used where it is NAMED and nowhere else.
+  # ⚠ `id_fleet`, deliberately NOT `id_ed25519` or `id_rsa`. Those two names are
+  # OpenSSH's default identity list, so a key at either is offered by every ssh
+  # on the host whether anyone meant it to be or not. A name outside that list
+  # means the fleet key is used where it is NAMED and nowhere else.
   age.secrets."root-ssh-fleet" = {
     file = ./agenix/root-ssh-fleet.age;
     path = "/root/.ssh/id_fleet";

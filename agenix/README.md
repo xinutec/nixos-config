@@ -29,51 +29,66 @@ fixed path. The NixOS modules reference those paths.
 | `restic-password.age` | odin + admin | restic backup / check / drill, `machines/odin/backups.nix` |
 | `wireguard-<host>.age` | that host + admin | the host's `wg0` private key, `base-configuration.nix` |
 | `root-ssh-fleet.age` | all hosts + admin | `/root/.ssh/id_fleet`, inter-host root SSH |
-| `root-ssh-ed25519.age` | all hosts + admin | **nothing, since 2026-08-22** — see below |
-| `root-ssh-rsa.age` | all hosts + admin | **nothing, since 2026-08-22** — see below |
 | `home-ingest-token.age` | geb + admin | the Govee pusher's bearer token, `machines/geb/configuration.nix` |
 | `hc-ping-md.age` | amun + admin | RAID heartbeat check ID, `machines/amun/md-healthcheck.nix` |
 | `hc-ping-backup.age` | odin + admin | backup check ID, `machines/odin/backups.nix` |
 | `hc-ping-drill.age` | odin + admin | restore-drill check ID, `machines/odin/drill/drill-run.sh` |
+| `hc-ping-integrity.age` | odin + admin | integrity check ID, `machines/odin/backups.nix` → `plan-settings.nix` |
+| `geb-restic-password.age` | odin + admin | **nothing on any host — ESCROW, see below** |
+| `offsite-restic-password.age` | odin + admin | **nothing on any host — ESCROW, see below** |
 
-### The two `root-ssh-{ed25519,rsa}` secrets consume nothing
+### The two escrowed restic passwords consume nothing ON PURPOSE
+
+`geb-restic-password` and `offsite-restic-password` are **not deployed to any
+host** and will not appear in `/run/agenix`. They are the Mac's, and the Mac is
+where they are used; these copies exist so the passwords survive the house.
+
+⚠ **A secret consuming nothing is exactly what the retired `root-ssh-*` pair
+looked like, and these are the opposite — do not "tidy" them away.** The
+distinction is in `secrets.nix`: their live copies sit in two in-house places,
+and so does the admin key, so it is **odin holding a copy — in a datacenter, not
+in the house — that makes this a real third copy** rather than a second one in
+the same building.
+
+### The two `root-ssh-{ed25519,rsa}` secrets are GONE
 
 They were `/root/.ssh/id_{ed25519,rsa}` on every host until 2026-08-22, and #1049
-is what they were. Their public halves are `pippijn@xinutec.org` — the key
+is what they were. Their public halves were `pippijn@xinutec.org` — the key
 Pippijn logs in with — so the fleet authenticated to itself using a personal
 identity, and the private half of that identity sat on four machines, two of them
 internet-facing. Root on any host was root on every host, and on him.
 
-`root-ssh-fleet.age` replaces them: generated for the job, in no personal key
+`root-ssh-fleet.age` replaced them: generated for the job, in no personal key
 list, so it can be rotated or confined without asking what else it opens.
 
-They are kept rather than deleted for one reason and it is not sentiment. This
-repository is **public**, so their ciphertext is in the git history permanently
-and removing the files buys no secrecy at all; what deletion could cost is
-Pippijn's only copy of a key he still uses personally. The follow-up that would
-actually help is rotating that personal key, which is his to make.
+**Undeployed 2026-08-22, and the `.age` files DELETED 2026-08-23.** An earlier
+version of this file argued for keeping them, on the reasoning that deletion
+could cost Pippijn's only copy of a key he still used personally. Two things
+retired that argument:
 
-⚠ Anything restored from a backup predating 2026-08-22 brings `id_rsa` and
-`id_ed25519` back to `/root/.ssh` — and both names are on OpenSSH's default
-identity list, so they would silently resume carrying inter-host logins. Check
-for them after any restore.
+* **He did not use it.** `Accepted publickey for pippijn` with either
+  fingerprint, over the 90 days to 2026-08-23: 0 on isis, 0 on amun, 0 on odin.
+  The keypair was retired from the `pippijn` list too, so it now opens nothing
+  anywhere.
+* **Nothing is lost that was not already lost.** This repository is **public**,
+  so the ciphertext is in the git history permanently — deleting the files buys
+  no secrecy, and equally destroys no copy. The private half is still recoverable
+  from history with the admin key if it is ever wanted.
 
-### Why a check ID is a secret
+⚠ **The exposure that mattered was not the file, it was the authorization.** The
+published ciphertext was decryptable by anyone holding one of the four host keys
+— i.e. by root on amun or isis, the internet-facing pair — and that key was still
+authorized on `github.com/pippijn`, which can push to this repository, which every
+host rebuilds from. That GitHub key was removed the same day. What makes the
+published ciphertext worthless is that the keypair opens nothing, not that the
+files are gone.
 
-A healthchecks.io check ID is a **capability, not a name**. Anyone holding
-one can `GET` the URL to mark the check *up* — silencing the dead-man's
-switch — or `GET …/fail` to raise a false alarm. It discloses nothing, so
-it reads like an identifier; but these three checks are precisely what
-notices when the backup and the restore drill go quiet, and a leaked ID
-turns *"tell me when this stops"* into *"this never stops"*. A crawler
-that merely followed the URL would report a failed backup as successful.
-
-Only the **ID** is encrypted. Each module still spells out the base URL
-`https://hc-ping.com`, because where a host checks in is documentation.
-
-These are read at **run time** from `/run/agenix/…`, never with
-`builtins.readFile`: agenix decrypts during activation, which happens
-*after* evaluation, so an eval-time read would fail on a fresh boot.
+⚠ **agenix writes at activation and NEVER deletes.** Dropping the `age.secrets`
+entries left `/root/.ssh/id_{rsa,ed25519}` on disk; they were moved aside by hand
+on all four hosts as `*.removed-20260822`. A host restored from a backup older
+than that brings them back, and both names are on OpenSSH's default identity
+list — so they would silently resume carrying inter-host root logins.
+`fleet_health.py`'s agenix check asserts their ABSENCE for exactly this reason.
 
 ## Editing or adding a secret
 
