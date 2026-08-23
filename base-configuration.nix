@@ -320,11 +320,21 @@ in {
   # activation straight to /root/.ssh/ (symlink = false: a real file
   # where ssh expects it, no symlink/ramfs indirection). One shared
   # keypair of each type fleet-wide, for inter-host root SSH.
-  # ⚠ `root-ssh-ed25519` and `root-ssh-rsa` ARE NO LONGER DEPLOYED, as of
-  # 2026-08-22. Their public halves are `pippijn@xinutec.org`, so their private
-  # halves were a personal identity sitting in /root/.ssh on four hosts, two of
-  # them internet-facing. Reading one host's disk yielded the credential that is
-  # him. They are replaced by the key below, which has no second job.
+  # ⚠ `root-ssh-ed25519` and `root-ssh-rsa` ARE GONE, undeployed 2026-08-22 and
+  # deleted from this repository 2026-08-23. Their public halves were
+  # `pippijn@xinutec.org`, so their private halves were a personal identity
+  # sitting in /root/.ssh on four hosts, two of them internet-facing. Reading one
+  # host's disk yielded the credential that is him. They are replaced by the key
+  # below, which has no second job.
+  #
+  # ⚠ AND THE CIPHERTEXT WAS PUBLISHED. The `.age` files lived in this repo,
+  # which is public, encrypted to the four host keys plus admin — so root on
+  # amun or isis decrypted a key that logged in as Pippijn. Deleting the files
+  # does not unpublish them; git history keeps what it was given. What makes the
+  # exposure worthless is that the keypair is retired on both lists in
+  # `ssh-keys.nix`, so it opens nothing. Measured before retiring, not assumed:
+  # `Accepted publickey for pippijn` with either fingerprint over the 90 days to
+  # 2026-08-23 was 0 on isis, 0 on amun, 0 on odin.
   #
   # ⚠ REMOVING THE age.secrets ENTRY DOES NOT REMOVE THE FILE. agenix writes at
   # activation and never deletes, so the stale `/root/.ssh/id_{rsa,ed25519}`

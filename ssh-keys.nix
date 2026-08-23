@@ -3,8 +3,9 @@
 # TWO LISTS, and the difference between them is the whole point (#1049).
 #
 # `pippijn` is the person: every key Pippijn logs in with, installed on the
-# `pippijn` USER account. `root` is the same keys with the shared ones bound to
-# the only source that has ever legitimately used them.
+# `pippijn` USER account. `root` is the Mac plus the fleet's own key, bound to
+# the only source that has ever legitimately used it. Since 2026-08-23 the two
+# lists share exactly one key, `macMini`, and nothing else.
 #
 # Until 2026-08-21 root's list WAS `pippijn`, and that single line made the fleet
 # a flat mesh: `pippijn@xinutec.org` is also the agenix secret
@@ -49,11 +50,25 @@ let
   roamMac =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8e2iWRYdr+Wzy9uBca/VLzexcWCnHwYb8TQhaeGA7j pippijn@pippijn-mac.roam.internal";
 
-  # The shared fleet keys. Their private halves live on all four hosts.
-  sharedEd25519 =
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFE2kAUmlendXKv1GGul0q/Nys/mGbMvBsdGvfqUzymK pippijn@xinutec.org";
-  sharedRsa =
-    "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAABAEA3kaCLPpCNKW5QbB4bHxvhg2DvYgH6EgDjA48K3HuRdNqbFKtMLrDAwGtUfPdmjMZzh6woMiGER0T2IeEIwyw+MttcVkt1Rpd+K49uUaCMjqxy5wR8Q327XFTM7ysf38fyfr9qS3HHbKG95oKKYMYUNiFhr2t8RvAO39Be+yyedzCLbfnUirfRuRqcVptznySkFHWEPHk5O4U4yzq4bkMb9m1DgZKY2v0vR7FniP3ypNpmaKKZdQykcIC2clLvWovkwW1AclOdSeVyHZpGU61v6DGnKRaNhPDagaMm2ZTOGB8uW3M66+nRGACNkgKdW6LO3D05M1afnS67bJ9wOm5yoBaDD7G3csma1I3Sx48/s7UgVs6vhIc9ViWpR0aHAwYC40/qQeCBNO1WQ5m9MG42Jq5X5h+pr2HOIjVskNOFh2fNyCgmLN98C7aavYIo2XBknJoa5M5pZ4nJl2IANLylBLzizTk5ZO618zE0c+9/YPS2Y0YRoTne9t/p8TkSCsRLfbAgCKN/uQiv1gkqajY+P7rnjPVBAKbGdw8f7651Ovi9Q/fE5S171Dha+2Rnjz9I60+PepiLuDNgx7fhqYuEtAMtePpt5d7wXKHRTb+wQqvJUREcIGgxmoMe7hbUF1dMqDZoU9jW9wOMKHTfjtMZhWQjICHy5cjPXNB4p3lXcUBY1khPeTNZZ5y9WZaB4Snq1z8ZdZ7sqDw5v3kkNUHBV80+s7pfIiUErhVV9a0y8xysUrM93EuPIdmojpLyV9/KoJttp22l7LU+xrIkwiid+BylGOxz5p7j/Q8TfpH4OU1dJ48SIkoee7dzZe/zbt21vC9J6ppDRQ+L4ALy2p9MSyjkFvHX/1Wdbfqg4xTZsJ33X9zJqjYbotWKzrH3dtD4dFipyWSTDvfnr3OYKIeEU1ur+8MZRqRu0fP7kDWzTl9jESR4YIVwSwe/1z98BYGGvlOHBATwSsp0XyX6phBCUzgJ5zXdpZLSMcFalGRbjVdhXdfo6S23qw3pO74cVQ9pFzUeBsj61MkF7BmMG1i98F5RDkAf0DlRksnBcHIOztxoE4aaQDA/QI/mFT5uBmSKI/XkA20UPLln0xYwFAd04bdY+qimrRXpw1aRl0ByqynLPFdvmzMBLSkys5llp+v1Qq7gDU11G68ocOh6F0T4x6IHWXKmevOiO3OUg99jd4Iy1j5WGmAL+fo0XlXXQwTAFIfs+ewAwxAF8twbOEEPQwIDqssXOWjL0NKl0pg9X3swSZrhhEG2ADHYwe62w2TSYI0Nov180rwUeWu7e4yE4z7I+txCxK82/Luo9qOhfALmuaSFWmz1SAuktDsM6SsJOw4nJ+d34tGRplITr0BuQ== pippijn@xinutec.org";
+  # ⚠ `sharedEd25519` AND `sharedRsa` WERE HERE UNTIL 2026-08-23, and they are
+  # gone rather than moved. Both were `pippijn@xinutec.org`: one keypair that was
+  # simultaneously Pippijn's personal key and, as agenix `root-ssh-{ed25519,rsa}`
+  # at /root/.ssh on all four hosts, the fleet's shared root key. #1049 took them
+  # off root's list on 2026-08-22; this takes them off the person's too, which
+  # ends the keypair.
+  #
+  # WHY RETIRED RATHER THAN ROTATED. Their private halves sat encrypted in
+  # `agenix/root-ssh-{ed25519,rsa}.age` — in a PUBLIC repository, current tree
+  # and history both, recipients being the four host keys plus admin. So anyone
+  # who reached root on amun or isis, the two internet-facing machines, could
+  # decrypt a credential that logged in as Pippijn. Rotating would have replaced
+  # a key nothing used: `Accepted publickey for pippijn` with either fingerprint
+  # over the 90 days to 2026-08-23 was 0 on isis, 0 on amun, 0 on odin. The Mac,
+  # JuiceSSH, Termux and roam.internal keys below already reach every host.
+  #
+  # Deleting the `.age` files does NOT unpublish them — git history keeps what it
+  # was given. What makes the exposure worthless is that the key they protect no
+  # longer opens anything, which is this removal and not the deletion.
 
   # The fleet's OWN inter-host root key (#1049 step 1), generated 2026-08-22.
   # Private half: agenix `root-ssh-fleet`, at /root/.ssh/id_fleet on all four
@@ -105,8 +120,6 @@ in
     juiceSsh
     termux
     roamMac
-    sharedEd25519
-    sharedRsa
   ];
 
   # root: the Mac unrestricted, the shared keys bound to odin.
@@ -116,10 +129,11 @@ in
   # credential — a general shell it genuinely needs (measured; see #1049). The
   # bound here is on WHERE the key may be used, which is the property that
   # closes the mesh. Narrowing WHAT it may run is a separate, harder question.
-  # ⚠ `sharedEd25519` and `sharedRsa` ARE NOT HERE, as of 2026-08-22. That is the
-  # point of #1049: they are `pippijn@xinutec.org`, so while root accepted them
-  # the fleet authenticated to itself with a credential that is also a person.
-  # They remain in the `pippijn` list above, where a personal key belongs.
+  # ⚠ THE SHARED KEYS ARE IN NEITHER LIST NOW. #1049 took them off root on
+  # 2026-08-22 because the fleet must not authenticate to itself with a
+  # credential that is also a person; 2026-08-23 took them off the person as
+  # well, because their private halves are published. See the note above the
+  # `let` bindings that used to be here.
   root = [
     macMini
     "${fromOdin} ${fleetRoot}"

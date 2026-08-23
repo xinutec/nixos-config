@@ -65,8 +65,6 @@ in {
   # Root user's SSH private keys — one shared keypair of each type
   # across all hosts, used for inter-host root SSH (backup rsyncs and
   # the restore drill). Encrypted to every host plus the admin key.
-  "root-ssh-ed25519.age".publicKeys = allHosts ++ [ admin ];
-  "root-ssh-rsa.age".publicKeys = allHosts ++ [ admin ];
 
   # The fleet's OWN inter-host root key (#1049 step 1), generated 2026-08-22 for
   # this purpose and nothing else.
