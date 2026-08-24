@@ -360,7 +360,39 @@ in {
   # the HTTPS remote geb always had. The repository is public, so a read-only
   # fetch needs no credential at all, and root holding a GitHub key was itself
   # a thing worth not having.
+  # ⚠ The HTTPS fix above covers `/etc/nixos` and NOT the other root consumer of
+  # GitHub: `builtins.fetchGit` on the PRIVATE xinutec-infra repo, in
+  # machines/{odin,isis}/plan-run.nix. A private repo cannot be fetched
+  # anonymously, so from 2026-08-22 — when root's personal keys were renamed
+  # away — those hosts could no longer fetch it.
+  #
+  # ⚠ THE FAILURE IS LATENT, which is why two days passed without it showing.
+  # fetchGit only reaches the network for a rev the store does not already have,
+  # so every rebuild that keeps the pin succeeds and the first pin BUMP fails.
+  # Found 2026-08-24 by bumping odin's pin for #1120.
+  #
+  # Each host has its own key, generated on the host and never copied, whose
+  # public half is a READ-ONLY deploy key on that one repository. Read-only
+  # because these hosts only ever fetch, per-host so revoking one leaves the
+  # other alone, and per-repo so it is not a fleet credential. Enumerate them
+  # with `gh repo deploy-key list --repo xinutec/xinutec-infra`.
+  #
+  #   odin  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMWMrtZlJW7/JCzulLls7j1jNAewBADETjZkPdqolh4N
+  #   isis  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEwI9CKCOOA0OHv43FIJzZID3BxWe/HRm5B2WgifD2on
+  #
+  # A host without the file offers github nothing, which is what amun and geb did
+  # before this block existed. The private half is NOT in agenix: it is generated
+  # in place like a host key, so it never transits and a reinstall regenerates it
+  # — at the cost of a new deploy key, which the comment above says how to list.
+  #
+  # ⚠ `Host github.com` must come FIRST. ssh_config takes the FIRST value it
+  # obtains for a keyword, so the `Match localuser root` below would otherwise
+  # pin id_fleet for github too — and id_fleet is authorised on the fleet, not on
+  # GitHub.
   programs.ssh.extraConfig = ''
+    Host github.com
+      IdentityFile /root/.ssh/id_github_infra
+
     Match localuser root
       IdentityFile /root/.ssh/id_fleet
   '';
