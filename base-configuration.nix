@@ -379,11 +379,21 @@ in {
   #
   #   odin  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMWMrtZlJW7/JCzulLls7j1jNAewBADETjZkPdqolh4N
   #   isis  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEwI9CKCOOA0OHv43FIJzZID3BxWe/HRm5B2WgifD2on
+  #   geb   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEItSyDjL29z1c8MkdHN1FWYsblOJecO3Kyp4lh8/jmr
   #
-  # A host without the file offers github nothing, which is what amun and geb did
-  # before this block existed. The private half is NOT in agenix: it is generated
-  # in place like a host key, so it never transits and a reinstall regenerates it
-  # — at the cost of a new deploy key, which the comment above says how to list.
+  # ⚠ geb IS ONE OF THESE, and calling its clone "inert behind a `test -d`" was
+  # wrong. /opt/xinutec-infra already exists, so the guard never fires — but the
+  # remote is this ssh URL and `git -C /opt/xinutec-infra pull` is geb's
+  # DOCUMENTED update path (see machines/geb/configuration.nix). That pull was
+  # broken from 08-22 until 08-24, and only fleet-health's
+  # PRIVATE FETCH CREDENTIALS check surfaced it.
+  #
+  # amun offers github nothing, which is what every host did before this block
+  # existed; it fetches nothing over ssh, so it needs nothing.
+  #
+  # The private half is NOT in agenix: it is generated in place like a host key,
+  # so it never transits and a reinstall regenerates it — at the cost of a new
+  # deploy key, which the line above says how to list.
   #
   # ⚠ `Host github.com` must come FIRST. ssh_config takes the FIRST value it
   # obtains for a keyword, so the `Match localuser root` below would otherwise
