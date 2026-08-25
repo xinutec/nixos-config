@@ -50,12 +50,17 @@ cd "$DRILL_DIR"
 # the mismatch is caught by the missing-file check below, loudly and immediately.
 ARTIFACT="${1:-nextcloud}"
 case "$ARTIFACT" in
-  nextcloud) readonly DUMP=/var/backup-staging/isis/nextcloud/mysql-all.sql.zst ;;
-  health)    readonly DUMP=/var/backup-staging/isis/health/health.sql.zst ;;
-  life)      readonly DUMP=/var/backup-staging/isis/life/life.sql.zst ;;
-  home)      readonly DUMP=/var/backup-staging/isis/home/home.sql.zst ;;
-  coach)     readonly DUMP=/var/backup-staging/isis/coach/coach.sql.zst ;;
-  *) echo "unknown artifact: $ARTIFACT (nextcloud|health|life|home|coach)" >&2
+  nextcloud)  readonly DUMP=/var/backup-staging/isis/nextcloud/mysql-all.sql.zst ;;
+  health)     readonly DUMP=/var/backup-staging/isis/health/health.sql.zst ;;
+  life)       readonly DUMP=/var/backup-staging/isis/life/life.sql.zst ;;
+  home)       readonly DUMP=/var/backup-staging/isis/home/home.sql.zst ;;
+  coach)      readonly DUMP=/var/backup-staging/isis/coach/coach.sql.zst ;;
+  fleetwatch) readonly DUMP=/var/backup-staging/isis/fleetwatch/fleetwatch.sql.zst ;;
+  tasks)      readonly DUMP=/var/backup-staging/isis/tasks/tasks.sql.zst ;;
+  signal)     readonly DUMP=/var/backup-staging/isis/signal/signal.sql.zst ;;
+  *) echo "unknown artifact: $ARTIFACT" >&2
+     echo "known: nextcloud health life home coach fleetwatch tasks signal" >&2
+     echo "(these are every artifact in backup.dhall whose 'into' ends .sql.zst)" >&2
      exit 2 ;;
 esac
 readonly ARTIFACT
