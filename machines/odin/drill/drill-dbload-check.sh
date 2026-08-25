@@ -20,8 +20,19 @@
 # Writes: a scratch datadir under /var/tmp, removed on success and deliberately
 #         KEPT on failure so the container can be inspected.
 #
-# Standalone:  ./drill-dbload-check.sh
+# Standalone:  ./drill-dbload-check.sh [ARTIFACT]     (default: nextcloud)
 # In the drill: drill-run.sh calls it as stage 0b, before seeding.
+#
+# ⚠ WHAT AN ARTIFACT ARGUMENT BUYS, and what it does not. 37 artifacts are staged
+# and five have ever had a restore performed; this proves the WEAKER claim
+# `Loadable` — the dump imports into a matching server — for any of them in about
+# five minutes, where drilling one is hours (#1162). It does NOT prove the app
+# comes up against the result; that is `Drilled`, and only Nextcloud and nocodb
+# have it.
+#
+# Every one of these dumps is `--all-databases` from ONE code path
+# (`plan/runner/src/script.rs::sql`), so they all load identically and the dump
+# creates its own schemas. That is why this generalises at all.
 
 set -euo pipefail
 
@@ -31,7 +42,23 @@ DRILL_DIR="$(cd "$(dirname "$0")" && pwd)" || {
 readonly DRILL_DIR
 cd "$DRILL_DIR"
 
-readonly SRC=/var/backup-staging/isis/nextcloud
+# The artifact to check, and where its dump lands. ⚠ The paths are the model's
+# (`backup.dhall`'s `into`), and are repeated here rather than asked for because
+# `plan-run backup-report` blocks unless `BackupStaging` is declared to the
+# runner — true on odin, false on the Mac, so a script that asked would work here
+# and fail wherever anyone tested it. Keep this list in step with `backup.dhall`;
+# the mismatch is caught by the missing-file check below, loudly and immediately.
+ARTIFACT="${1:-nextcloud}"
+case "$ARTIFACT" in
+  nextcloud) readonly DUMP=/var/backup-staging/isis/nextcloud/mysql-all.sql.zst ;;
+  health)    readonly DUMP=/var/backup-staging/isis/health/health.sql.zst ;;
+  life)      readonly DUMP=/var/backup-staging/isis/life/life.sql.zst ;;
+  home)      readonly DUMP=/var/backup-staging/isis/home/home.sql.zst ;;
+  coach)     readonly DUMP=/var/backup-staging/isis/coach/coach.sql.zst ;;
+  *) echo "unknown artifact: $ARTIFACT (nextcloud|health|life|home|coach)" >&2
+     exit 2 ;;
+esac
+readonly ARTIFACT
 readonly DATADIR=/var/tmp/drill-dbload-check
 readonly NAME=drill-dbload-check
 # Throwaway container, torn down at the end and never exposed off-host: this is
@@ -75,12 +102,13 @@ db_image=$(grep 'image:.*mariadb:' "$DRILL_DIR/docker-compose.yml" | awk '{print
 [ -n "$db_image" ] || { echo "BUG: no mariadb image in docker-compose.yml" >&2; exit 99; }
 readonly db_image
 
-[ -f "$SRC/mysql-all.sql.zst" ] || {
-  echo "MISSING: $SRC/mysql-all.sql.zst — has backup-prepare run?" >&2; exit 1
+[ -f "$DUMP" ] || {
+  echo "MISSING: $DUMP — has the backup staged $ARTIFACT?" >&2; exit 1
 }
 
 log "image:  $db_image"
-log "dump:   $(du -h "$SRC/mysql-all.sql.zst" | cut -f1)  ($(date -u -r "$SRC/mysql-all.sql.zst" +%FT%TZ))"
+log "artifact: $ARTIFACT"
+log "dump:   $(du -h "$DUMP" | cut -f1)  ($(date -u -r "$DUMP" +%FT%TZ))"
 
 # --- start the server ---------------------------------------------------------
 # odin's Atom is slow enough that the image's OWN entrypoint sometimes gives up
@@ -98,7 +126,6 @@ start_db() {
   mkdir -p "$DATADIR"
   docker run -d --name "$NAME" \
     -e MYSQL_ROOT_PASSWORD="$PW" \
-    -e MYSQL_DATABASE=nextcloud \
     -v "$DATADIR:/var/lib/mysql" \
     "$db_image" >/dev/null || return 1
 
@@ -138,7 +165,7 @@ log "loading dump (the step that fails when prod and drill have diverged)..."
 # read and reported. This is not a masked failure: PIPESTATUS is captured on the
 # next line and checked immediately below.
 load_rc=0
-zstd -dc "$SRC/mysql-all.sql.zst" \
+zstd -dc "$DUMP" \
   | docker exec -i "$NAME" mariadb -uroot --password="$PW" --binary-mode || load_rc=$?
 rc=("${PIPESTATUS[@]}")
 log "exit codes: zstd=${rc[0]} mariadb=${rc[1]} (pipeline=$load_rc)"
@@ -148,20 +175,60 @@ if [ "${rc[0]}" -ne 0 ] || [ "${rc[1]}" -ne 0 ]; then
 fi
 
 # --- assert it actually landed ------------------------------------------------
-# A zero exit from the pipe is not proof: assert on content, or this check
-# passes on an empty dump.
-# `|| true` so a query that errors falls through to the assertion below and is
-# reported as "not a Nextcloud DB", instead of aborting with a bare exit code.
-tables=$(docker exec "$NAME" mariadb -uroot --password="$PW" --skip-column-names -e \
-  "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='nextcloud';" 2>/dev/null | tr -d '[:space:]') || true
-users=$(docker exec "$NAME" mariadb -uroot --password="$PW" --skip-column-names -e \
-  "SELECT COUNT(*) FROM nextcloud.oc_users;" 2>/dev/null | tr -d '[:space:]') || true
+# A zero exit from the pipe is not proof: assert on content, or this check passes
+# on an empty dump.
+#
+# ⚠ THE GENERIC ASSERTION IS THE POINT, not a weakening. `Loadable` claims the
+# dump imports into a matching server and produces real schemas — no more. An
+# assertion naming one app's tables could only ever cover that app, and a
+# per-artifact table of sentinel tables would be judgement retyped into bash,
+# which is what this programme exists to remove. So: at least one NON-SYSTEM
+# schema, carrying tables, carrying rows. That is exactly the claim being made.
+q() { docker exec "$NAME" mariadb -uroot --password="$PW" --skip-column-names \
+        -e "$1" 2>/dev/null | tr -d "[:space:]"; }
 
-log "restored: nextcloud=${tables:-0} tables, oc_users=${users:-0} rows"
-if [ "${tables:-0}" -lt 100 ] || [ "${users:-0}" -lt 1 ]; then
-  echo "[dbload-check] RESULT: FAILED — dump loaded but the result is not a Nextcloud DB" >&2
-  echo "[dbload-check]   expected >=100 tables and >=1 user; got ${tables:-0} / ${users:-0}" >&2
+# ⚠ The exclusion list is ONE variable, and the SQL below contains no nested
+# quotes at all. An earlier version inlined `'"'"'mysql'"'"',…` in each query;
+# it worked when pasted into a shell and did NOT work from the script file — the
+# filter silently stopped applying, so the check counted the four system schemas
+# as data and then found no rows in them. It reported 5 schemas / 482 tables for
+# a dump that has 1 / 181, and FAILED a perfectly good Nextcloud dump. A form
+# that behaves differently depending on how it is invoked is not worth debugging.
+SYS="'mysql','information_schema','performance_schema','sys'"
+
+schemas=$(q "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name NOT IN ($SYS);") || true
+tables=$(q "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema NOT IN ($SYS);") || true
+# information_schema.tables.table_rows is an ESTIMATE on InnoDB and reads 0 for
+# populated tables, so it cannot carry an assertion. Ask the largest table for a
+# real count. Schema and name come back as two fields and are joined in shell,
+# so no SQL string here needs a quote of its own.
+biggest=$(docker exec "$NAME" mariadb -uroot --password="$PW" --skip-column-names \
+  -e "SELECT table_schema, table_name FROM information_schema.tables \
+      WHERE table_schema NOT IN ($SYS) AND table_type = 'BASE TABLE' \
+      ORDER BY data_length DESC LIMIT 1;" 2>/dev/null | awk '{print $1 "." $2}') || true
+rows=0
+if [ -n "${biggest:-}" ]; then rows=$(q "SELECT COUNT(*) FROM $biggest;") || true; fi
+
+log "restored: ${schemas:-0} schema(s), ${tables:-0} table(s); ${biggest:-none} has ${rows:-0} row(s)"
+if [ "${schemas:-0}" -lt 1 ] || [ "${tables:-0}" -lt 1 ] || [ "${rows:-0}" -lt 1 ]; then
+  echo "[dbload-check] RESULT: FAILED — the dump loaded but produced no data" >&2
+  echo "[dbload-check]   expected >=1 schema, >=1 table and a non-empty largest table;" >&2
+  echo "[dbload-check]   got ${schemas:-0} / ${tables:-0} / ${rows:-0}" >&2
   exit 1
 fi
 
-log "RESULT: PASSED — $db_image loads the staged dump cleanly"
+# Nextcloud keeps its ORIGINAL, stronger assertion on top of the generic one.
+# `drill-run.sh` calls this as stage 0b and has relied on it since 2026-07-26;
+# generalising a check is no reason to weaken the one case already covered.
+if [ "$ARTIFACT" = nextcloud ]; then
+  nc_tables=$(q "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = \"nextcloud\";") || true
+  nc_users=$(q "SELECT COUNT(*) FROM nextcloud.oc_users;") || true
+  log "nextcloud: ${nc_tables:-0} tables, oc_users=${nc_users:-0} rows"
+  if [ "${nc_tables:-0}" -lt 100 ] || [ "${nc_users:-0}" -lt 1 ]; then
+    echo "[dbload-check] RESULT: FAILED — loaded, but the result is not a Nextcloud DB" >&2
+    echo "[dbload-check]   expected >=100 tables and >=1 user; got ${nc_tables:-0} / ${nc_users:-0}" >&2
+    exit 1
+  fi
+fi
+
+log "RESULT: PASSED — $db_image loads the staged $ARTIFACT dump cleanly"
