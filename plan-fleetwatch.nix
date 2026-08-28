@@ -72,7 +72,22 @@ let
       # `planRun` is the DERIVATION this generation was built and tested with,
       # from plan-run.nix's `_module.args` — not the name `plan-run` resolved
       # against whatever generation is current when the timer fires.
-      path = [ pkgs.iptables planRun ];
+      #
+      # ⚠ `rsync` and `openssh` ADDED 2026-08-28, and the paragraph above had
+      # already predicted the failure — it even names the picade module as where
+      # the same symptom was measured on 2026-08-11. `plans::picade` probes by
+      # running a dry-run rsync over ssh, so without these two it answers every
+      # cabinet `Unreadable`. Ablated on isis the day `picade` joined this list:
+      #
+      #   unit's PATH            6 ms   "0 picade goals hold, 20 could not be read"
+      #   + rsync + openssh   55429 ms   "12 picade goals hold, 8 could not be read"
+      #
+      # ⚠ The 6 ms arm is the WORSE failure, because `picade: outcome` reads
+      # `pass` while the run established nothing — the exact shape of the
+      # six-day silence this entry was added to end (#1233), reproduced by the
+      # reporting of it. The duration is what gave it away: a real simulate
+      # takes 55 s because two cabinets time out.
+      path = [ pkgs.iptables pkgs.rsync pkgs.openssh planRun ];
       serviceConfig = {
         Type = "oneshot";
         # Root: `iptables -S` needs CAP_NET_ADMIN, and the plan is read-only by
