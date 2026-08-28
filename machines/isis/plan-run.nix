@@ -50,7 +50,7 @@ let
     # checks, so a runner older than THAT answers a report with no readings in
     # it and every drift check warns. 4409f7b is where `plans::picade` first
     # existed and is the earliest that can answer `plan-run picade` at all.
-    rev = "5f6482427d2c37cd36e888ba635850b8907b60bc";
+    rev = "8ecbfab518ae2eb540ffd6d3d9ce331149e33c19";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
