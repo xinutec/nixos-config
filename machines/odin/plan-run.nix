@@ -52,7 +52,7 @@ let
     # neither of which checks in, so a bump buys it a rebuild and nothing else.
     # plan-pin.sh reports the divergence on every commit, which is where that decision
     # gets re-read.
-    rev = "1730fd274438d4afc108abbfa38ee113c44e6806";
+    rev = "9668a663c4160d2eab53dc766fd5e04123c83cb3";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through
