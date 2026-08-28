@@ -23,7 +23,34 @@ in {
   # effects, deliberately: re-running the firewall script would rebuild the
   # one-way block, and deleting an unaccountable rule unattended could be
   # deleting the only thing holding a service up.
-  services.planFleetwatch.plans = [ "firewall" ];
+  # ⚠ `picade` ADDED 2026-08-28, and the reason is an incident: the convergence
+  # was completely broken from 2026-08-22 (isis's root keys were rotated and the
+  # cabinets still trusted the old pair) and nothing said so for six days. The
+  # hourly unit exited 0/SUCCESS the whole time, because every picade goal is
+  # advisory and a plan whose probes are all unreadable still settles. The
+  # verdict and its summary were honest — `0 picade goals hold, 20 could not be
+  # read` — and nobody was reading them, because this list did not have the plan
+  # in it. See #1233.
+  #
+  # `<plan>: verified` is the check that would have caught it: its verdict is
+  # `pass` only when `unread == 0 and adrift == 0`, so it goes amber the moment
+  # the fleet stops being readable, independently of whether the plan converged.
+  #
+  # ⚠ IT IS AMBER TODAY AND WILL BE FOR MONTHS — picade3 and picade4 are off
+  # (#70), so `verified` reports `8 could not be read`. Dry-run 2026-08-28:
+  #
+  #   picade: outcome   warn   6 step(s) pending — converged: 12 hold, 8 unread
+  #   picade: verified  warn   6 held, 6 pending, 8 could not be read, 0 adrift
+  #
+  # This file warns twice that amber in the steady state is amber nobody reads,
+  # and that warning is about `backup --simulate`, whose amber means "the plan is
+  # doing its job" and can never clear. This one means "two cabinets are dead",
+  # which is true, self-clearing, and carries a NUMBER (`value: 8.0 goals`) that
+  # moves if a live cabinet joins them. Different thing, kept deliberately.
+  # If it proves noisy, the tool is an EXPIRING MUTE on `picade: verified` —
+  # which is itself the reminder that the cabinets are still out — not deleting
+  # the entry.
+  services.planFleetwatch.plans = [ "firewall" "picade" ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
