@@ -50,7 +50,16 @@ let
     # checks, so a runner older than THAT answers a report with no readings in
     # it and every drift check warns. 4409f7b is where `plans::picade` first
     # existed and is the earliest that can answer `plan-run picade` at all.
-    rev = "1e03915bef515ef9e21b975c7c53d081f61213b7";
+    # 77e77b3 — `plan-run picade-push --host H (--prune|--fresh)`: the operator
+    # half of the picade path, and the reason `deploy.py` can eventually go.
+    # `--fresh` turns a blank RetroPie SD into a fleet member and NOTHING in
+    # Rust implemented it before this, so isis could not have rebuilt picade3
+    # or picade4 without the Python. The mode is refused rather than defaulted:
+    # the routine upsert is the hourly `picade` plan, so asking for this verb is
+    # asking to delete.
+    #
+    # 1e03915b, the previous pin, is below.
+    rev = "77e77b379eaf6e6bf686e2a9607134aa9274513c";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
