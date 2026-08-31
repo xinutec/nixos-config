@@ -43,8 +43,30 @@ in {
     # only one minor at a time. Before bumping this machine off 25.05, pin the package
     # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
+    # ⚠ **`--secrets-encryption` REMOVED 2026-08-31, and this is a REGRESSION held
+    # open on purpose — secrets are now unencrypted at rest on amun.**
+    #
+    # The encryption config written on 2026-07-04 ended up as
+    # `providers: [{aescbc: {keys: []}}, {identity: {}}]` — an EMPTY key list, which
+    # the apiserver refuses to parse ("at least one keys is required"). The box had
+    # been up since ~May 14, so the running apiserver held the key in memory and
+    # never re-read the file: it was broken on disk for 58 days and ONLY A BOOT
+    # could reveal it. The 2026-08-31 reboot did, and k3s crash-looped with every
+    # workload on this host down.
+    #
+    # ⚠ **The key is GONE, and both recovery routes were tried and failed.** k3s
+    # restores cred files from the datastore bootstrap blob — it did, byte-identical,
+    # empty keys and all, so the datastore copy is broken too. Writing a good config
+    # by hand is refused: "newer than datastore and could cause a cluster outage".
+    # The backup table covers the k3s token and `tls/` but NOT `cred/`.
+    #
+    # So all 68 encrypted secret rows are unreadable and were re-created rather than
+    # decrypted. Re-enabling encryption is a deliberate operation with a verified
+    # reboot afterwards, NOT a flag to put back quietly — the whole failure was that
+    # nothing re-read the file for 58 days.
+    # ast-grep-ignore: nix-k3s-no-secrets-encryption
     extraFlags =
-      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption";
+      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
   };
 
   services.nfs.server = {
