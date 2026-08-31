@@ -64,6 +64,20 @@ in {
     # decrypted. Re-enabling encryption is a deliberate operation with a verified
     # reboot afterwards, NOT a flag to put back quietly — the whole failure was that
     # nothing re-read the file for 58 days.
+    #
+    # ⚠ **PUTTING THE FLAG BACK RIGHT NOW WOULD CRASH-LOOP k3s ON THE NEXT k3s
+    # RESTART, NOT AT SOME LATER REBOOT.** The empty-key config is STILL on disk and
+    # still in the datastore bootstrap; only the apiserver no longer reads it. The
+    # dev-lint rule `nix-k3s-no-secrets-encryption` therefore fires here and is
+    # suppressed one line below — ⚠ **that suppression is the fix, not the bug. Do
+    # not "resolve the lint" by re-adding the flag.**
+    #
+    # ⚠ **AND THE RECOVERY BUDGET IS SPENT.** Pippijn, 2026-08-31: amun reboots are
+    # scarce because Simon's irssi runs here and needs a stable host — one reboot was
+    # used today and the next is a while away. So a mistake here is not "reboot and
+    # move on"; it is an outage for a second person until somebody switches the flag
+    # back out. `fleet_health.classify_k3s_startup` watches for exactly this and goes
+    # RED the moment the flag returns while the key list is empty.
     # ast-grep-ignore: nix-k3s-no-secrets-encryption
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
