@@ -52,7 +52,7 @@ let
     # neither of which checks in, so a bump buys it a rebuild and nothing else.
     # plan-pin.sh reports the divergence on every commit, which is where that decision
     # gets re-read.
-    rev = "9668a663c4160d2eab53dc766fd5e04123c83cb3";
+    rev = "0a02498e9b8223f70b16fb5e94c16a1cc5488095";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through
@@ -84,6 +84,18 @@ let
     # non-hermetic; right verdict, wrong cause — the dump script redirected to a
     # hard-coded /tmp/stage-redis.rdb, /tmp is sticky, and a build as _nixbld got
     # EACCES. The path is a parameter now.
+    # ⚠ SECOND COPY OF xinutec-infra's `flake.nix` LINE, and it has to be.
+    # That flake's `nativeCheckInputs` does not reach here: this host builds the
+    # same source through its own channel nixpkgs (see the "two toolchains for one
+    # program" note above), so the test closure is assembled twice.
+    #
+    # `runner/tests/cargo_sweep.rs` shells out to `ps` to ask whether a build is
+    # running, and the sandbox has no `ps` on PATH even though every login shell
+    # does. Measured 2026-08-31: odin's rebuild failed with
+    # `ps runs: Os { code: 2, kind: NotFound }` on the amun builder while the same
+    # commit built clean on the Mac through the flake. rsync for the mirror tests.
+    nativeCheckInputs = [ pkgs.rsync pkgs.procps ];
+
     doCheck = true;
   };
 in

@@ -70,6 +70,18 @@ let
 
     # Runs the suite as part of the build, as odin's does. The artefact being
     # checked is a different claim from the gate's `cargo test` in a checkout.
+    # ⚠ SECOND COPY OF xinutec-infra's `flake.nix` LINE, and it has to be.
+    # That flake's `nativeCheckInputs` does not reach here: this host builds the
+    # same source through its own channel nixpkgs (see the "two toolchains for one
+    # program" note above), so the test closure is assembled twice.
+    #
+    # `runner/tests/cargo_sweep.rs` shells out to `ps` to ask whether a build is
+    # running, and the sandbox has no `ps` on PATH even though every login shell
+    # does. Measured 2026-08-31: odin's rebuild failed with
+    # `ps runs: Os { code: 2, kind: NotFound }` on the amun builder while the same
+    # commit built clean on the Mac through the flake. rsync for the mirror tests.
+    nativeCheckInputs = [ pkgs.rsync pkgs.procps ];
+
     doCheck = true;
   };
 in
