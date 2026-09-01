@@ -66,10 +66,22 @@ let
   # `server_name` for it at all. Today `VpnOnly` is a DNS record and the shared
   # controller answers for the name on the public IP regardless (#1300) — a zone
   # file is not a boundary; a socket that never listens for the name is.
+  # ⚠ **THE IPv6 LITERAL MUST BE BRACKETED, and nothing catches it before
+  # runtime.** `listenAddresses` is pasted into a `listen` directive verbatim,
+  # so a bare `2001:...::1` becomes `2001:...::1:80` and nginx reads the last
+  # group as the port: `invalid port in "..."`. Measured the hard way on
+  # 2026-09-01 — the build succeeded and nginx refused to start, taking all 15
+  # services down until the LoadBalancer Service was put back. `network.nix`
+  # stores the address bare because every other consumer wants it that way, so
+  # the brackets belong here rather than there.
   listenFor = host:
     if vpnOnly host
     then [ net.nodes.isis.vpn ]
-    else [ net.nodes.isis.ipv4 net.nodes.isis.ipv6 net.nodes.isis.vpn ];
+    else [
+      net.nodes.isis.ipv4
+      "[${net.nodes.isis.ipv6}]"
+      net.nodes.isis.vpn
+    ];
 
   # nginx variable names take [A-Za-z0-9_] only.
   slug = e: lib.replaceStrings [ "." "/" "-" ] [ "_" "_" "_" ] "${e.host}${e.path}";
