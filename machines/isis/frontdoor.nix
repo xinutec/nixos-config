@@ -174,5 +174,23 @@ assert lib.assertMsg (leaked == [ ])
     certs = builtins.listToAttrs (map certFor hosts);
   };
 
+  # ⚠ **THE htpasswd FILES ARE PROVISIONED OUT OF BAND, BUT THEIR PERMISSIONS
+  # ARE NOT.** The content comes from git-crypt'd Kubernetes Secrets and cannot
+  # live in this repository, so a human or a script puts it here. Ownership is a
+  # different question and belongs in the model: `nginx` workers read
+  # `auth_basic_user_file` at request time, and the files land `root:root 0640`
+  # from whatever wrote them — unreadable by nginx, and the `nginx` group does
+  # not even exist until this module is imported. Declaring it means activation
+  # fixes it rather than somebody remembering to.
+  #
+  # `z` rather than `f`: adjust an existing file's mode and owner, never create
+  # or truncate one. A `f` here would silently replace a provisioned credential
+  # with an empty file, and empty htpasswd means every request is refused.
+  systemd.tmpfiles.rules = [
+    "d ${basicAuthDir} 0750 root nginx -"
+    "z ${basicAuthDir}/web-basic-auth.htpasswd 0640 root nginx -"
+    "z ${basicAuthDir}/web-slides-auth.htpasswd 0640 root nginx -"
+  ];
+
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 }
