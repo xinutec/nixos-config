@@ -65,6 +65,29 @@ in  { name = "nixos-config"
         , argv = inNixShell [ "python3", "scripts/eval_machines.py" ]
         , timeout_s = 1800
         }
+      , {-  isis's front door is rendered from the fleet model and is NOT in any
+            machine's `imports` yet — adding it IS the cutover (#1294). So the
+            row above, which evaluates each machine's complete configuration,
+            does not reach this file and it would rot unnoticed until the day it
+            matters most.
+
+            Evaluating it also runs its own assertion, which is the point: a
+            VpnOnly host that also listens on a public address serves perfectly
+            and is simply reachable by anyone who knows the name. That is the
+            one mistake in the file that announces itself in no other way.
+        -}
+        G.Check::{
+        , name = "isis front door evaluates, and no VpnOnly name listens publicly"
+        , argv =
+            inNixShell
+              [ "nix-instantiate"
+              , "--eval"
+              , "--strict"
+              , "-E"
+              , "let p = import <nixpkgs> {}; m = import ./machines/isis/frontdoor.nix { config = {}; lib = p.lib; pkgs = p; }; in builtins.length (builtins.attrNames m.services.nginx.virtualHosts)"
+              ]
+        , timeout_s = 600
+        }
       , G.Check::{
         , name = "ruff (operational Python)"
         , argv = inNixShell [ "ruff", "check", "." ]

@@ -22,6 +22,24 @@
         "path:./nix",
         "--no-warn-dirty",
         "--command",
+        "nix-instantiate",
+        "--eval",
+        "--strict",
+        "-E",
+        "let p = import <nixpkgs> {}; m = import ./machines/isis/frontdoor.nix { config = {}; lib = p.lib; pkgs = p; }; in builtins.length (builtins.attrNames m.services.nginx.virtualHosts)"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "isis front door evaluates, and no VpnOnly name listens publicly",
+      "timeout_s": 600
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
         "ruff",
         "check",
         "."
