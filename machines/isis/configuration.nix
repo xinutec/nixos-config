@@ -77,6 +77,33 @@ in {
   networking.firewall.allowedTCPPorts = [ ];
 
   # List services that you want to enable:
+  #
+  # ⚠ **DO NOT REBOOT isis UNATTENDED.** On 2026-09-01 k3s did not come back:
+  # containerd hung on `waiting for response from boltdb open`, so k3s sat in
+  # `Waiting for containerd startup: /run/k3s/containerd/containerd.sock: no
+  # such file or directory` indefinitely. The node went NotReady, `kube-dns`
+  # lost its endpoints, nothing could resolve `*.svc.cluster.local`, every pod
+  # read `Unknown`, and the whole fleet was down.
+  #
+  # ⚠ **It was a DEADLOCK, not a slow recovery, and the difference decides what
+  # to do.** Measured: `STAT Sl`, `WCHAN futex_do_wait`, TWO SECONDS of CPU over
+  # 4.5 minutes, `rchar` moving 135626 → 137241 in five seconds, and a /proc
+  # scan showing only the stuck containerd itself holding the 100 MB `meta.db`.
+  # A boltdb genuinely recovering burns CPU and IO; this burned neither, so
+  # waiting longer would have been the wrong call.
+  #
+  # The remedy was `systemctl restart k3s` — Ready in ~80s, endpoints in ~40s,
+  # pods out of `Unknown` in ~150s. ⚠ Afterwards `signal/messages` still
+  # crash-looped on `writing /run/irc/id_ed25519: Permission denied`: a CONTAINER
+  # restart reuses the pod's emptyDir, so `kubectl delete pod` was needed to get
+  # a fresh one.
+  #
+  # ⚠ **This is unrelated to the front door (#1294) and predates it** — k3s owns
+  # its own containerd, and ingress-nginx needed the same cluster. Whether it is
+  # a one-off from an unclean shutdown or reproducible is UNKNOWN, and the next
+  # reboot is the experiment. If it recurs, suspect an ordering conflict with the
+  # docker containerd that also runs on this host (`/var/run/docker/containerd`),
+  # or a corrupt metadata store needing a rebuild.
   services.k3s = {
     enable = true;
     role = "server";
