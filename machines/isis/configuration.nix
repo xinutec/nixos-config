@@ -16,6 +16,12 @@ in {
     ./picade-health.nix
     ./plan-picade.nix
     ../../plan-fleetwatch.nix
+    # The host front door — #1294. ⚠ Importing this is the CUTOVER, and it does
+    # not work alone: klipper's svclb holds :80/:443 by CNI hostport DNAT with no
+    # destination restriction, so nginx binds both ports and receives nothing
+    # until the ingress-nginx LoadBalancer Service is deleted. That Service goes
+    # in the same change that adds this line.
+    ./frontdoor.nix
   ];
 
   # #728: the firewall plan finds a rule nobody declared, and until this it had
