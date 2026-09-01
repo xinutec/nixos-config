@@ -1,9 +1,26 @@
 # The host front door, rendered from the fleet model.
 #
-# ⚠ **NOT IMPORTED YET, DELIBERATELY.** `configuration.nix` does not list this
-# file. Adding it is the cutover, and the cutover cannot be done by adding it
-# alone — see THE ORDER below. Until then this is a reviewable artefact that
-# changes nothing on isis.
+# ⚠ **IMPORTED, AND THAT IMPORT IS THE CUTOVER** — see THE ORDER below, because
+# it does not work alone.
+#
+# ⚠ **THE FIRST ATTEMPT TOOK ALL 15 SERVICES DOWN**, 2026-09-01. The LoadBalancer
+# Service was deleted, nginx refused to start on a config error, and nothing
+# served until the Service was restored and the generation rolled back. TWO
+# config errors were involved, and `nixos-rebuild build` exited 0 on BOTH:
+#
+#     listen 2001:...::1:80    invalid port — the IPv6 literal needs brackets
+#     variables_hash           one $upstream variable per route overflowed it
+#
+# ⚠ **A GREEN BUILD IS NOT A PASSING `nginx -t`.** Nothing runs nginx against
+# this config until the service starts. Before switching, build and then run the
+# built nginx against the generated nginx.conf by hand:
+#
+#     conf=$(grep -ho '/nix/store/[a-z0-9]*-nginx.conf' result/etc/systemd/system/nginx.service | head -1)
+#     nginx=$(grep -ho '/nix/store/[a-z0-9]*-nginx-[0-9.]*/bin/nginx' result/etc/systemd/system/nginx.service | head -1)
+#     "$nginx" -t -c "$conf"
+#
+# That check found the second error after the first had already caused an
+# outage. It costs one command.
 #
 # WHAT IT REPLACES. `ingress-nginx` is archived upstream (read-only since March
 # 2026, v1.15.1 terminal). This takes it out of the path entirely: nginx on the
@@ -83,8 +100,22 @@ let
       net.nodes.isis.vpn
     ];
 
-  # nginx variable names take [A-Za-z0-9_] only.
-  slug = e: lib.replaceStrings [ "." "/" "-" ] [ "_" "_" "_" ] "${e.host}${e.path}";
+  # ⚠ **ONE VARIABLE NAME, REUSED IN EVERY LOCATION — NOT ONE PER ROUTE.**
+  # Locations are mutually exclusive within a request, so `$fd_upstream` holds
+  # whichever route matched and there is nothing to collide with. Naming them
+  # per route instead produced 15 variables with names like
+  # `upstream_isis_xinutec_org_share_share_cc58ab5c727c4a25`, and nginx refused
+  # the whole config: "could not build variables_hash, you should increase
+  # variables_hash_bucket_size: 64". Raising that knob would also work and is
+  # the worse fix — it tunes a limit to accommodate names nothing needed.
+  #
+  # Found 2026-09-01 by running `nginx -t` against the GENERATED config. The
+  # build does not run it, and this is the second config error in a row that a
+  # green `nixos-rebuild build` reported as fine.
+  # ⚠ The leading `$` is PART OF THIS STRING. In a Nix indented string `$${` is
+  # an escape for a literal `${`, so writing `$${upstreamVar}` emits the text
+  # `${upstreamVar}` rather than the variable reference — checked, not assumed.
+  upstreamVar = "$fd_upstream";
 
   locationFor = e:
     if (e.redirectTo or null) != null
@@ -96,8 +127,8 @@ let
     }
     else {
       extraConfig = ''
-        set $upstream_${slug e} ${e.upstream};
-        proxy_pass ${e.scheme}://$upstream_${slug e}:${toString e.port};
+        set ${upstreamVar} ${e.upstream};
+        proxy_pass ${e.scheme}://${upstreamVar}:${toString e.port};
       ''
       + lib.optionalString ((e.maxBodySize or null) != null) ''
         client_max_body_size ${e.maxBodySize or ""};
