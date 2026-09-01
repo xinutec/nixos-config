@@ -107,6 +107,27 @@ in {
   # permitted to name one.
   services.openssh.settings.GatewayPorts = "clientspecified";
 
+  # ⚠ Reap a client that has vanished, or its listener outlives it and wedges
+  # the port for everyone after it.
+  #
+  # 2026-09-01: the home ISP reassigned the Mac's public address. The tunnel's
+  # connection died with it and no FIN was ever sent, so sshd went on believing
+  # the session was alive and kept its listener. Every redial — now from the new
+  # address — failed with `remote port forwarding failed` and exited, as
+  # `ExitOnForwardFailure` is meant to make it. What the phone met was not a
+  # refusal but a black hole: TCP connected, a TLS Client hello went out, and no
+  # Server hello ever came back, which reads to the app as a slow network rather
+  # than a broken route. It held for over two hours and 1050 redials, and
+  # nothing reported it.
+  #
+  # A residential address change is ordinary and will happen again. Ninety
+  # seconds of silence now ends the session and takes the listener with it,
+  # which is what lets the next redial bind. The numbers match the Mac's own
+  # ServerAliveInterval/ServerAliveCountMax in `console-tunnel.sh`, so both ends
+  # give up on the same schedule.
+  services.openssh.settings.ClientAliveInterval = 30;
+  services.openssh.settings.ClientAliveCountMax = 3;
+
   # A key of its own, restricted to exactly that one listener — no shell, no
   # agent, no X11, no local forwards. An unattended tunnel that ran on the
   # ordinary admin key would give anything holding the Mac's disk a root session
