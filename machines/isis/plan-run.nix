@@ -58,7 +58,7 @@ let
     # the routine upsert is the hourly `picade` plan, so asking for this verb is
     # asking to delete.
     #
-    # 3d2eaec — `plan-run frontdoor`, the eighth plan (#1325): the host front
+    # b779592 — `plan-run frontdoor`, the eighth plan (#1325): the host front
     # door judged at the SOCKET rather than the config. Two probes, TlsServedFor
     # and TlsAbsentFor, answered by curl; the plan builds from the model's
     # frontdoor.json (deployed to /etc/plan alongside settings, the same file
@@ -67,8 +67,14 @@ let
     # that puts `frontdoor` on the fleetwatch list below — a runner older than it
     # answers "frontdoor: unknown plan" and the unit dies.
     #
-    # 77e77b3, the previous pin, is below.
-    rev = "3d2eaecb1bc4854c19317456bde918a70d5d183a";
+    # b779592 also adds the CONSEQUENCE check (#1326): after `deploy` applies
+    # manifests and converges, it re-observes the front-door witness for each
+    # modelled name whose upstream is in the deployed namespace and returns 2 if
+    # any stopped serving. That is why a deploy can now exit 2 having applied
+    # successfully — the apply worked and something it fronts does not answer.
+    #
+    # 3d2eaec, the previous pin, is below.
+    rev = "b77959287871da9193940b6bda1e550d76e02567";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
