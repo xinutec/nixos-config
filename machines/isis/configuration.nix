@@ -86,32 +86,40 @@ in {
 
   # List services that you want to enable:
   #
-  # ⚠ **DO NOT REBOOT isis UNATTENDED.** On 2026-09-01 k3s did not come back:
-  # containerd hung on `waiting for response from boltdb open`, so k3s sat in
-  # `Waiting for containerd startup: /run/k3s/containerd/containerd.sock: no
-  # such file or directory` indefinitely. The node went NotReady, `kube-dns`
-  # lost its endpoints, nothing could resolve `*.svc.cluster.local`, every pod
-  # read `Unknown`, and the whole fleet was down.
+  # ⚠ **KEEP THE IMAGE HOARD DOWN, OR BOOTS GET SLOW AGAIN** (#1311, #1329).
+  # isis boots from a 7200rpm disk (`/sys/block/sda/queue/rotational` = 1, HGST
+  # HUS724020AL), and containerd's boltdb open does metadata work proportional to
+  # the number of images it holds. With 1912 images hoarded since Dec 2024 that
+  # took long enough at boot to look like a hang: on 2026-09-01 and 2026-09-02
+  # the node sat NotReady for minutes, kube-dns lost its endpoints, every pod
+  # read `Unknown`, and the fleet was down ~12 min while somebody restarted k3s.
   #
-  # ⚠ **It was a DEADLOCK, not a slow recovery, and the difference decides what
-  # to do.** Measured: `STAT Sl`, `WCHAN futex_do_wait`, TWO SECONDS of CPU over
-  # 4.5 minutes, `rchar` moving 135626 → 137241 in five seconds, and a /proc
-  # scan showing only the stuck containerd itself holding the 100 MB `meta.db`.
-  # A boltdb genuinely recovering burns CPU and IO; this burned neither, so
-  # waiting longer would have been the wrong call.
+  # Pruning to 39 images (`k3s crictl --timeout 10m rmi --prune`) fixed it,
+  # measured by containerd's own startup line across reboots:
   #
-  # The remedy was `systemctl restart k3s` — Ready in ~80s, endpoints in ~40s,
-  # pods out of `Unknown` in ~150s. ⚠ Afterwards `signal/messages` still
-  # crash-looped on `writing /run/irc/id_ed25519: Permission denied`: a CONTAINER
-  # restart reuses the pod's emptyDir, so `kubectl delete pod` was needed to get
-  # a fresh one.
+  #     174.251s   cold boot, 1912 images     <- read as a "wedge"
+  #      35.772s   cold boot,   39 images     <- verified 2026-09-02, load avg 11
   #
-  # ⚠ **This is unrelated to the front door (#1294) and predates it** — k3s owns
-  # its own containerd, and ingress-nginx needed the same cluster. Whether it is
-  # a one-off from an unclean shutdown or reproducible is UNKNOWN, and the next
-  # reboot is the experiment. If it recurs, suspect an ordering conflict with the
-  # docker containerd that also runs on this host (`/var/run/docker/containerd`),
-  # or a corrupt metadata store needing a rebuild.
+  # ⚠ **NOTHING PRUNES THIS AUTOMATICALLY (#1329)** and `:latest` roll-forward
+  # adds an image per rebuild, so it WILL regrow. The cheapest alarm is already
+  # written every start: if `successfully booted in` in
+  # /var/lib/rancher/k3s/agent/containerd/containerd.log climbs back toward a
+  # minute, run `k3s crictl images -q | wc -l` before suspecting anything else.
+  #
+  # ⚠ **AN EARLIER COMMENT HERE CALLED THIS A DEADLOCK. IT WAS NOT** — and the
+  # claim cost two sessions chasing docker-containerd conflicts, boltdb
+  # corruption and the dbus wedge, all refuted. `WCHAN futex_do_wait` with
+  # near-zero CPU is EXACTLY what IO starvation looks like too: a blocked process
+  # burns no CPU either way. containerd's own log had said
+  # `successfully booted in 337.789166s` on 2026-08-29 all along, and a deadlock
+  # does not boot successfully.
+  #
+  # If a restart IS ever needed: `systemctl restart k3s`, and ⚠ **do not call it
+  # failed before ~2 minutes** (110s on 2026-09-02; 88s was misread as a
+  # failure). Afterwards `signal/messages` crash-loops on
+  # `writing /run/irc/id_ed25519: Permission denied` — a container restart reuses
+  # the pod's emptyDir, so `kubectl delete pod` is needed. Seen three times.
+
   services.k3s = {
     enable = true;
     role = "server";
