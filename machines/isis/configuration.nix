@@ -64,7 +64,13 @@ in {
   # is observe-only (no effect on any goal), so it reports drift and never acts;
   # its point is that a fake certificate goes red on the board within the hour
   # instead of the ~18 hours it went unread on 2026-09-01.
-  services.planFleetwatch.plans = [ "firewall" "picade" "frontdoor" ];
+  # `images` ADDED 2026-09-02 (#1329), and it is the check that would have made
+  # #1311 a warning instead of two outages: it reports how many unreferenced
+  # container images this node holds, bounded at 250. The hoard regrows by design
+  # — `:latest` roll-forward adds one per rebuild and nothing removes them — so
+  # without this the only signal is a boot getting slower, noticed as downtime.
+  # Observe-only; the prune stays an operator verb (see plans/images.rs).
+  services.planFleetwatch.plans = [ "firewall" "picade" "frontdoor" "images" ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget

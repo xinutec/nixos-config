@@ -58,7 +58,7 @@ let
     # the routine upsert is the hourly `picade` plan, so asking for this verb is
     # asking to delete.
     #
-    # b779592 — `plan-run frontdoor`, the eighth plan (#1325): the host front
+    # c77f92f — `plan-run frontdoor`, the eighth plan (#1325): the host front
     # door judged at the SOCKET rather than the config. Two probes, TlsServedFor
     # and TlsAbsentFor, answered by curl; the plan builds from the model's
     # frontdoor.json (deployed to /etc/plan alongside settings, the same file
@@ -73,8 +73,15 @@ let
     # any stopped serving. That is why a deploy can now exit 2 having applied
     # successfully — the apply worked and something it fronts does not answer.
     #
-    # 3d2eaec, the previous pin, is below.
-    rev = "b77959287871da9193940b6bda1e550d76e02567";
+    # c77f92f also adds `plan-run images`, the NINTH plan (#1329): the node
+    # states how many unreferenced container images it holds, bounded at 250.
+    # 1912 of them made this host's cold boot take 174s and read as a k3s
+    # deadlock for two days (#1311); 39 take 5s. Observe-only — it has no remedy,
+    # because an unattended prune races a deploy that has pulled an image no pod
+    # has claimed yet.
+    #
+    # b779592, the previous pin, is below.
+    rev = "c77f92f1a4b2526037c30c092ad1655758f413aa";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
