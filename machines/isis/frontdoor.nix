@@ -158,6 +158,18 @@ let
       listenAddresses = listenFor host;
       forceSSL = true;
       useACMEHost = host;
+      # ⚠ HSTS, restored (#1320) — ingress-nginx sent exactly this value on every
+      # name it served, and the cutover silently dropped it; measured 2026-09-02.
+      # Per SERVER, not at http scope: nginx `add_header` is per-block-OVERRIDE —
+      # any block that adds its own headers discards every inherited one, so a
+      # server-level header survives today's locations (they add none;
+      # recommendedProxySettings is `proxy_set_header`, a different directive)
+      # and an http-level one would be shadowed the day a location grows an
+      # `add_header`. `always` so error responses carry it too. VpnOnly names get
+      # it like everything else — ingress-nginx made no distinction either.
+      extraConfig = ''
+        add_header Strict-Transport-Security "max-age=15724800; includeSubDomains" always;
+      '';
       locations = builtins.listToAttrs
         (map (e: { name = e.path; value = locationFor e; }) (rulesFor host));
     };
