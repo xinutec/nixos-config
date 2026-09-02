@@ -58,8 +58,17 @@ let
     # the routine upsert is the hourly `picade` plan, so asking for this verb is
     # asking to delete.
     #
-    # 1e03915b, the previous pin, is below.
-    rev = "77e77b379eaf6e6bf686e2a9607134aa9274513c";
+    # 3d2eaec — `plan-run frontdoor`, the eighth plan (#1325): the host front
+    # door judged at the SOCKET rather than the config. Two probes, TlsServedFor
+    # and TlsAbsentFor, answered by curl; the plan builds from the model's
+    # frontdoor.json (deployed to /etc/plan alongside settings, the same file
+    # frontdoor.nix reads), resolving each name to its SERVING cluster's address
+    # so isis probes amun's names at amun's IP. Observe-only. This pin is the one
+    # that puts `frontdoor` on the fleetwatch list below — a runner older than it
+    # answers "frontdoor: unknown plan" and the unit dies.
+    #
+    # 77e77b3, the previous pin, is below.
+    rev = "3d2eaecb1bc4854c19317456bde918a70d5d183a";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {

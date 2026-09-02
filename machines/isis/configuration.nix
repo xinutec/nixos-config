@@ -56,7 +56,15 @@ in {
   # If it proves noisy, the tool is an EXPIRING MUTE on `picade: verified` —
   # which is itself the reminder that the cabinets are still out — not deleting
   # the entry.
-  services.planFleetwatch.plans = [ "firewall" "picade" ];
+  #
+  # `frontdoor` ADDED 2026-09-03 (#1325): the host front door as a convergent
+  # plan, judged at the socket. It probes every name in the model's
+  # frontdoor.json — served with its own certificate at its exposure, and a
+  # VpnOnly name ABSENT on the public address — from the fleet side, hourly. It
+  # is observe-only (no effect on any goal), so it reports drift and never acts;
+  # its point is that a fake certificate goes red on the board within the hour
+  # instead of the ~18 hours it went unread on 2026-09-01.
+  services.planFleetwatch.plans = [ "firewall" "picade" "frontdoor" ];
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget

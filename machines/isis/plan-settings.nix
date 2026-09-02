@@ -31,6 +31,8 @@
 { pkgs, ... }:
 
 let
+  net = import ../../network.nix;
+
   cabinet = name: {
     inherit name;
     value = {
@@ -57,10 +59,35 @@ let
       checks = { };
     };
     stamps = "/var/lib/plan-run/stamps.json";
+    # The host front door (#1325). `table` is the SAME frontdoor.json the nginx
+    # module reads — deployed to /etc/plan below from `../../frontdoor.json`, the
+    # one source — so the plan and the running config cannot describe different
+    # name sets. The table is FLEET-WIDE (isis and amun names both), so a name is
+    # probed at the interface of the cluster that SERVES it, not at isis's: the
+    # runner resolves each name's model cluster through this map, which is why
+    # both clusters are here even though the plan runs on isis. Addresses from
+    # network.nix. amun is included so isis probes amun.xinutec.org and the apex
+    # at amun's public IP — the gap the 2026-09-01 fake-cert outage lived in.
+    frontdoor = {
+      table = "/etc/plan/frontdoor.json";
+      clusters = {
+        "isis.xinutec.org" = {
+          public_addr = net.nodes.isis.ipv4;
+          vpn_addr = net.nodes.isis.vpn;
+        };
+        "amun.xinutec.org" = {
+          public_addr = net.nodes.amun.ipv4;
+          vpn_addr = net.nodes.amun.vpn;
+        };
+      };
+    };
   };
 in
 {
   environment.etc."plan/settings.json".source =
     pkgs.writeText "plan-settings.json" (builtins.toJSON settings);
+  # The model's rendered name table, the same file `frontdoor.nix` reads. One
+  # source, two consumers — the plan cannot drift from the config it checks.
+  environment.etc."plan/frontdoor.json".source = ../../frontdoor.json;
   systemd.tmpfiles.rules = [ "d /var/lib/plan-run 0700 root root -" ];
 }

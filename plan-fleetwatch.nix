@@ -87,7 +87,11 @@ let
       # six-day silence this entry was added to end (#1233), reproduced by the
       # reporting of it. The duration is what gave it away: a real simulate
       # takes 55 s because two cabinets time out.
-      path = [ pkgs.iptables pkgs.rsync pkgs.openssh planRun ];
+      # ⚠ `curl` ADDED for the `frontdoor` plan (#1325): its socket witnesses
+      # probe `https://<name>/ --resolve` per name, so without curl on the
+      # unit's PATH every name answers `Unreadable` — the same shy-host failure
+      # the rsync/openssh note above describes, one plan over.
+      path = [ pkgs.iptables pkgs.rsync pkgs.openssh pkgs.curl planRun ];
       serviceConfig = {
         Type = "oneshot";
         # Root: `iptables -S` needs CAP_NET_ADMIN, and the plan is read-only by
