@@ -24,10 +24,9 @@
 #     per app, which is a different question, but the capability is here.
 #   * `backup --simulate` predicts a staging step for every artifact odin
 #     stages, every run, because staging is what that plan DOES rather than
-#     drift it has found. (How many that is, is `plans::backup::staged_count()`
-#     — NOT a number written here, which read 37 against a real 39 until
-#     2026-09-03. It is also no longer `artifact_count()`: `claude-archive`
-#     arrives by push and odin stages nothing for it.) Exit 2, so
+#     drift it has found. How many that is, is `plans::backup::staged_count()`
+#     rather than a number written here — and it is NOT `artifact_count()`:
+#     `claude-archive` arrives by push, so odin stages nothing for it. Exit 2, so
 #     it would report `warn` for ever: amber in the steady state is amber nobody
 #     reads. STILL OPEN — #978, and note it is not the same as `drill`'s amber,
 #     which arrives on day seven and means "the drill is due".
