@@ -130,10 +130,10 @@
       name = "geb";
       vpn = "10.100.0.5";
       publicKey = "VCTpVsYEoDmifhS8WGBQ6ejdRNW3rJoTRvU8275iWW0=";
-      # The interface carrying its default route, which today is wifi. There IS
-      # an ethernet port (enp1s0, down for want of a cable); swap this when the
-      # cable exists, because whatever it ends up storing will seed over this
-      # link first, and 25 MB/s is what wifi measures here.
+      # The interface carrying its default route. geb is on wifi, and that is
+      # the answer rather than a stopgap: the link is stable, its address does
+      # not move, and 25 MB/s over it carried the 424 GB first seed. There is an
+      # ethernet port (enp1s0), down for want of a cable, and nothing waits on it.
       externalInterface = "wlp0s20f3";
       oneWay = true;
       # ...with one exception. The Mac administers it, and it does so today only

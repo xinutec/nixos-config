@@ -3,12 +3,13 @@
 # Not a rented server and not a Kubernetes node: odin's sentence in network.nix
 # ("Backup machine. No Kubernetes, only storage") is the closest existing shape.
 # What it does NOT share with odin is where it sits — geb is on a home LAN
-# behind the router, with no public address, and today no cable either.
+# behind the router, with no public address, and on wifi rather than ethernet.
 #
 # Everything below is a place where base-configuration.nix's assumptions — three
 # rented BIOS-boot machines with public addresses and a Kubernetes cluster —
-# had to be undone. There is nothing here that is yet geb's own feature, because
-# what geb is FOR is still open (#726).
+# had to be undone. Nothing here is geb's own feature: what geb is FOR — the
+# fleet's third backup location and the house's third Govee receiver — is served
+# by jobs on the Mac and by govee-push, not by anything in this file.
 
 { config, pkgs, lib, ... }:
 
