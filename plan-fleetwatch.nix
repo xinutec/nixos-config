@@ -94,7 +94,19 @@ let
       # probe `https://<name>/ --resolve` per name, so without curl on the
       # unit's PATH every name answers `Unreadable` — the same shy-host failure
       # the rsync/openssh note above describes, one plan over.
-      path = [ pkgs.iptables pkgs.rsync pkgs.openssh pkgs.curl planRun ];
+      # ⚠ `k3s` ADDED for the `images` plan (#1329), and it shipped without this:
+      # the probe runs `k3s crictl images -q`, root's login PATH has k3s and this
+      # unit's does not, so every hourly run since the plan landed answered
+      # `could not start k3s: No such file or directory` — a BLOCKED verdict, red
+      # on the board, for a day. Third entry on this line added for the same
+      # reason as the two above it, which is the tell that the shape recurs: a
+      # plan's probes must be able to reach their tools HERE, not in a shell.
+      #
+      # Conditional, because this module is odin's too and odin runs no k3s —
+      # an unconditional `pkgs.k3s` would pull a large closure onto a 3 GB Atom
+      # to satisfy a plan it does not run.
+      path = [ pkgs.iptables pkgs.rsync pkgs.openssh pkgs.curl planRun ]
+        ++ lib.optional config.services.k3s.enable config.services.k3s.package;
       serviceConfig = {
         Type = "oneshot";
         # Root: `iptables -S` needs CAP_NET_ADMIN, and the plan is read-only by
