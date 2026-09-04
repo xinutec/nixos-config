@@ -20,7 +20,21 @@
 { config, pkgs, lib, ... }:
 
 {
-  imports = [ ../../base-configuration.nix ];
+  imports = [
+    ../../base-configuration.nix
+    ./plan-run.nix
+    ./plan-settings.nix
+    ../../plan-fleetwatch.nix
+  ];
+
+  # ⚠ ONE PLAN, and it is here because the thing it judges is here. The one-way
+  # VPN block moved off the servers onto this host on 2026-09-04 (#1403), and
+  # `plan-run` existed only on odin and isis — so without this the control that
+  # keeps the VPN out of the house would be checked by nothing at all.
+  #
+  # No other plan: this host is not a Kubernetes node, drives no backups of its
+  # own and pushes no cabinets. A row it cannot answer is worse than no row.
+  services.planFleetwatch.plans = [ "firewall" ];
 
   # UEFI, not BIOS. base-configuration sets `boot.loader.grub.device` for the
   # OVH machines. Verified at install rather than assumed: /sys/firmware/efi was

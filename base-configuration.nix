@@ -16,13 +16,28 @@ let
     sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
   };
 
-  # Nodes the VPN may never initiate toward — see `oneWay` in options.nix. The
-  # rules below are GENERATED from this list, so marking a node in network.nix
-  # is the whole change; there is no second place that has to be remembered,
-  # which is what went wrong when the mac-mini rules were six literal lines.
-  # Deduplicated because `nodes` aliases the master, so attrValues repeats it.
-  oneWayNodes =
-    lib.unique (builtins.filter (n: n.oneWay or false) (builtins.attrValues net.nodes));
+  # ⚠ A ONE-WAY NODE DEFENDS ITSELF. Until 2026-09-04 this was inverted: every
+  # OTHER host generated an OUTPUT/FORWARD drop toward the protected node, so the
+  # machines the threat model DISTRUSTS were the ones enforcing it — and a
+  # compromised server removes its own rule with one `iptables -D`.
+  #
+  # Pippijn, 2026-09-04: *"We have to assume the server could be hacked, but it
+  # wouldn't be able to hack into the home machines from there."*
+  #
+  # The Mac already worked this way and always had: its pf anchor holds even
+  # against a compromised hub. geb and shu had the LABEL without the defence.
+  #
+  # What this costs: the fleet no longer stops itself dialling home, so the
+  # property now depends on the protected host being up and configured. That is
+  # the right trade — an unreachable home machine is a home machine nobody can
+  # damage either.
+  selfOneWay = config.node.oneWay or false;
+
+  # ⚠ CREATED ON EVERY HOST, jumped to only where `selfOneWay`. `iptables -S` on
+  # a chain that does not exist is an ERROR, and the firewall plan would read
+  # that as Unreadable rather than as "declares nothing" — the one distinction
+  # that whole fact exists to keep apart.
+  oneWayChain = "xinutec-oneway";
 
   # The VPN address of a node named in some other node's `reachableFrom`.
   # `throw` rather than a silent skip: a misspelled name would generate no rule
@@ -34,19 +49,6 @@ let
       "reachableFrom names ${named}, which is not a node in network.nix"
     )).vpn;
 
-  # Teardown for one peer. Also used on its own by extraStopCommands, and run
-  # before the inserts so a firewall reload is idempotent rather than stacking
-  # a fresh copy of every rule. The admitted-peer deletes come first for the
-  # same reason the rest do.
-  oneWayTeardown = node:
-    (lib.concatMapStrings (peer: ''
-      iptables -w -D FORWARD -s ${vpnOf peer} -d ${node.vpn} -j ACCEPT 2>/dev/null || true
-    '') (node.reachableFrom or [ ]))
-    + ''
-      iptables -w -D FORWARD -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
-      iptables -w -D FORWARD -d ${node.vpn} -j DROP 2>/dev/null || true
-      iptables -w -D OUTPUT -d ${node.vpn} -m conntrack --ctstate NEW -j DROP 2>/dev/null || true
-    '';
 
   # The peer may initiate into the VPN; nothing here — this host, its pods, or
   # forwarded peer traffic — may initiate toward it. Only return traffic for
@@ -115,45 +117,60 @@ let
         } -j nixos-fw-accept";
       why = "WireGuard, one of the two remote lifelines";
     }) [ "tcp" "udp" ])
-    # ...and every one-way node's block. Fleet-wide rather than per host: the
-    # rules go on every machine, which is what makes the VPN one-way at all.
-    ++ (lib.concatMap (node:
-      [
-        {
-          chain = "FORWARD";
-          spec =
-            "-A FORWARD -d ${node.vpn}/32 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT";
-          why = "return traffic for connections ${node.name} opened itself";
-        }
-      ] ++ (map (peer: {
-        chain = "FORWARD";
-        spec = "-A FORWARD -s ${vpnOf peer}/32 -d ${node.vpn}/32 -j ACCEPT";
-        why = "${peer} may initiate toward ${node.name}";
-      }) (node.reachableFrom or [ ])) ++ [
-        {
-          chain = "FORWARD";
-          spec = "-A FORWARD -d ${node.vpn}/32 -j DROP";
-          why = "nothing else may initiate toward ${node.name}";
-        }
-        {
-          chain = "OUTPUT";
-          spec =
-            "-A OUTPUT -d ${node.vpn}/32 -m conntrack --ctstate NEW -j DROP";
-          why =
-            "this host may not dial ${node.name} either; forwarding somebody else's connection is not a reason to grant your own";
-        }
-      ]) oneWayNodes);
+    # ...and, ONLY on a node that is itself one-way, the chain it refuses the VPN
+    # with. Per host now, not fleet-wide: the rule lives on the machine being
+    # protected, so the declaration does too.
+    #
+    # ⚠ `RELATED,ESTABLISHED` here against `ESTABLISHED,RELATED` in the command
+    # below is not a typo — iptables NORMALISES the order when it renders, and
+    # this side must match what `iptables -S` prints, not what was typed.
+    ++ (lib.optionals selfOneWay ([{
+      chain = "INPUT";
+      spec = "-A INPUT -i wg0 -j ${oneWayChain}";
+      why = "everything arriving over the VPN is judged by our own chain";
+    }
+    {
+      chain = oneWayChain;
+      spec =
+        "-A ${oneWayChain} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT";
+      why = "replies to connections this host opened itself";
+    }] ++ (map (peer: {
+      chain = oneWayChain;
+      spec = "-A ${oneWayChain} -s ${vpnOf peer}/32 -j ACCEPT";
+      why = "${peer} may initiate toward this host";
+    }) (config.node.reachableFrom or [ ])) ++ [{
+      chain = oneWayChain;
+      spec = "-A ${oneWayChain} -j DROP";
+      why = "nothing else on the VPN may initiate toward this host";
+    }]));
 
-  oneWayRules = node: ''
-    # One-way VPN for ${node.name} (${node.vpn}).
-  '' + oneWayTeardown node + ''
-    iptables -w -I FORWARD 1 -d ${node.vpn} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    iptables -w -I FORWARD 2 -d ${node.vpn} -j DROP
-    iptables -w -I OUTPUT 1 -d ${node.vpn} -m conntrack --ctstate NEW -j DROP
+  # Teardown runs before the inserts so a firewall reload is idempotent rather
+  # than stacking a second copy of every rule, and is used on its own by
+  # extraStopCommands. `-X` last: a chain still jumped to cannot be deleted.
+  oneWayTeardown = ''
+    iptables -w -D INPUT -i wg0 -j ${oneWayChain} 2>/dev/null || true
+    iptables -w -F ${oneWayChain} 2>/dev/null || true
+    iptables -w -X ${oneWayChain} 2>/dev/null || true
+  '';
+
+  oneWayRules = ''
+    # The VPN-facing chain. Empty and unreferenced except on a one-way node.
+  '' + oneWayTeardown + ''
+    iptables -w -N ${oneWayChain}
+  '' + lib.optionalString selfOneWay (''
+    # ⚠ ESTABLISHED FIRST, or this drops the replies to our OWN outbound traffic
+    # and kills the VPN in the legitimate direction too. The Mac shipped exactly
+    # that bug on 2026-06-10 — macOS pf needs `pass out keep state` for the same
+    # reason — and fixed it the same day. Do not reorder these.
+    iptables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   '' + lib.concatMapStrings (peer: ''
-    # ${peer} may initiate toward ${node.name}.
-    iptables -w -I FORWARD 2 -s ${vpnOf peer} -d ${node.vpn} -j ACCEPT
-  '') (node.reachableFrom or [ ]);
+    # ${peer} may initiate toward this host.
+    iptables -w -A ${oneWayChain} -s ${vpnOf peer}/32 -j ACCEPT
+  '') (config.node.reachableFrom or [ ]) + ''
+    iptables -w -A ${oneWayChain} -j DROP
+    iptables -w -I INPUT 1 -i wg0 -j ${oneWayChain}
+  '');
+
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -299,8 +316,8 @@ in {
         iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
           toString net.k8sApiPort
         } -j nixos-fw-accept
-      '' + lib.concatMapStrings oneWayRules oneWayNodes;
-      extraStopCommands = lib.concatMapStrings oneWayTeardown oneWayNodes;
+      '' + oneWayRules;
+      extraStopCommands = oneWayTeardown;
     };
   };
 

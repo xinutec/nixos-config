@@ -81,7 +81,14 @@ let
     # has claimed yet.
     #
     # b779592, the previous pin, is below.
-    rev = "c77f92f1a4b2526037c30c092ad1655758f413aa";
+    # c858cc3 — `JUDGED` gains `INPUT` and `xinutec-oneway` (#1403). The one-way
+    # VPN block moved off this host's FORWARD/OUTPUT onto the protected home
+    # machine's own INPUT chain, so what this host declares about other nodes is
+    # now nothing — and a runner older than this would still be looking for the
+    # rules that used to be here. Bumped in lockstep with that change rather
+    # than after it: the two sides of a comparison must not be pinned apart.
+    #
+    rev = "c858cc3dff5a83b04f693bef3656242a9403c008";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {

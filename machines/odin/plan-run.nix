@@ -52,7 +52,14 @@ let
     # neither of which checks in, so a bump buys it a rebuild and nothing else.
     # plan-pin.sh reports the divergence on every commit, which is where that decision
     # gets re-read.
-    rev = "8c19fee16e333499521b1d696bcd0621befacbb5";
+    # c858cc3 — `JUDGED` gains `INPUT` and `xinutec-oneway` (#1403). The one-way
+    # VPN block moved off this host's FORWARD/OUTPUT onto the protected home
+    # machine's own INPUT chain, so what this host declares about other nodes is
+    # now nothing — and a runner older than this would still be looking for the
+    # rules that used to be here. Bumped in lockstep with that change rather
+    # than after it: the two sides of a comparison must not be pinned apart.
+    #
+    rev = "c858cc3dff5a83b04f693bef3656242a9403c008";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through
