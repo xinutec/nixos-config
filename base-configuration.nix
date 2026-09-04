@@ -93,7 +93,51 @@ let
   # inject: reproducing the module's own output as data would duplicate its logic and
   # become its own drift risk. #727 sat in a chain we own, so the scoped version still
   # catches its shape.
-  declaredFirewall =
+  # ⚠ EVERY DECLARED RULE CARRIES ITS ADDRESS FAMILY. Untagged the two families
+  # cancel: `-A INPUT -j nixos-fw` exists in both tables and is a DIFFERENT rule
+  # in each, so a v4 reading would satisfy a v6 declaration and a host missing
+  # its entire v6 half would compare as converged. The reader defaults a missing
+  # family to `inet`, so a host on an older generation keeps its v4 judgement.
+  withFamily = f: rules: map (r: r // { family = f; }) rules;
+
+  declaredFirewall = withFamily "inet" declaredFirewall4
+    ++ withFamily "inet6" declaredFirewall6;
+
+  # ...only on a one-way node; the chain is empty and unreferenced elsewhere.
+  declaredFirewall6 = lib.optionals selfOneWay [
+    {
+      chain = "INPUT";
+      spec = "-A INPUT -i ${config.node.externalInterface} -j ${oneWayChain}";
+      why = "everything arriving from outside the house is judged by our own chain";
+    }
+    {
+      chain = oneWayChain;
+      spec = "-A ${oneWayChain} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT";
+      why = "replies to connections this host opened itself";
+    }
+    {
+      chain = oneWayChain;
+      spec = "-A ${oneWayChain} -p ipv6-icmp -j ACCEPT";
+      why = "ICMPv6 is what makes IPv6 work: neighbour discovery and Packet Too Big";
+    }
+    {
+      chain = oneWayChain;
+      spec = "-A ${oneWayChain} -s fe80::/10 -j ACCEPT";
+      why = "link-local carries router advertisements, DHCPv6 and mDNS";
+    }
+    {
+      chain = oneWayChain;
+      spec = "-A ${oneWayChain} -j DROP";
+      why = "nothing on the internet may initiate toward this host";
+    }
+  ];
+
+  # ⚠ Spellings MEASURED on geb 2026-09-04, not predicted: ip6tables renders
+  # `--ctstate ESTABLISHED,RELATED` back as `RELATED,ESTABLISHED`, exactly as
+  # iptables does. A declaration written the way the command is typed would
+  # compare unequal on that rule for ever.
+
+  declaredFirewall4 =
     # The two container→API accepts, from the same `net` values `extraCommands`
     # interpolates.
     (map (proto: {
@@ -152,6 +196,53 @@ let
     iptables -w -F ${oneWayChain} 2>/dev/null || true
     iptables -w -X ${oneWayChain} 2>/dev/null || true
   '';
+
+  # ── The same property, one address family over ────────────────────────────
+  #
+  # ⚠ THE VPN IS IPv4-ONLY: wg0 carries no IPv6 address on any host, so a v6
+  # chain jumped from `-i wg0` would be dead code. This half is about the
+  # INTERNET. At home the machines hold globally routable v6 addresses with no
+  # NAT in front of them, and `allowedTCPPorts` is family- and source-agnostic,
+  # so "ssh is open" meant open to anyone the router let through. Measured
+  # 2026-09-04: the pixel9 opened geb's public v6 :22 directly.
+  #
+  # ⚠ NO `reachableFrom` ADMITS HERE, deliberately. Those name VPN peers, and
+  # peers have no v6 address to admit — an admit spelled in this family would be
+  # a rule that can never match, and a declaration nobody can satisfy.
+  oneWayTeardown6 = ''
+    ip6tables -w -D INPUT -i ${config.node.externalInterface} -j ${oneWayChain} 2>/dev/null || true
+    ip6tables -w -F ${oneWayChain} 2>/dev/null || true
+    ip6tables -w -X ${oneWayChain} 2>/dev/null || true
+  '';
+
+  oneWayRules6 = ''
+    # ⚠ CREATED ON EVERY HOST, exactly as the v4 chain is, so `ip6tables -S
+    # xinutec-oneway` ANSWERS everywhere. The probe loops families x chains and
+    # reads a non-zero exit as Unreadable, so a chain present in one table and
+    # absent from the other would make the whole firewall fact unreadable on the
+    # three hosts that are not one-way — losing the v4 judgement that works.
+  '' + oneWayTeardown6 + ''
+    ip6tables -w -N ${oneWayChain}
+  '' + lib.optionalString selfOneWay (''
+    ip6tables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+    # ⚠ ICMPv6 BEFORE THE DROP, AND THIS IS NOT POLITENESS — it is what keeps
+    # IPv6 working at all. A neighbour advertisement from an ON-LINK host carries
+    # that host's GLOBAL source address, not its link-local one, so the fe80::/10
+    # line below does NOT cover it; without this rule the DROP eats it and the
+    # machine cannot open an IPv6 connection to its own subnet. Packet Too Big
+    # goes the same way, so PMTU discovery fails and large transfers HANG rather
+    # than fail. The Mac shipped exactly this bug hours earlier and it verified
+    # clean, because traffic via the ROUTER kept working the whole time — the
+    # router answers from fe80::.
+    ip6tables -w -A ${oneWayChain} -p ipv6-icmp -j ACCEPT
+    # Link-local: router advertisements, DHCPv6, mDNS.
+    ip6tables -w -A ${oneWayChain} -s fe80::/10 -j ACCEPT
+    ip6tables -w -A ${oneWayChain} -j DROP
+    # ⚠ Scoped to the EXTERNAL interface, where the v4 jump is scoped to wg0.
+    # Same chain name, same meaning, different door. An unscoped jump would also
+    # judge lo, and ::1 traffic would meet the DROP.
+    ip6tables -w -I INPUT 1 -i ${config.node.externalInterface} -j ${oneWayChain}
+  '');
 
   oneWayRules = ''
     # The VPN-facing chain. Empty and unreferenced except on a one-way node.
@@ -316,8 +407,8 @@ in {
         iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
           toString net.k8sApiPort
         } -j nixos-fw-accept
-      '' + oneWayRules;
-      extraStopCommands = oneWayTeardown;
+      '' + oneWayRules + oneWayRules6;
+      extraStopCommands = oneWayTeardown + oneWayTeardown6;
     };
   };
 
