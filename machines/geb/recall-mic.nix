@@ -23,10 +23,10 @@ let
   #
   # To bump: change rev, then refresh the hash with
   #   nix-prefetch-url --unpack https://github.com/xinutec/recall/archive/<rev>.tar.gz
-  recallRev = "dd6e4c2c89843f28a452a9089ed38d794456d296";
+  recallRev = "27fb57066ac8ed0c9835a27f7d1e027ea8d4e5ac";
   recallSrc = builtins.fetchTarball {
     url = "https://github.com/xinutec/recall/archive/${recallRev}.tar.gz";
-    sha256 = "111vncm8bz2scl9w4gl5gc5sz104r2swsi3rzi1gqa92r29g8h0q";
+    sha256 = "1y0yr2x4wam62wh5hcv2jn3sks3wxjv4ls58128wvjb4y4wgvaxn";
   };
 
   # `recall.mic` and the `recall.wire` constants it shares with the server import
