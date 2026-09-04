@@ -71,15 +71,28 @@
       # /backup/restic (root-owned) nor anything else on the host is reachable.
       #
       # ⚠ `-no-del` was here until 2026-08-14 and made the archive append-only, because
-      # Claude Code prunes its own transcripts and a mirror lets that prune reach the
-      # last copy. Measured before removing it — the mac held 24 main transcripts
-      # against this archive's 2,490 — but the 2,466 were empty sessions, median
-      # 23.7 KB, about what a transcript weighs when it is only injected task-reminder
-      # boilerplate. Pippijn's call on that evidence: copies of data held elsewhere.
+      # Claude Code was believed to prune its own transcripts and a mirror lets that
+      # prune reach the last copy. Measured before removing it — the mac held 24 main
+      # transcripts against this archive's 2,490 — but the 2,466 were empty sessions,
+      # median 23.7 KB, about what a transcript weighs when it is only injected
+      # task-reminder boilerplate. Pippijn's call on that evidence: copies of data held
+      # elsewhere.
       #
-      # ⚠ So deletions propagate and restic is the only history: keep-daily 7 /
-      # keep-weekly 4 / keep-monthly 6, so what the mac drops is recoverable ~6 months
-      # and then gone.
+      # ⚠ That call is now confirmed by the archive itself (memview#1240, #1247).
+      # Diffing the last append-only snapshot against the mac on 2026-08-29: of 2,467
+      # transcripts gone, 2,465 lived in temp-directory projects and the two that did
+      # not are empty sessions. NOT ONE TRANSCRIPT HOLDING A CONVERSATION HAS BEEN
+      # DELETED, and of the 952 in the first snapshot, zero are missing. What removes
+      # them is still not established — files from the same day in the same project
+      # were treated differently — so the class is measured and the rule is not.
+      #
+      # ⚠ So deletions propagate and restic is the only history. Retention is FOUR
+      # lines, not three: keep-daily 7 / keep-weekly 4 / keep-monthly 6 / **keep-yearly
+      # 1** (see pruneOpts below). Quoting the first three gives "~6 months and then
+      # gone", which is right for the monthly ladder and wrong as an absolute — one
+      # yearly snapshot outlives it. ⚠ And retention bounds how long a snapshot lives,
+      # never how far back one exists: the oldest holding transcripts is 2026-07-31,
+      # because that is when this job began.
       #
       # rsync rather than SFTP because projects/ is append-mostly JSONL — the largest
       # transcript is ~480 MB and grows daily, so delta transfer is the difference
