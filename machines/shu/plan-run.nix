@@ -34,12 +34,12 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    # c858cc3 — `JUDGED` gains `INPUT` and `xinutec-oneway`, which is what makes
-    # this host's own one-way block readable by the firewall plan. A runner older
-    # than this judges FORWARD and OUTPUT only, so it would compare two empty
-    # sets here and converge while enforcing nothing — the exact failure the
-    # chain is judged alongside the jump to prevent.
-    rev = "c858cc3dff5a83b04f693bef3656242a9403c008";
+    # fbc135a — the judge gains ADDRESS FAMILIES. A runner older than this reads
+    # `ip6tables` never, and reads the v6 rules in declared-firewall.json as
+    # though they were IPv4 — measured on geb and shu 2026-09-05: nine declared
+    # against four owned, and the plan blocked. The declaration and the runner
+    # that understands it have to move together.
+    rev = "fbc135a3e887fe544ca593b445871386c686c53d";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
