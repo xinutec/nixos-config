@@ -19,6 +19,23 @@
 
 { config, pkgs, lib, ... }:
 
+let
+  # The Govee pusher's runtime. bleak pulls in dbus-fast, which the shared reader
+  # uses to power-cycle the adapter between scan rounds.
+  #
+  # ⚠ shu does NOT need that power-cycle — its Realtek controller does not filter
+  # duplicates, unlike geb's Intel one — and it runs the shared reader anyway.
+  # Measured 2026-09-04: the flushed path takes 1m06s here and hears five of
+  # seven, the top of geb's documented 2-to-5 range. A second reader to save a
+  # minute of radio inside a ten-minute slot would be two code paths to keep
+  # level for nothing.
+  goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
+
+  # shu's checkout of xinutec-infra, where the pusher and the shared modules
+  # live. That repository is private and this one is public, so the code cannot
+  # be fetched at evaluation time.
+  infra = "/opt/xinutec-infra";
+in
 {
   imports = [
     ../../base-configuration.nix
@@ -107,5 +124,57 @@
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;
+  };
+
+  # The house's FOURTH Govee receiver, after the Mac, the pixel5 and geb.
+  #
+  # ⚠ NOT ADDED FOR COVERAGE — every sensor already had two or three ears, and
+  # that was measured rather than assumed. What shu adds is a third ear for
+  # `govee-267F`, whose only two are the Mac and a phone that has gone silent
+  # twice, and the strongest reading in the house for `govee-B7AC`. Redundancy,
+  # which per README.md's "redundant, parallel, or movable" is the point rather
+  # than a weak reason.
+  #
+  # ⚠ shu is in `home_receivers.py`'s RECEIVERS, so its SILENCE IS A FAULT. That
+  # is correct and deliberate: shu is always on. A deliberate rebuild will turn
+  # that row red for as long as it takes, and that is a true statement about the
+  # house rather than a false alarm — the collector has no "often off" class on
+  # purpose, and shu does not need one.
+  age.secrets."home-ingest-token" = {
+    file = ../../agenix/home-ingest-token.age;
+    mode = "0400";
+  };
+
+  systemd.services.govee-push = {
+    description = "Scan the Govee BLE hygrometers and push their readings to home";
+    # Bluetooth is the whole job, and the pusher stamps each reading with its own
+    # capture time and spools on failure, so it does not wait on the network.
+    after = [ "bluetooth.service" ];
+    requires = [ "bluetooth.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      StateDirectory = "govee-push";
+      # Clone if absent, and deliberately never pull: a timer that fetched code
+      # every run would deploy whatever was last pushed, half-finished or not.
+      # Updating shu is `git -C /opt/xinutec-infra pull`, on purpose.
+      ExecStartPre = ''
+        ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
+      '';
+      ExecStart = "${goveePython}/bin/python3 ${infra}/shu/govee-push.py";
+      User = "root";
+    };
+  };
+
+  systemd.timers.govee-push = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      # The :08 phase, against the Mac's :00 and geb's :05, so the receivers'
+      # rows interleave rather than landing together.
+      OnCalendar = "*:08/10";
+      # A run is four scan rounds plus delivery — 1m06s measured, comfortably
+      # inside the ten-minute slot, but a machine that has been asleep must not
+      # stack them.
+      AccuracySec = "30s";
+    };
   };
 }
