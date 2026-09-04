@@ -19,7 +19,14 @@ let
   # own WireGuard key.
   geb = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHknQkqhrNDTXrL0o6omTOb/1LZNF4/IWbMrGgpgKzPZ";
 
-  allHosts = [ amun isis odin geb ];
+  # The second house box (#1403), installed 2026-09-04. Same class as geb — a
+  # NixOS host, so it needs every secret base-configuration declares
+  # unconditionally — but it is the machine that gets REBUILT, which means its
+  # host key will change again, deliberately and more than once. Re-keying is
+  # part of that cycle rather than an incident.
+  shu = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE069LNzN0xeKpgYwzWR9ABi4SIDf/CjwFQZ0WT/WP6";
+
+  allHosts = [ amun isis odin geb shu ];
 in {
   # Grafana Cloud / Mimir push password — every host runs the alloy
   # metrics agent, so every host needs it.
@@ -61,6 +68,7 @@ in {
   "wireguard-isis.age".publicKeys = [ isis admin ];
   "wireguard-odin.age".publicKeys = [ odin admin ];
   "wireguard-geb.age".publicKeys = [ geb admin ];
+  "wireguard-shu.age".publicKeys = [ shu admin ];
 
   # Root user's SSH private keys — one shared keypair of each type
   # across all hosts, used for inter-host root SSH (backup rsyncs and

@@ -154,6 +154,39 @@
       intermittent = false;
     };
 
+    # The second house box, and the one the fleet is ALLOWED TO LOSE. Same shape
+    # as geb — storage-class, no Kubernetes, one-way, no public address — but
+    # with the opposite availability requirement: shu exists to be wiped and
+    # rebuilt, because a restore drill against a machine that was really doing
+    # something is the only kind that proves anything.
+    #
+    # Installed 2026-09-04 (#1403). Both keys generated ON the machine; only the
+    # public one is here and the private half goes into agenix
+    # (wireguard-shu.age), as every NixOS host in this fleet carries its own.
+    shu = {
+      name = "shu";
+      vpn = "10.100.0.6";
+      publicKey = "Ls3RbTPsbp6uUtVBZyPgWFWdpv22iR6RCxul2QW5NnM=";
+      # Wifi is the link, decided rather than defaulted: it sits a floor up,
+      # associates on 5 GHz at -63 dBm, and has a 2.4 GHz profile behind that
+      # for the day the 5 GHz stops reaching. There is no cable and none is
+      # wanted, same as geb.
+      externalInterface = "wlp1s0";
+      oneWay = true;
+      # The Mac administers it and nothing else has any business dialling in —
+      # identical reasoning to geb, and it is what makes the reachability a
+      # property rather than a side effect of both being in the house.
+      reachableFrom = [ "mac-mini" ];
+      # ⚠ TRUE HERE, and FALSE on geb, which is the whole point of the pair.
+      # geb holds backups, so a missing handshake is a fault: a backup target
+      # quietly down is indistinguishable from a working one until the day it
+      # is needed. shu is the machine we rebuild ON PURPOSE, so the same signal
+      # would fire every time we did the thing it exists for — and an alert that
+      # cries wolf on schedule is worse than none, because it teaches the fleet
+      # to ignore that row.
+      intermittent = true;
+    };
+
     # Dasha's phone. Private key generated on the Mac 2026-07-08, lives only in
     # the device's WireGuard tunnel (provisioned by QR); only the public key is
     # here. Split-tunnel client: AllowedIPs = the VPN subnet.
