@@ -39,12 +39,20 @@ let
   # these three plus a duplicate.
   #
   # Logins as `pippijn` on isis over the 90 days to 2026-08-22, which is what
-  # says these are live rather than inherited: roam.internal 25, JuiceSSH 0,
-  # Termux 0. The two phone keys reach the Mac and the console tunnel rather than
-  # the fleet directly; they are declared because removing a path Pippijn holds
-  # is his call, not a tidy-up.
-  juiceSsh =
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMj378KHiDT4caf5n0vGOFU9WJo8QeWO0Hsb+4VCumpq JuiceSSH";
+  # says these are live rather than inherited: roam.internal 25, Termux 0. The
+  # phone key reaches the Mac and the console tunnel rather than the fleet
+  # directly; it is declared because removing a path Pippijn holds is his call,
+  # not a tidy-up.
+  #
+  # ⚠ **JuiceSSH WAS THE THIRD, AND IS GONE (2026-09-04).** Pippijn: the app is
+  # no longer developed and its service is down, so the client that held the
+  # private half cannot be used at all. It had already logged in ZERO times in
+  # the 90 days above — the count was recorded here as evidence the key was live,
+  # and it was the one saying it was not.
+  #
+  # This is the call that comment reserved for him, now made. A credential whose
+  # only holder is a dead app is not a path anybody keeps; it is one nobody can
+  # use and nobody would notice being used.
   termux =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPvQ3V6Vr8L+ckUBinwDYLLkortxz5S8tVGGKMSEcpdU u0_a522@localhost";
   roamMac =
@@ -103,7 +111,6 @@ in
   # rebuild cannot remove. Re-creating it puts the fleet back where it was.
   pippijn = [
     macMini
-    juiceSsh
     termux
     roamMac
   ];
