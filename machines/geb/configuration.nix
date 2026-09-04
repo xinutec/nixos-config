@@ -5,11 +5,17 @@
 # What it does NOT share with odin is where it sits — geb is on a home LAN
 # behind the router, with no public address, and on wifi rather than ethernet.
 #
-# Everything below is a place where base-configuration.nix's assumptions — three
-# rented BIOS-boot machines with public addresses and a Kubernetes cluster —
-# had to be undone. Nothing here is geb's own feature: what geb is FOR — the
-# fleet's third backup location and the house's third Govee receiver — is served
-# by jobs on the Mac and by govee-push, not by anything in this file.
+# Most of what follows is a place where base-configuration.nix's assumptions —
+# three rented BIOS-boot machines with public addresses and a Kubernetes cluster —
+# had to be undone, and undoing them is not a feature. Two of geb's three jobs are
+# not features of this file either: the fleet's third backup location is driven by
+# jobs on the Mac, and the house's third Govee receiver by govee-push below.
+#
+# The third IS geb's own, and is the reason this stopped being a box that only
+# holds things: being in a room, on mains, permanently, geb carries a microphone
+# for recall (./recall-mic.nix). That is a job no rented machine can do and no
+# phone does reliably, and it is why the wifi link above is worth caring about —
+# it is the path the audio crosses.
 
 { config, pkgs, lib, ... }:
 
@@ -30,6 +36,7 @@ in
     ./plan-run.nix
     ./plan-settings.nix
     ../../plan-fleetwatch.nix
+    ./recall-mic.nix
   ];
 
   # ⚠ ONE PLAN, and it is here because the thing it judges is here. The one-way

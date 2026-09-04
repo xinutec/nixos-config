@@ -23,10 +23,10 @@ let
   #
   # To bump: change rev, then refresh the hash with
   #   nix-prefetch-url --unpack https://github.com/xinutec/recall/archive/<rev>.tar.gz
-  recallRev = "@REV@";
+  recallRev = "dd6e4c2c89843f28a452a9089ed38d794456d296";
   recallSrc = builtins.fetchTarball {
     url = "https://github.com/xinutec/recall/archive/${recallRev}.tar.gz";
-    sha256 = "@SHA@";
+    sha256 = "111vncm8bz2scl9w4gl5gc5sz104r2swsi3rzi1gqa92r29g8h0q";
   };
 
   # `recall.mic` and the `recall.wire` constants it shares with the server import
@@ -35,10 +35,12 @@ let
   # `python3 -m recall` would pull all three in and fail here.
   micPython = pkgs.python3;
 
-  # By CARD NAME, not `hw:1,0`. Card numbers are assigned in enumeration order, so
-  # an index would silently move capture to the motherboard's analog input — which
-  # has nothing plugged into it — the first time the two cards came up the other
-  # way round. The name comes from the device itself (/proc/asound/card*/id).
+  # By CARD NAME, not `hw:1,0`. This is not a precaution, it is a report: the USB
+  # mic was card 1 all morning, geb rebooted, and it came back as card 0 with the
+  # motherboard's analog input at 1. Measured immediately after, `hw:1,0` captured
+  # -inf — digital silence from a jack with nothing in it — while the name below
+  # captured the room at -52.8 dB. An index would have recorded nothing, looking
+  # exactly like a quiet house. The name comes from the device (/proc/asound/*/id).
   micDevice = "hw:CARD=N32,DEV=0";
 
   # The recorder host, BY NAME: the router registers DHCP hostnames, so this
