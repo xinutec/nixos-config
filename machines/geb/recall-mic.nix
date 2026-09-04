@@ -9,9 +9,15 @@
 # auto-registers the source, so nothing is provisioned on the far side — this file is
 # the whole deployment.
 #
-# What geb does NOT need, being a Linux box: an app, a heartbeat to prove it is alive
-# (a dead unit is a failed service, which the fleet already sees), or a person to
-# restart it.
+# What geb does NOT need, being a Linux box: an app, or a person to restart it.
+#
+# What it DOES need, against first instinct, is the same hourly heartbeat the phones
+# send. "A dead unit is a failed systemd service the fleet already watches" is true
+# of the rented machines and false of this one: fleet_health's failed-unit check
+# covers amun, isis and odin and leaves geb out on purpose, because a wifi box on the
+# home LAN is unreachable often enough that failing on it would cry wolf. Without a
+# beat, this recorder dying would be seen by nobody — and recall's mic collector
+# grades every tcp_pcm source, so a silent one reads as a dead app for ever.
 
 { config, pkgs, lib, ... }:
 
@@ -23,10 +29,10 @@ let
   #
   # To bump: change rev, then refresh the hash with
   #   nix-prefetch-url --unpack https://github.com/xinutec/recall/archive/<rev>.tar.gz
-  recallRev = "27fb57066ac8ed0c9835a27f7d1e027ea8d4e5ac";
+  recallRev = "05978d3df7ac071f995e52865e6a591aebfa1c7c";
   recallSrc = builtins.fetchTarball {
     url = "https://github.com/xinutec/recall/archive/${recallRev}.tar.gz";
-    sha256 = "1y0yr2x4wam62wh5hcv2jn3sks3wxjv4ls58128wvjb4y4wgvaxn";
+    sha256 = "1zgsll43pnbqsk60i4l5wf26ay1clllcqvypkqkaqimczd7kwxh9";
   };
 
   # `recall.mic` and the `recall.wire` constants it shares with the server import
