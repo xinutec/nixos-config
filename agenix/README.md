@@ -113,6 +113,19 @@ key before it can activate this configuration.
 
 1. Install NixOS on the new hardware. sshd generates host keys on
    first boot; the host is reachable over its public IP throughout.
+
+   ⚠ **A NEW host has only the `nixos` channel, and this repo needs two.**
+   `base-configuration.nix` imports `<home-manager/nixos>`, so without it
+   `nixos-rebuild` fails at evaluation with `file 'home-manager/nixos' was
+   not found in the Nix search path` — which names the search path rather
+   than the missing channel, and arrives long after the secrets work looks
+   finished. Add it to match the rest of the fleet:
+
+       nix-channel --add https://github.com/nix-community/home-manager/archive/release-26.05.tar.gz home-manager
+       nix-channel --update
+
+   A REINSTALLED host needs this too: channels are machine state, so a fresh
+   disk has none of them.
 2. Read the new host key on it:
    `cat /etc/ssh/ssh_host_ed25519_key.pub`
 3. On the admin machine (which holds the admin age key), edit
@@ -121,8 +134,18 @@ key before it can activate this configuration.
 4. Re-encrypt every secret to the updated recipients:
    `cd agenix && nix-shell -p agenix --run 'agenix --rekey -i ~/.config/age/xinutec-fleet-admin.txt'`
 5. Commit and push `secrets.nix` and the re-keyed `*.age` files.
-6. On the new host, put this repo at `/etc/nixos`, then
-   `nixos-rebuild switch` — agenix decrypts with the new host key.
+6. On the new host, put this repo at `/etc/nixos`, then build and
+   activate — agenix decrypts with the new host key. Two files a host has
+   that a clean checkout does not, both gitignored, must be placed first:
+   `configuration.nix` (from `configuration.nix.dist`, via `setup.sh`) and
+   the machine's `hardware-configuration.nix`, copied to the repo ROOT
+   because `base-configuration.nix` imports it relative to itself.
+
+   ⚠ **`boot` then reboot, not `switch`** — Pippijn's rule for every host
+   except amun, which cannot be rebooted freely. Keep the pre-existing
+   `/etc/nixos` as `/etc/nixos.bootstrap`: if the fleet config will not
+   activate, that is what the machine is still running and what it goes
+   back to.
 
 The admin key is what makes step 4 possible: it is a recipient of
 every secret, so it alone can re-key all of them. Without it, a secret
