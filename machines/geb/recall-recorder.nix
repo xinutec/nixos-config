@@ -33,9 +33,11 @@ let
   # GC root this module points at. To bump:
   #   sudo nix --extra-experimental-features 'nix-command flakes' \
   #     build github:xinutec/recall/<rev>#audiod --out-link /opt/audiod
-  # (First pinned at recall c05a380f, 2026-09-05 — the rev that carries the
-  # ALSA producer and the pause mirror. Declarative flake eval is the tidy-up,
-  # not tonight's blocker.)
+  # (First pinned at recall a647025, 2026-09-05 — the rev that carries the
+  # ALSA producer and the pause mirror. It was c05a380f until recall's history
+  # was rewritten that evening to drop 462 MB of committed cargo build output;
+  # the pre-rewrite SHA no longer resolves. Declarative flake eval is the
+  # tidy-up, not tonight's blocker.)
   audiod = "/opt/audiod";
 
   # By CARD NAME, not index — the mic changed indexes across a reboot and an
