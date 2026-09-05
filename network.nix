@@ -91,6 +91,16 @@
       publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
       intermittent = true; # phone — connects only when actively passing traffic
     };
+    # OnePlus 6T, enrolled 2026-09-05 as a recall recorder (source id
+    # `oneplus6t`). Key generated on the Mac like the iPhone's; the private key
+    # lives only in the phone's WireGuard tunnel. Split-tunnel client:
+    # AllowedIPs = the VPN subnet.
+    oneplus6t = {
+      name = "oneplus6t";
+      vpn = "10.100.0.8";
+      publicKey = "8sDEwk6LXHZPT5g1dj3wHDM6eeRyj5OMetc/9elY7DU=";
+      intermittent = true; # phone — connects only when actively passing traffic
+    };
 
     # iPhone (Pippijn). Private key generated on the Mac 2026-06-28, lives only
     # in the device's WireGuard tunnel (provisioned by QR); only the public key
