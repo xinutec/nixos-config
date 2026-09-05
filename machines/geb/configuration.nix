@@ -36,7 +36,7 @@ in
     ./plan-run.nix
     ./plan-settings.nix
     ../../plan-fleetwatch.nix
-    ./recall-mic.nix
+    ./recall-recorder.nix
   ];
 
   # ⚠ ONE PLAN, and it is here because the thing it judges is here. The one-way
