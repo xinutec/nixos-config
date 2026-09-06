@@ -88,7 +88,19 @@ let
     # rules that used to be here. Bumped in lockstep with that change rather
     # than after it: the two sides of a comparison must not be pinned apart.
     #
-    rev = "c858cc3dff5a83b04f693bef3656242a9403c008";
+    # 9f04a2e — the front door gains a SERVICE witness. Until this rev the plan
+    # asked only whether a name presented a valid certificate, and nginx with a
+    # dead upstream presents one perfectly while returning 502:
+    # messages.xinutec.org answered nothing for 26 hours (2026-09-04/05) with all
+    # 23 goals here green. `Probe::HttpServes` is the other half — 5xx or a
+    # refused connection is a fault, anything below 500 holds, because six of the
+    # eighteen fronted names answer 3xx or 401 by design.
+    #
+    # ⚠ THIS HOST IS THE ONLY ONE THAT NEEDS IT. odin, geb and shu run no
+    # frontdoor plan, so their pins are deliberately left where they are — a
+    # runner without this variant simply builds no such goal. Bumping them would
+    # be shipping an untested rev to three machines to no purpose.
+    rev = "9f04a2ee44a0899b0341d343e4d8b8a388bd8a5a";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
