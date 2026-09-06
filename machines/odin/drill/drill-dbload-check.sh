@@ -166,13 +166,22 @@ sleep 5
 
 # --- load ---------------------------------------------------------------------
 log "loading dump (the step that fails when prod and drill have diverged)..."
-# `|| load_rc=$?` keeps `set -e` from killing the script before the codes can be
-# read and reported. This is not a masked failure: PIPESTATUS is captured on the
-# next line and checked immediately below.
-load_rc=0
+# ⚠ THERE MUST BE NOTHING BETWEEN THE PIPELINE AND `PIPESTATUS`, so errexit comes
+# off rather than being dodged with `|| load_rc=$?`.
+#
+# That is what this used to do, and the comment here used to claim PIPESTATUS was
+# "captured on the next line" — it was not. An assignment IS a command, so
+# `|| load_rc=$?` runs one on failure and resets PIPESTATUS to its own
+# single-element status. `${rc[1]}` was then unbound, and `set -u` killed the
+# script INSIDE ITS OWN ERROR PATH, printing `rc[1]: unbound variable` on top of
+# the real failure it was trying to report. Seen on odin 2026-09-06 (#1471);
+# reproduced in a bare shell before changing anything.
+set +e
 zstd -dc "$DUMP" \
-  | docker exec -i "$NAME" mariadb -uroot --password="$PW" --binary-mode || load_rc=$?
+  | docker exec -i "$NAME" mariadb -uroot --password="$PW" --binary-mode
 rc=("${PIPESTATUS[@]}")
+set -e
+load_rc=$(( rc[0] | rc[1] ))
 log "exit codes: zstd=${rc[0]} mariadb=${rc[1]} (pipeline=$load_rc)"
 if [ "${rc[0]}" -ne 0 ] || [ "${rc[1]}" -ne 0 ]; then
   echo "[dbload-check] RESULT: FAILED — the dump does not load into $db_image" >&2

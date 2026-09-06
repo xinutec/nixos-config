@@ -59,8 +59,23 @@ fi
 # --- cleanup trap ---
 cleanup() {
   local rc=$?
-  docker inspect drill-seed-db >/dev/null 2>&1 && \
+  # ⚠ READ THE LOGS BEFORE REMOVING IT. This container used to run with `--rm`,
+  # which meant a container that failed to start deleted itself — and took with
+  # it the only record of why. The `docker logs` in the readiness timeout below
+  # then printed `No such container`, which reads as a missing container rather
+  # than as the diagnostic being destroyed. Cost a whole weekly drill on
+  # 2026-09-06 with nothing to show for it (#1471).
+  if docker inspect drill-seed-db >/dev/null 2>&1; then
+    if [ $rc -ne 0 ]; then
+      log "drill-seed-db state: $(docker inspect \
+        -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} started={{.State.StartedAt}}' \
+        drill-seed-db 2>&1 || echo unreadable)"
+      log "drill-seed-db logs (last 50):"
+      docker logs --tail 50 drill-seed-db 2>&1 | sed 's/^/    /' || log "  (no logs)"
+    fi
     docker stop drill-seed-db >/dev/null 2>&1 || true
+    docker rm -f drill-seed-db >/dev/null 2>&1 || true
+  fi
   if [ $rc -ne 0 ]; then
     log "FAILED (rc=$rc) — ./volumes/ may be partially populated; re-run to retry"
   fi
@@ -101,7 +116,8 @@ db_image=$(grep 'image:.*mariadb:' "$DRILL_DIR/docker-compose.yml" | awk '{print
 readonly db_image
 log "start temporary drill-seed-db ($db_image)"
 docker rm -f drill-seed-db >/dev/null 2>&1 || true
-docker run -d --rm \
+# NO `--rm`: the cleanup trap removes it, AFTER reading its logs. See #1471.
+docker run -d \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=$DRILL_DB_PW \
   -e MYSQL_DATABASE=nextcloud \
@@ -109,16 +125,29 @@ docker run -d --rm \
   "$db_image" \
   >/dev/null
 
-log "waiting for drill-seed-db to accept authenticated connections..."
-for i in $(seq 1 120); do
+# 120 iterations x 2s = FOUR MINUTES, not two. Measured on odin 2026-09-06 with
+# the box idle, this container is ready in ~38s, so the budget is generous —
+# which is why a timeout here should be read as "something is wrong", not as
+# "needs longer".
+readonly DB_WAIT_ROUNDS=120
+readonly DB_WAIT_SLEEP=2
+log "waiting for drill-seed-db to accept authenticated connections (up to $((DB_WAIT_ROUNDS * DB_WAIT_SLEEP))s)..."
+for i in $(seq 1 "$DB_WAIT_ROUNDS"); do
   if docker exec drill-seed-db mariadb -uroot --password=$DRILL_DB_PW -e "SELECT 1" >/dev/null 2>&1; then
-    log "ready after ${i}s"
+    log "ready after $((i * DB_WAIT_SLEEP))s"
     break
   fi
-  sleep 2
-  if [ "$i" -eq 120 ]; then
-    echo "TIMEOUT: drill-seed-db did not become ready" >&2
-    docker logs --tail 40 drill-seed-db >&2
+  # ⚠ A CONTAINER THAT EXITED IS NOT A SLOW ONE. Without this the loop waits out
+  # the full four minutes on a container that died in the first ten seconds, and
+  # then reports "did not become ready" — which sends the reader looking for a
+  # timeout when what happened was a crash.
+  if [ "$(docker inspect -f '{{.State.Running}}' drill-seed-db 2>/dev/null)" != "true" ]; then
+    echo "drill-seed-db EXITED after $((i * DB_WAIT_SLEEP))s — it crashed, it did not run slow" >&2
+    exit 1
+  fi
+  sleep "$DB_WAIT_SLEEP"
+  if [ "$i" -eq "$DB_WAIT_ROUNDS" ]; then
+    echo "TIMEOUT: drill-seed-db still running but not accepting connections after $((i * DB_WAIT_SLEEP))s" >&2
     exit 1
   fi
 done
