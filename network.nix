@@ -197,6 +197,39 @@
       intermittent = true;
     };
 
+    # The third house box, and the one with NO JOB YET. Named for shu's twin:
+    # Shu and Tefnut are siblings, so it sits beside shu as shu sits beside geb.
+    #
+    # ⚠ UNLIKE shu, THIS ONE REALLY IS geb's TWIN — same Quieter 4C board, same
+    # `Rev TWL6-DDR4 1.10`, same `ML_TWL6 V11.7` BIOS, same N150, same 31 GiB,
+    # same `wlp0s20f3`. shu was sold as an N150 and is an i3-6006U, which is why
+    # this was read off the DMI rather than inferred from the CPU. So geb's
+    # config transfers here rather than needing translation.
+    #
+    # Installed 2026-09-06 (#1469). Both keys generated ON the machine; only the
+    # public one is here and the private half goes into agenix
+    # (wireguard-tefnut.age), as every NixOS host in this fleet carries its own.
+    tefnut = {
+      name = "tefnut";
+      vpn = "10.100.0.15";
+      publicKey = "onPLb2wm036baPhMjHMG9Tz5CnH/Auw9ZOIsce1ibgU=";
+      externalInterface = "wlp0s20f3";
+      oneWay = true;
+      # Identical reasoning to geb and shu: the Mac administers it and nothing
+      # else has any business dialling in.
+      reachableFrom = [ "mac-mini" ];
+      # ⚠ FALSE, which is geb's answer rather than shu's, and the difference is
+      # deliberate. shu is `true` because it is rebuilt ON PURPOSE, so an
+      # always-on signal would fire every time we did the thing it exists for.
+      # Nothing here is taken down deliberately: it is a mains-powered box that
+      # is meant to be on, so a missing handshake is a true statement about the
+      # house.
+      #
+      # ⚠ REVISIT WHEN IT GETS A JOB. A job that involves powering it off would
+      # make this alert on schedule, which is the failure shu's flag avoids.
+      intermittent = false;
+    };
+
     # Dasha's phone. Private key generated on the Mac 2026-07-08, lives only in
     # the device's WireGuard tunnel (provisioned by QR); only the public key is
     # here. Split-tunnel client: AllowedIPs = the VPN subnet.

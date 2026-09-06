@@ -26,7 +26,12 @@ let
   # part of that cycle rather than an incident.
   shu = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE069LNzN0xeKpgYwzWR9ABi4SIDf/CjwFQZ0WT/WP6";
 
-  allHosts = [ amun isis odin geb shu ];
+  # The third house box (#1469), installed 2026-09-06. A NixOS host like the
+  # other two, so it needs every secret base-configuration declares
+  # unconditionally, not just its own WireGuard key.
+  tefnut = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINFHDsCe+/BArl+STKvhvucxNCdoeMjFwdJvy5g51c8s";
+
+  allHosts = [ amun isis odin geb shu tefnut ];
 in {
   # Grafana Cloud / Mimir push password — every host runs the alloy
   # metrics agent, so every host needs it.
@@ -69,6 +74,7 @@ in {
   "wireguard-odin.age".publicKeys = [ odin admin ];
   "wireguard-geb.age".publicKeys = [ geb admin ];
   "wireguard-shu.age".publicKeys = [ shu admin ];
+  "wireguard-tefnut.age".publicKeys = [ tefnut admin ];
 
   # Root user's SSH private keys — one shared keypair of each type
   # across all hosts, used for inter-host root SSH (backup rsyncs and
