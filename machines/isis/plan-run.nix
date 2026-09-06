@@ -100,7 +100,17 @@ let
     # frontdoor plan, so their pins are deliberately left where they are — a
     # runner without this variant simply builds no such goal. Bumping them would
     # be shipping an untested rev to three machines to no purpose.
-    rev = "9f04a2ee44a0899b0341d343e4d8b8a388bd8a5a";
+    # 3acc95d — a DECLARED health path is judged strictly. The service witness
+    # added at 9f04a2e asked `/` and accepted anything under 500, which sees a
+    # dead process and nothing else: an SPA serves its bundle from the same
+    # process as its API, so `/` answers 200 with the database unreachable.
+    #
+    # ⚠ A runner older than this reads `frontdoor.json`'s new `healthPath` not at
+    # all — serde ignores the field — so it would probe `/` while the table says
+    # otherwise, and report messages healthy on exactly the evidence that cannot
+    # show it. The table and the runner are two sides of one comparison and are
+    # bumped together, the rule fbc135a states above.
+    rev = "3acc95d9654605355f9dcd373cc950f4224d4b0f";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
