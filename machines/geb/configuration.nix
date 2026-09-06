@@ -13,7 +13,7 @@
 #
 # The third IS geb's own, and is the reason this stopped being a box that only
 # holds things: being in a room, on mains, permanently, geb carries a microphone
-# for recall (./recall-mic.nix). That is a job no rented machine can do and no
+# for recall (./recall-recorder.nix). That is a job no rented machine can do and no
 # phone does reliably, and it is why the wifi link above is worth caring about —
 # it is the path the audio crosses.
 

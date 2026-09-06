@@ -1,10 +1,15 @@
 # geb as a store-and-forward recorder (recall's docs/architecture.md, stage C3).
 #
-# NOT IMPORTED YET. The cutover from ./recall-mic.nix (the streaming client) is a
-# deliberate flip: swap the import in configuration.nix and rebuild. The two
-# cannot run together — one ALSA capture device, one reader — so there is no
-# shadow period on this box; the flip is the change, made when someone is
-# around to hear it fail.
+# LIVE since 2026-09-05 — this is geb's recorder, imported by ./configuration.nix.
+# The cutover from ./recall-mic.nix (the streaming client) was a deliberate flip:
+# the two cannot run together — one ALSA capture device, one reader — so there was
+# no shadow period on this box; the flip was the change, made with someone around
+# to hear it fail. Verified 2026-09-06: recall-capture and recall-pause-mirror
+# active on geb, recall-mic inactive, and Isis holds 976 delivered geb segments.
+#
+# ./recall-mic.nix is therefore dead and no longer imported. It is kept for now
+# rather than deleted, because the replacement has run for a day and this repo's
+# rule is that a path dies once its replacement has survived real days.
 #
 # What changes, and why it is the better recorder:
 #   - Audio is written to LOCAL segments first (60 s, capture-stamped) and
