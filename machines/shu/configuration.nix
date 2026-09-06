@@ -80,6 +80,22 @@ in
   # Two profiles live there: 5 GHz preferred (it associates at -63 dBm from
   # where it sits) and 2.4 GHz behind it, because this box is a floor up and a
   # headless machine that cannot associate is a trip to a monitor.
+  #
+  # ⚠ THAT FALLBACK COULD NOT WORK AT ALL UNTIL 2026-09-06, and this comment
+  # asserted it for two days. The 2.4 GHz profile specified `key-mgmt=sae`
+  # (WPA3) while the 2.4 GHz AP advertises **WPA2** — association could never
+  # complete. Nobody noticed because shu has always been on 5 GHz, so the
+  # fallback was never exercised, which is exactly what README.md's "a
+  # capability never exercised is not a capability" is about.
+  #
+  # ⚠ AND THE ERROR NAMES THE WRONG THING. `nmcli` reports `The Wi-Fi network
+  # could not be found` — the network is in the scan list and visible. The
+  # journal says what actually happened: `association took too long, failing
+  # activation`. Diagnosing from the client message sends you looking for a
+  # missing SSID.
+  #
+  # Fixed to `wpa-psk` and TESTED from where shu sits: it associates at signal
+  # 19, keeps its address and reaches the gateway, then returns to 5 GHz.
   networking.networkmanager.enable = true;
 
   # ⚠ Both NetworkManager and base-configuration define this as plain

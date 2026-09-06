@@ -63,10 +63,16 @@
   # declarative networking.wireless block, which would want the PSK in a Nix
   # file and this repository is public.
   #
-  # ⚠ ONE PROFILE TODAY (5 GHz), where shu has a 2.4 GHz fallback behind it. shu
-  # is a floor up and needed one. Whether tefnut does is a question about where
-  # it ends up sitting, so it is left until that is known rather than copied
-  # across on the assumption that the two boxes live in the same place.
+  # TWO profiles, because the question about where it sits is now answered:
+  # upstairs in the guest room, beside the thermometer there. That is shu's
+  # situation, so it gets shu's arrangement — 5 GHz at autoconnect-priority 10,
+  # 2.4 GHz at 5 behind it.
+  #
+  # ⚠ THE PROFILE COPIED FROM shu WAS BROKEN, and testing it is the only reason
+  # that is known. It specified `key-mgmt=sae` (WPA3) while the 2.4 GHz AP
+  # advertises WPA2, so association timed out every time. See the note in
+  # machines/shu/configuration.nix. Both are `wpa-psk` now and both were
+  # exercised on the machine rather than assumed.
   networking.networkmanager.enable = true;
 
   # ⚠ Both NetworkManager and base-configuration define this as plain
