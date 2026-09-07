@@ -96,7 +96,28 @@
   # reason to have, so the container would restart-loop indefinitely.
   virtualisation.oci-containers.containers = lib.mkForce { };
 
-  # ⚠ NO BLUETOOTH BLOCK, deliberately. geb and shu both enable it because both
-  # are Govee receivers. Enabling a radio on a box with nothing to do with it
-  # would be config written for a job that has not been assigned.
+  # The radio for the Govee scan. Enabled 2026-09-07, when the job was assigned:
+  # tefnut stays online as a thermometer receiver.
+  #
+  # ⚠ THIS IS geb's CONTROLLER, NOT shu's, and the difference decides how the
+  # reader must work. Read off dmesg rather than inferred: tefnut reports
+  # `Device revision is 2` and `Bootloader timestamp 2019.40 buildtype 1 build
+  # 38`, byte-identical to geb's lines, where shu reports `RTL: lmp_subver=8822`.
+  # geb's Intel controller hears each sensor ONCE and is then deaf to it until
+  # the duplicate table is flushed — which is what `LINUX_ROUNDS` in
+  # xinutec-infra exists for. Removing the flush does not degrade the reading on
+  # that controller, it silently ENDS it. So tefnut's pusher is modelled on geb's
+  # and must not inherit shu's flushless assumption by copy-paste.
+  #
+  # `powerOnBoot` because the only consumer is a passive advertisement scan: an
+  # adapter that comes up soft-blocked reads exactly like a sensor out of range,
+  # and this box is headless.
+  #
+  # ⚠ NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX while it is a BLE receiver.
+  # Measured on shu: two SuperSpeed sticks took it from 6 of 7 sensors to 1 of 7,
+  # and it reads exactly like bad siting.
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
 }
