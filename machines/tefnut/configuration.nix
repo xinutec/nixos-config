@@ -24,6 +24,20 @@
 
 { config, pkgs, lib, ... }:
 
+let
+  # The Govee pusher's runtime. bleak pulls in dbus-fast, which the shared reader
+  # uses to power-cycle the adapter between scan rounds — needed HERE, because
+  # this is geb's Intel controller and not shu's Realtek one.
+  goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
+
+  # tefnut's checkout of xinutec-infra, where the pusher and the shared modules
+  # live. That repository is private and this one is public, so the code cannot
+  # be fetched at evaluation time — every other machine's `nixos-rebuild` would
+  # then need credentials it has no reason to hold. Cloned with tefnut's own
+  # read-only deploy key at /root/.ssh/id_github_infra, mapped to github.com by
+  # base-configuration's ssh_config.
+  infra = "/opt/xinutec-infra";
+in
 {
   imports = [
     ../../base-configuration.nix
@@ -119,5 +133,66 @@
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;
+  };
+
+  # Ingest token, decrypted at activation with tefnut's own host key. The pusher
+  # reads this exact path; there is no fallback, because a receiver that quietly
+  # finds some other token pushes nowhere.
+  age.secrets."home-ingest-token" = {
+    file = ../../agenix/home-ingest-token.age;
+    mode = "0400";
+  };
+
+  # The house's FIFTH Govee receiver, after the Mac, the pixel5, geb and shu.
+  #
+  # ⚠ IT DOES NOT CLOSE THE GAP THAT EXISTS, and that was measured before it was
+  # built. Union over six 60 s scans from where it sits, 2026-09-07: five of
+  # seven — A562 6/6 at -65, B7AC 5/6 at -75, 014E 4/6 at -89, 525D 1/6 at -90,
+  # 0345 1/6 at -91. It does NOT hear 251B or 267F, and 267F is precisely the
+  # sensor with fewest ears (Mac, pixel5, shu — one of them a phone that has gone
+  # flat twice). Every sensor tefnut hears already had four. So this is a fifth
+  # ear on well-covered sensors, run because redundancy is the goal and a
+  # listening machine costs nothing — not because the numbers asked for it.
+  #
+  # ⚠ THAT MEASUREMENT DESCRIBES ONE ROOM. tefnut is in Pippijn's room because
+  # the guest room is occupied; the guest room may still be where it ends up.
+  # Reach is a property of position — re-measure if it moves, and do not carry
+  # these figures across.
+  systemd.services.govee-push = {
+    description = "Scan the Govee BLE hygrometers and push their readings to home";
+    # Bluetooth is the whole job, and the pusher stamps each reading with its own
+    # capture time and spools on failure, so it does not wait on the network: a
+    # run during a router reboot buffers and replays.
+    after = [ "bluetooth.service" ];
+    requires = [ "bluetooth.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      # /var/lib/govee-push — the store-and-forward buffer, which must outlive a
+      # reboot to be worth anything.
+      StateDirectory = "govee-push";
+      # Clone if absent, and deliberately never pull: a timer that fetched code
+      # every run would deploy whatever was last pushed, half-finished or not.
+      # Updating tefnut is `git -C /opt/xinutec-infra pull`, on purpose — and it
+      # is the step that bit both geb and shu on their first day (#1403).
+      ExecStartPre = ''
+        ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
+      '';
+      ExecStart = "${goveePython}/bin/python3 ${infra}/tefnut/govee-push.py";
+      # Powering the adapter off and on between scan rounds is a system-wide BlueZ
+      # operation, and reading the agenix secret needs root anyway.
+      User = "root";
+    };
+  };
+
+  systemd.timers.govee-push = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      # The :02 phase, against the Mac's :00, geb's :05 and shu's :08, so the
+      # receivers' rows interleave rather than landing together.
+      OnCalendar = "*:02/10";
+      # A run is four flushed scan rounds plus delivery — comfortably inside the
+      # ten-minute slot, but a machine that has been asleep must not stack them.
+      AccuracySec = "30s";
+    };
   };
 }

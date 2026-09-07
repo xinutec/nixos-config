@@ -122,7 +122,7 @@ in {
   # geb AND shu: the house's two always-on BLE receivers, each pushing under its
   # own `source`. Not a fleet secret — the rented machines have no reason to
   # hold an ingest token for a home dashboard.
-  "home-ingest-token.age".publicKeys = [ geb shu admin ];
+  "home-ingest-token.age".publicKeys = [ geb shu tefnut admin ];
 
   "hc-ping-md.age".publicKeys = [ amun admin ];
   "hc-ping-backup.age".publicKeys = [ odin admin ];
