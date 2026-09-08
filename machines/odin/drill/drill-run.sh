@@ -36,6 +36,19 @@ readonly DRILL_DIR
 cd "$DRILL_DIR"
 
 readonly LOG="$DRILL_DIR/drill-run.log"
+
+# Keep the run BEFORE this one. `tee` truncates, and a drill runs weekly, so the
+# log was only ever an account of the most recent attempt. On 2026-09-06 this
+# drill failed after 4h15m; the journal carried `exit 1, and it said nothing`
+# and the on-disk detail was overwritten by the next run before anyone read it,
+# so that failure can no longer be diagnosed at all.
+#
+# One generation, not a rotation: the window that has to be covered is "a
+# failure, then the next scheduled run", and for a weekly timer that is exactly
+# one. More would be storage spent on runs nobody will open.
+if [ -f "$LOG" ]; then
+  mv -f "$LOG" "$LOG.1"
+fi
 exec > >(tee "$LOG") 2>&1
 
 # A loop rather than `case "$1"`, so the flags compose and an unknown one is
