@@ -355,7 +355,18 @@
       # lives in plan-settings.nix with the rest — still the live /etc/nixos checkout,
       # deliberately, because a drill must exercise the CURRENT scripts rather than a
       # store-frozen copy.
-      TimeoutStartSec = "6h";
+      #
+      # ⚠ **THIS MUST STAY ABOVE `RunDrill`'s OWN CEILING**, which is 7h in
+      # `plan/runner/src/act.rs`. Two ceilings over one job, and the lower one
+      # wins: at 6h here the plan's timeout would have been unreachable, and the
+      # failure a systemd kill rather than the plan's own message naming the
+      # timeout and its length. Raised together with that number on 2026-09-08,
+      # after the 2026-09-07 run measured 4h59m end to end.
+      #
+      # Eight, not seven: the plan's ceiling is the one that should fire, so this
+      # needs room for it to fire and be REPORTED. A margin equal to the gap
+      # would make them a coin flip.
+      TimeoutStartSec = "8h";
     };
     # By store path, pinning the drill to the binary this generation was tested with;
     # /run/current-system/sw/bin would resolve at run time to whatever is current then.
