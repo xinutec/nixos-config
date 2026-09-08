@@ -95,10 +95,17 @@
     # `oneplus6t`). Key generated on the Mac like the iPhone's; the private key
     # lives only in the phone's WireGuard tunnel. Split-tunnel client:
     # AllowedIPs = the VPN subnet.
+    #
+    # RE-KEYED 2026-09-08, and the reason is worth keeping: the phone was wiped
+    # to install LineageOS 22.2 (Android 15), because Android 11 could not
+    # re-acquire the microphone after a household pause while the screen was
+    # locked — it retried every 2s for as long as nobody picked the phone up
+    # (recall #1468). A wipe destroys the tunnel's private key, which existed
+    # nowhere else, so re-enrolling means a new keypair rather than a restore.
     oneplus6t = {
       name = "oneplus6t";
       vpn = "10.100.0.8";
-      publicKey = "8sDEwk6LXHZPT5g1dj3wHDM6eeRyj5OMetc/9elY7DU=";
+      publicKey = "b8BIWhtElkAFcXZ1f/mvLoXak6zus8Q2UGAP1YF+8AY=";
       intermittent = true; # phone — connects only when actively passing traffic
     };
 
