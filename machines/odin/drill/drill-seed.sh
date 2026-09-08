@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage-2 FULL drill seed: populate ./volumes/ from a restic snapshot
+# Stage-2 FULL drill seed: populate /var/lib/drill/volumes/ from a restic snapshot
 # so that `./drill-smoke.sh up` starts Nextcloud against real data.
 #
 # This is the SLOW variant (~4 hours on odin) that exercises the full
@@ -18,6 +18,11 @@ DRILL_DIR="$(cd "$(dirname "$0")" && pwd)" || {
   echo "BUG: could not cd to script directory" >&2; exit 99
 }
 readonly DRILL_DIR
+
+# The drill's scratch, deliberately NOT under DRILL_DIR — see drill-seed-fast.sh
+# and #1487. A 560G tree does not belong in a git checkout, and a root the runner
+# may DELETE under must not contain the scripts doing the deleting.
+readonly SCRATCH=/var/lib/drill/volumes
 cd "$DRILL_DIR"
 
 # Always log to a file so a broken ssh stream doesn't hide failures.
@@ -48,7 +53,7 @@ safe_rm() {
   fi
   case "$target" in
     /tmp/drill-restore-*) ;;
-    "$DRILL_DIR"/volumes)  ;;
+    "$SCRATCH")  ;;
     *) echo "BUG: safe_rm refusing unexpected path: $target" >&2; exit 99 ;;
   esac
   rm -rf --one-file-system "$target"
@@ -80,16 +85,16 @@ cleanup() {
       log "FAILED (rc=$rc) — restore tree was empty or missing"
       safe_rm "$RESTORE_TMP"
     fi
-    log "./volumes/ may be partially populated; re-run drill-seed.sh to retry"
+    log "$SCRATCH may be partially populated; re-run drill-seed.sh to retry"
   fi
 }
 trap cleanup EXIT
 
 # 1. teardown any previous state
-log "teardown previous drill stack and wipe ./volumes/"
+log "teardown previous drill stack and wipe $SCRATCH"
 ./drill-smoke.sh teardown >/dev/null 2>&1 || true
-safe_rm "$DRILL_DIR/volumes"
-mkdir -p ./volumes/{mysql,redis,nextcloud}
+safe_rm "$SCRATCH"
+mkdir -p "$SCRATCH"/{mysql,redis,nextcloud}
 
 # 2. restore from restic
 log "restic restore '$SNAPSHOT' (path=$STAGING_PATH) → $RESTORE_TMP"
@@ -109,15 +114,15 @@ if [ ! -d "$SRC/server-data" ] || [ ! -f "$SRC/mysql-all.sql.zst" ] || [ ! -f "$
 fi
 
 # 3. nextcloud file tree
-log "rsync server-data/ → ./volumes/nextcloud/"
-rsync -aH --numeric-ids "$SRC/server-data/" ./volumes/nextcloud/ || {
+log "rsync server-data/ → $SCRATCH/nextcloud/"
+rsync -aH --numeric-ids "$SRC/server-data/" "$SCRATCH/nextcloud/" || {
   rc=$?; [ $rc -eq 23 ] && log "rsync partial transfer (exit 23), continuing" || exit $rc
 }
 
 # 4. redis RDB
-log "cp redis.rdb → ./volumes/redis/dump.rdb"
-cp "$SRC/redis.rdb" ./volumes/redis/dump.rdb
-chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
+log "cp redis.rdb → $SCRATCH/redis/dump.rdb"
+cp "$SRC/redis.rdb" "$SCRATCH/redis/dump.rdb"
+chown 999:999 "$SCRATCH/redis/dump.rdb" 2>/dev/null || true
 
 # 5. mariadb: initialize + load dump
 # Root password for the throwaway drill-seed-db — a local container torn down
@@ -135,7 +140,7 @@ docker run -d --rm \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=$DRILL_DB_PW \
   -e MYSQL_DATABASE=nextcloud \
-  -v "$PWD/volumes/mysql:/var/lib/mysql" \
+  -v "$SCRATCH/mysql:/var/lib/mysql" \
   "$db_image" \
   >/dev/null
 
@@ -161,8 +166,8 @@ log "stopping drill-seed-db"
 docker stop drill-seed-db >/dev/null
 
 # 6. drill config override
-log "writing ./volumes/nextcloud/config/zz-drill.config.php"
-cat > ./volumes/nextcloud/config/zz-drill.config.php <<'EOF'
+log "writing $SCRATCH/nextcloud/config/zz-drill.config.php"
+cat > "$SCRATCH/nextcloud/config/zz-drill.config.php" <<'EOF'
 <?php
 // Drill-only overrides. See drill-seed-fast.sh for rationale.
 $CONFIG = array(
@@ -179,13 +184,13 @@ $CONFIG = array(
   ),
 );
 EOF
-chown 33:33 ./volumes/nextcloud/config/zz-drill.config.php
+chown 33:33 "$SCRATCH/nextcloud/config/zz-drill.config.php"
 
 # 7. cleanup handled by trap (removes $RESTORE_TMP on success,
 #    preserves it as .failed on failure)
 log "done"
-printf '[drill-seed] ./volumes/ sizes:\n'
-du -sh ./volumes/* | sed 's/^/  /'
+printf '[drill-seed] %s sizes:\n' "$SCRATCH"
+du -sh "$SCRATCH"/* | sed 's/^/  /'
 echo
 echo "next: ./drill-smoke.sh up"
 echo "=== drill-seed finished $(date -u +%FT%TZ) ==="

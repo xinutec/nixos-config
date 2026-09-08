@@ -1,5 +1,3 @@
-/volumes/
-
 # The drill's own logs. Kept ON PURPOSE — `drill-run.sh` tees here because the
 # journal only ever recorded "exit 1, and it said nothing", and `.log.1` holds
 # the run before this one because `tee` truncates and a weekly drill overwrote

@@ -109,6 +109,20 @@
     # — those are rsync --delete targets in the staging step, so anything parked inside
     # one would be erased on the next run.
     "d /var/backup-staging/mac 0750 mac-archive mac-archive -"
+    # The restore drill's scratch. It holds a full copy of production Nextcloud
+    # data — unencrypted, on a host with other users — so 0700, matching the
+    # reasoning docker-compose.yml already states about the throwaway drill
+    # credentials living inside it.
+    #
+    # It sits here rather than beside the drill scripts because those are in the
+    # /etc/nixos checkout: a 560G tree does not belong in a git working copy, and
+    # `DrillScratch` is a root the runner may DELETE under, which must not contain
+    # the scripts doing the deleting. dev-lint refused the version that pointed a
+    # root at /etc/nixos (nix-root-exec-mutable-etc) and was right to — the waiver
+    # `drill.dir` carries is for exercising the CURRENT scripts, and data has no
+    # such claim on mutability. See #1487.
+    "d /var/lib/drill 0700 root root -"
+    "d /var/lib/drill/volumes 0700 root root -"
   ];
 
   # restic repo password, decrypted at activation to /run/agenix/restic-password.

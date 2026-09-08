@@ -48,7 +48,7 @@ readonly DRILL_DIR
 cd "$DRILL_DIR"
 
 readonly SRC=/var/backup-staging/amun/nocodb
-readonly DEST="$DRILL_DIR/volumes/nocodb"
+readonly DEST=/var/lib/drill/volumes/nocodb
 readonly CONTAINER=drill-nocodb
 # 8443 is the Nextcloud drill's; keep off it so both can run in one weekly pass.
 readonly PORT=8449

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# FAST drill seed: populate ./volumes/ directly from
+# FAST drill seed: populate /var/lib/drill/volumes/ directly from
 # /var/backup-staging/isis/nextcloud/ without going through
 # `restic restore`, at the cost of NOT exercising the restic pipeline
 # itself.
 #
 # The nextcloud tree is not COPIED, it is OVERLAID: staging is the
-# read-only lower layer and ./volumes/.nc-upper takes every write. The
+# read-only lower layer and the scratch's .nc-upper takes every write. The
 # copy it replaces was `rsync -aH` over 560G, and it was the whole cost
 # of this drill — 4h28m of a 5h15m run on 2026-09-07, which is what put
 # the run into `RunDrill`'s ceiling and killed it a minute short of a
@@ -47,9 +47,17 @@ exec > >(tee "$LOG") 2>&1
 echo "=== drill-seed-fast starting $(date -u +%FT%TZ) ==="
 
 readonly SRC=/var/backup-staging/isis/nextcloud
-readonly NC_MNT="$DRILL_DIR/volumes/nextcloud"
-readonly NC_UPPER="$DRILL_DIR/volumes/.nc-upper"
-readonly NC_WORK="$DRILL_DIR/volumes/.nc-work"
+
+# ⚠ NOT under $DRILL_DIR. The scratch used to live beside these scripts, inside
+# the /etc/nixos checkout — which put a 560G tree in a git working copy and made
+# a DELETABLE root contain the scripts doing the deleting. dev-lint refused a
+# `DrillScratch` root pointing there (nix-root-exec-mutable-etc) and was right:
+# the waiver `drill.dir` carries exists because a drill must exercise the CURRENT
+# scripts, and data has no such claim. See #1487.
+readonly SCRATCH=/var/lib/drill/volumes
+readonly NC_MNT="$SCRATCH/nextcloud"
+readonly NC_UPPER="$SCRATCH/.nc-upper"
+readonly NC_WORK="$SCRATCH/.nc-work"
 
 log() { printf '[drill-seed-fast] %s\n' "$*"; }
 
@@ -61,7 +69,7 @@ unmount_nextcloud() {
   # A container still holding the tree is the ordinary reason. Stop the stack
   # and try once more.
   #
-  # ⚠ NOT `drill-smoke.sh teardown`: that wipes ./volumes, and calling it from
+  # ⚠ NOT `drill-smoke.sh teardown`: that wipes the scratch, and calling it from
   # here would run a deletion over a tree we have just established is STILL
   # MOUNTED over the isis mirror. Stop the containers, nothing else.
   docker compose down -v --remove-orphans >/dev/null 2>&1 || true
@@ -75,7 +83,7 @@ safe_rm() {
     echo "BUG: safe_rm called with empty path" >&2; exit 99
   fi
   case "$target" in
-    "$DRILL_DIR"/volumes) ;;
+    "$SCRATCH") ;;
     *) echo "BUG: safe_rm refusing unexpected path: $target" >&2; exit 99 ;;
   esac
   rm -rf --one-file-system "$target"
@@ -118,24 +126,24 @@ cleanup() {
   if [ $rc -ne 0 ]; then
     # Leave nothing mounted over staging for the next run to trip on.
     unmount_nextcloud || log "WARNING: $NC_MNT is still mounted — unmount it before re-running"
-    log "FAILED (rc=$rc) — ./volumes/ may be partially populated; re-run to retry"
+    log "FAILED (rc=$rc) — $SCRATCH may be partially populated; re-run to retry"
   fi
 }
 trap cleanup EXIT
 
 # 1. teardown previous state
-log "teardown previous drill stack and wipe ./volumes/"
+log "teardown previous drill stack and wipe $SCRATCH"
 ./drill-smoke.sh teardown >/dev/null 2>&1 || true
 # BEFORE the wipe, always. safe_rm would refuse to cross the mount and fail
 # the run, which is the safe outcome but not a useful one.
 unmount_nextcloud || true
 if mountpoint -q "$NC_MNT"; then
-  echo "REFUSING to wipe ./volumes: $NC_MNT is still mounted over $SRC/server-data" >&2
+  echo "REFUSING to wipe $SCRATCH: $NC_MNT is still mounted over $SRC/server-data" >&2
   echo "unmount it by hand, then re-run" >&2
   exit 1
 fi
-safe_rm "$DRILL_DIR/volumes"
-mkdir -p ./volumes/{mysql,redis,nextcloud} "$NC_UPPER" "$NC_WORK"
+safe_rm "$SCRATCH"
+mkdir -p "$SCRATCH"/{mysql,redis,nextcloud} "$NC_UPPER" "$NC_WORK"
 
 # 2. nextcloud file tree — overlay, not copy. Seconds, not hours.
 # The mirror job REWRITES $SRC, and a lower layer must not change while it is
@@ -152,16 +160,16 @@ if systemctl is-active --quiet restic-backups-cluster.service; then
   echo "mounts as a read-only overlay lower layer. Wait for it and re-run." >&2
   exit 1
 fi
-log "overlay $SRC/server-data (ro) + ./volumes/.nc-upper (rw) → ./volumes/nextcloud"
+log "overlay $SRC/server-data (ro) + $NC_UPPER (rw) → $NC_MNT"
 time mount -t overlay drill-nextcloud \
   -o "lowerdir=$SRC/server-data,upperdir=$NC_UPPER,workdir=$NC_WORK" \
   "$NC_MNT"
 mountpoint -q "$NC_MNT" || { echo "BUG: overlay mount reported success but $NC_MNT is not a mountpoint" >&2; exit 99; }
 
 # 3. redis RDB
-log "cp redis.rdb → ./volumes/redis/dump.rdb"
-cp "$SRC/redis.rdb" ./volumes/redis/dump.rdb
-chown 999:999 ./volumes/redis/dump.rdb 2>/dev/null || true
+log "cp redis.rdb → $SCRATCH/redis/dump.rdb"
+cp "$SRC/redis.rdb" "$SCRATCH/redis/dump.rdb"
+chown 999:999 "$SCRATCH/redis/dump.rdb" 2>/dev/null || true
 
 # 4. mariadb: initialize + load dump
 # Root password for the throwaway drill-seed-db — a local container torn down
@@ -182,7 +190,7 @@ docker run -d \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=$DRILL_DB_PW \
   -e MYSQL_DATABASE=nextcloud \
-  -v "$PWD/volumes/mysql:/var/lib/mysql" \
+  -v "$SCRATCH/mysql:/var/lib/mysql" \
   "$db_image" \
   >/dev/null
 
@@ -224,8 +232,8 @@ log "stopping drill-seed-db"
 docker stop drill-seed-db >/dev/null
 
 # 5. drill config override
-log "writing ./volumes/nextcloud/config/zz-drill.config.php"
-cat > ./volumes/nextcloud/config/zz-drill.config.php <<'EOF'
+log "writing $SCRATCH/nextcloud/config/zz-drill.config.php"
+cat > "$SCRATCH/nextcloud/config/zz-drill.config.php" <<'EOF'
 <?php
 // Drill-only overrides. Loaded after config.php in alphabetical
 // order so the keys below take precedence. This file overrides both
@@ -251,14 +259,14 @@ $CONFIG = array(
   ),
 );
 EOF
-chown 33:33 ./volumes/nextcloud/config/zz-drill.config.php
+chown 33:33 "$SCRATCH/nextcloud/config/zz-drill.config.php"
 
 log "done"
-printf '[drill-seed-fast] ./volumes/ sizes:\n'
-# ⚠ NOT ./volumes/* — ./volumes/nextcloud is now an overlay over 560G of
+printf '[drill-seed-fast] %s sizes:\n' "$SCRATCH"
+# ⚠ NOT "$SCRATCH"/* — the nextcloud entry is an overlay over 560G of
 # staging, and du would walk all of it to report a number that is not this
 # drill's disk cost. What this drill actually occupies is the upper layer.
-du -sh ./volumes/mysql ./volumes/redis "$NC_UPPER" | sed 's/^/  /'
+du -sh "$SCRATCH/mysql" "$SCRATCH/redis" "$NC_UPPER" | sed 's/^/  /'
 printf '  (nextcloud is an overlay over %s/server-data — not counted, not copied)\n' "$SRC"
 echo
 echo "next: ./drill-smoke.sh up"

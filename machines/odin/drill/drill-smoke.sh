@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 # Nextcloud drill: compose wrapper (up / status / teardown).
 #
-# Stage 1: run `./drill-smoke.sh up` with EMPTY ./volumes/ to let
+# Stage 1: run `./drill-smoke.sh up` with an EMPTY scratch to let
 # Nextcloud auto-install against the drill DB+Redis. Verifies the
 # composition itself.
 #
 # Stage 2: run `./drill-seed.sh <snapshot>` first to populate
-# ./volumes/, then `./drill-smoke.sh up` on the seeded volumes.
+# the scratch, then `./drill-smoke.sh up` on the seeded volumes.
 #
 # See README.md for design.
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
+
+# The drill's scratch, deliberately NOT under this directory — see the note in
+# drill-seed-fast.sh and #1487. `docker compose` still runs here, because the
+# compose file lives here; only the data moved.
+readonly SCRATCH=/var/lib/drill/volumes
 
 cmd=${1:-}
 
@@ -62,7 +67,7 @@ case "$cmd" in
     docker compose ps
     echo
     echo "--- volumes ---"
-    du -sh ./volumes/* 2>/dev/null || echo "(no volumes yet)"
+    du -sh "$SCRATCH"/* 2>/dev/null || echo "(no volumes yet)"
     ;;
 
   logs)
@@ -73,24 +78,24 @@ case "$cmd" in
   teardown)
     echo "[drill] docker compose down -v --remove-orphans"
     docker compose down -v --remove-orphans
-    # ⚠ ./volumes/nextcloud MAY BE AN OVERLAY whose lower layer is
+    # ⚠ $SCRATCH/nextcloud MAY BE AN OVERLAY whose lower layer is
     # /var/backup-staging/isis/nextcloud — the live mirror of production, and
-    # the source restic backs up. A bare `rm -rf ./volumes` recurses THROUGH a
+    # the source restic backs up. A bare `rm -rf` recurses THROUGH a
     # mountpoint, so it would delete the mirror, not the drill's copy of it.
     # Every drill script reaches its wipe through this one, which is why the
     # guard belongs here rather than in each of them.
-    if mountpoint -q ./volumes/nextcloud; then
-      echo "[drill] unmounting overlay ./volumes/nextcloud"
-      umount ./volumes/nextcloud || {
-        echo "[drill] REFUSING to rm ./volumes: the overlay over staging is still mounted" >&2
+    if mountpoint -q "$SCRATCH/nextcloud"; then
+      echo "[drill] unmounting overlay $SCRATCH/nextcloud"
+      umount "$SCRATCH/nextcloud" || {
+        echo "[drill] REFUSING to rm $SCRATCH: the overlay over staging is still mounted" >&2
         echo "[drill] something still holds it; unmount by hand before retrying" >&2
         exit 1
       }
     fi
-    echo "[drill] rm -rf ./volumes"
+    echo "[drill] rm -rf $SCRATCH"
     # --one-file-system as a second line of defence: if a mount survives the
     # check above, this refuses to cross it instead of deleting through it.
-    rm -rf --one-file-system ./volumes
+    rm -rf --one-file-system "$SCRATCH"
     echo "[drill] done"
     ;;
 

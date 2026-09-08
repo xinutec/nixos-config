@@ -1,7 +1,7 @@
 # Nextcloud restore drill on odin. See README.md for context.
 #
 # All credentials below are THROWAWAY DRILL VALUES. They are not used
-# by production and they stay inside ./volumes/ which is root-only on
+# by production and they stay inside /var/lib/drill/volumes/ which is root-only on
 # odin. Do not copy these to prod.
 #
 # Listens on 127.0.0.1:8443 only. Access via:
@@ -30,7 +30,7 @@ services:
       MARIADB_USER: nextcloud
       MARIADB_PASSWORD: drill-nc-pw
     volumes:
-      - ./volumes/mysql:/var/lib/mysql
+      - /var/lib/drill/volumes/mysql:/var/lib/mysql
     networks:
       - drill
     healthcheck:
@@ -51,7 +51,7 @@ services:
     container_name: drill-redis
     restart: unless-stopped
     volumes:
-      - ./volumes/redis:/data
+      - /var/lib/drill/volumes/redis:/data
     networks:
       - drill
     healthcheck:
@@ -87,7 +87,7 @@ services:
       OVERWRITEPROTOCOL: http
       OVERWRITEHOST: "127.0.0.1:8443"
     volumes:
-      - ./volumes/nextcloud:/var/www/html
+      - /var/lib/drill/volumes/nextcloud:/var/www/html
     networks:
       - drill
 
@@ -102,7 +102,7 @@ services:
       # nginx serves static assets directly from the Nextcloud
       # document root, so it needs read-only access to the same
       # volume the FPM container writes to.
-      - ./volumes/nextcloud:/var/www/html:ro
+      - /var/lib/drill/volumes/nextcloud:/var/www/html:ro
     ports:
       - "127.0.0.1:8443:80"
     networks:
