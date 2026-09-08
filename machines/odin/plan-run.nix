@@ -52,14 +52,22 @@ let
     # neither of which checks in, so a bump buys it a rebuild and nothing else.
     # plan-pin.sh reports the divergence on every commit, which is where that decision
     # gets re-read.
-    # c858cc3 — `JUDGED` gains `INPUT` and `xinutec-oneway` (#1403). The one-way
-    # VPN block moved off this host's FORWARD/OUTPUT onto the protected home
-    # machine's own INPUT chain, so what this host declares about other nodes is
-    # now nothing — and a runner older than this would still be looking for the
-    # rules that used to be here. Bumped in lockstep with that change rather
-    # than after it: the two sides of a comparison must not be pinned apart.
+    # e840f30 — the drill's ceiling, and the reason its failures were unreadable.
+    # This is a bump that changes what this host DRILLS, so per the note above it
+    # gets its own deploy and its own verification. `RunDrill` goes 5h -> 7h,
+    # after the 2026-09-07 run was killed at 5h00m one minute short of finishing
+    # a restore that was sound: `files:scan` reported 0 errors over 10,311
+    # folders and 140,036 files when it was run by hand afterwards. Riding with
+    # it, `why()` now reads stdout when stderr is empty — `drill-run.sh` merges
+    # the two with `2>&1`, so every failure it has ever had reached the journal
+    # as "exit 1, and it said nothing".
     #
-    rev = "c858cc3dff5a83b04f693bef3656242a9403c008";
+    # ⚠ It carries SEVEN other plan commits, because this host had drifted 21
+    # behind. The drill's next scheduled run is 2026-09-13, which is what makes
+    # deploying now the choice rather than waiting: a pin bumped after the drill
+    # fails again buys nothing.
+    #
+    rev = "e840f301c93619894585646c2e2cf42cd264ed1a";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through
