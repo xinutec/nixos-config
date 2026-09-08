@@ -73,8 +73,24 @@ case "$cmd" in
   teardown)
     echo "[drill] docker compose down -v --remove-orphans"
     docker compose down -v --remove-orphans
+    # ⚠ ./volumes/nextcloud MAY BE AN OVERLAY whose lower layer is
+    # /var/backup-staging/isis/nextcloud — the live mirror of production, and
+    # the source restic backs up. A bare `rm -rf ./volumes` recurses THROUGH a
+    # mountpoint, so it would delete the mirror, not the drill's copy of it.
+    # Every drill script reaches its wipe through this one, which is why the
+    # guard belongs here rather than in each of them.
+    if mountpoint -q ./volumes/nextcloud; then
+      echo "[drill] unmounting overlay ./volumes/nextcloud"
+      umount ./volumes/nextcloud || {
+        echo "[drill] REFUSING to rm ./volumes: the overlay over staging is still mounted" >&2
+        echo "[drill] something still holds it; unmount by hand before retrying" >&2
+        exit 1
+      }
+    fi
     echo "[drill] rm -rf ./volumes"
-    rm -rf ./volumes
+    # --one-file-system as a second line of defence: if a mount survives the
+    # check above, this refuses to cross it instead of deleting through it.
+    rm -rf --one-file-system ./volumes
     echo "[drill] done"
     ;;
 
