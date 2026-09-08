@@ -39,6 +39,26 @@ let
       # cannot land anywhere else — and in particular cannot create this
       # directory under a mountpoint that failed to mount and quietly fill /.
       BackupStaging = "/var/backup-staging";
+
+      # What the drill may EMPTY — the root `Effect::ClearUnder` resolves against
+      # so the drill's wipe can stop being a shell `rm -rf` (#1487).
+      #
+      # A root the runner DELETES under has a different question to answer than
+      # one it only reads: not "where does this live" but "what is reachable if a
+      # plan names the wrong `rel`". Here that is a dedicated scratch directory
+      # and nothing else.
+      #
+      # ⚠ It is NOT the drill directory. That version was written and dev-lint
+      # refused it (`nix-root-exec-mutable-etc`), correctly: it would have put the
+      # scripts that perform the deletion inside the blast radius of the root
+      # authorising it, and the waiver `drill.dir` carries is for exercising the
+      # CURRENT scripts — a claim data does not have. The scratch moved to
+      # /var/lib/drill instead (2aa6ebc), verified by a full drill run.
+      #
+      # Pairs with `rel = "volumes"`: ClearUnder refuses a `rel` naming the root,
+      # since emptying the root is the one deletion a declared root would
+      # otherwise authorise.
+      DrillScratch = "/var/lib/drill";
     };
 
     # `backup` still names no repository — restic is run by the NixOS module
