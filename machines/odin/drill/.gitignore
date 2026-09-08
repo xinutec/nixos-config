@@ -1,1 +1,14 @@
 /volumes/
+
+# The drill's own logs. Kept ON PURPOSE — `drill-run.sh` tees here because the
+# journal only ever recorded "exit 1, and it said nothing", and `.log.1` holds
+# the run before this one because `tee` truncates and a weekly drill overwrote
+# the evidence of the failure nobody had read yet (#1471).
+#
+# Ignored rather than committed: they are a machine's account of its own run, and
+# odin is the only host that has them. Untracked-but-not-ignored made a clean
+# checkout read as three modified files for ever, which spends the signal that
+# says somebody edited a script in place.
+/drill-run.log
+/drill-run.log.1
+/drill-seed-fast.log
