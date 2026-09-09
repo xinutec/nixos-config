@@ -356,15 +356,51 @@
     };
   };
   systemd.services.drill-weekly = {
-    # ⚠ The scripts still need bash, docker and rsync, but they are no longer this
-    # unit's children: `plan-run` reaches them over ssh, so what they see is root's
-    # LOGIN environment, not this `path`. What is left is what plan-run itself execs.
-    # Keeping the full list "just in case" would read as the unit still owning those
-    # dependencies, and this line is where somebody would look first when one broke.
-    path = with pkgs; [ openssh curl ];
+    # ⚠ The scripts the PLAN runs are not this unit's children: `plan-run` reaches
+    # them over ssh, so what they see is root's LOGIN environment, not this `path`.
+    # What that leaves is what plan-run itself execs — openssh and curl.
+    #
+    # ⚠ **`ExecStopPost` BROKE THAT REASONING and needs its own entries.** It runs
+    # `drill-smoke.sh stop` LOCALLY, as a child of this unit, so `docker` and
+    # util-linux's `mountpoint`/`umount` have to be here. Getting this wrong is
+    # #1399's shape — a probe or a hook shelling out to a binary the unit's PATH
+    # lacks — and it would fail in the one path that exists to clean up after a
+    # kill, which is where nobody is watching.
+    path = with pkgs; [ openssh curl docker util-linux ];
+
+    # ⚠ THE BACKUP WINS, ALWAYS. The fast drill overlays
+    # /var/backup-staging/isis/nextcloud/server-data as a read-only LOWER layer,
+    # and `plan-run backup` REWRITES that tree. A lower layer that changes while
+    # it is mounted gives the overlay undefined reads — so the thing at risk is
+    # the DRILL'S VERDICT, not the staged data.
+    #
+    # That is what decides who yields. A drill is a check; staging is the backup
+    # itself. So the mirror starting stops the drill, rather than the drill
+    # delaying the mirror — and `Conflicts=` is exactly that, in both directions:
+    # starting either stops the other. The drill's own seed already refuses to
+    # MOUNT while the backup is active, which covers the reverse order; this
+    # closes the window where the mirror starts DURING a drill (#1486).
+    #
+    # The cost is a manual drill near 02:38 being killed. It fails loudly, its
+    # unit goes red, and Sunday's run is unaffected — which is a better trade
+    # than a drill reporting PASS or FAIL from a tree that moved underneath it.
+    conflicts = [ "restic-backups-cluster.service" ];
+
     serviceConfig = {
       Type = "oneshot";
       User = "root";
+
+      # ⚠ HOWEVER THIS UNIT DIES, THE OVERLAY COMES OFF STAGING. Without it
+      # `Conflicts=` would make the hazard WORSE rather than better: systemd
+      # would kill the drill mid-run, the trap in the script would not
+      # necessarily reach its teardown, and the mirror would then rewrite a tree
+      # still mounted as somebody's lower layer — the exact thing this is for.
+      #
+      # `stop`, not `teardown`: releasing the mount is the job here, and a unit
+      # dying is not a reason to delete 560G that a re-run could have used. It
+      # is `-` prefixed so a failure to unmount cannot mask the original
+      # failure, and it is idempotent — `stop` on an unmounted tree succeeds.
+      ExecStopPost = "-${pkgs.bash}/bin/bash /etc/nixos/machines/odin/drill/drill-smoke.sh stop";
       # No WorkingDirectory: the drill's directory is a fact about this machine, so it
       # lives in plan-settings.nix with the rest — still the live /etc/nixos checkout,
       # deliberately, because a drill must exercise the CURRENT scripts rather than a
