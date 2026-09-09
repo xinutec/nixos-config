@@ -143,8 +143,11 @@ else
   echo "=== STAGE: preflight (skipped — the plan established it) ==="
 fi
 
-# Ensure any previous drill is cleaned up
-./drill-smoke.sh teardown >/dev/null 2>&1 || true
+# Stop anything still running from a previous drill. NOT `teardown`: that
+# deletes, and a run STARTING has no business doing that — the seed below
+# refuses on a dirty scratch and the plan is what clears it (#1487). The
+# deleting teardown is at the END of this script, where it belongs.
+./drill-smoke.sh stop >/dev/null 2>&1 || true
 
 # 1. Seed
 echo

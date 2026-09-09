@@ -75,24 +75,47 @@ case "$cmd" in
     docker compose logs "$@"
     ;;
 
-  teardown)
+  # Stop the stack and release the scratch, WITHOUT deleting anything.
+  #
+  # Split out of `teardown` so the seed has something to call. The seed used to
+  # call `teardown`, which meant a script starting a drill also held the fleet's
+  # sharpest `rm` — and there is nothing about "get ready to seed" that needs to
+  # be able to delete. Emptying the scratch is the PLAN's job now
+  # (`Effect::ClearUnder`, ordered before the restore).
+  stop)
     echo "[drill] docker compose down -v --remove-orphans"
     docker compose down -v --remove-orphans
+    if mountpoint -q "$SCRATCH/nextcloud"; then
+      echo "[drill] unmounting overlay $SCRATCH/nextcloud"
+      umount "$SCRATCH/nextcloud" || {
+        echo "[drill] $SCRATCH/nextcloud is still mounted; something holds it" >&2
+        exit 1
+      }
+    fi
+    echo "[drill] stopped"
+    ;;
+
+  teardown)
+    "$0" stop
     # ⚠ $SCRATCH/nextcloud MAY BE AN OVERLAY whose lower layer is
     # /var/backup-staging/isis/nextcloud — the live mirror of production, and
     # the source restic backs up. A bare `rm -rf` recurses THROUGH a
     # mountpoint, so it would delete the mirror, not the drill's copy of it.
-    # Every drill script reaches its wipe through this one, which is why the
-    # guard belongs here rather than in each of them.
+    # `stop` above unmounts and FAILS if it cannot, so reaching this line means
+    # the overlay is gone; the check is repeated anyway because the cost of
+    # being wrong here is the mirror.
     if mountpoint -q "$SCRATCH/nextcloud"; then
-      echo "[drill] unmounting overlay $SCRATCH/nextcloud"
-      umount "$SCRATCH/nextcloud" || {
-        echo "[drill] REFUSING to rm $SCRATCH: the overlay over staging is still mounted" >&2
-        echo "[drill] something still holds it; unmount by hand before retrying" >&2
-        exit 1
-      }
+      echo "[drill] REFUSING to rm $SCRATCH: the overlay over staging is still mounted" >&2
+      exit 1
     fi
     echo "[drill] rm -rf $SCRATCH"
+    # ⚠ THE LAST `rm` IN THE DRILL, and it runs ONCE, at the END of a run.
+    # The seed's copy of this is gone — the plan clears before a restore. This
+    # one stays because the alternative is leaving 560G resident between weekly
+    # drills, and the plan cannot own it: its goal is satisfied before the
+    # restore and is not re-observed after, since the runner forgets only
+    # `invalidated_by(&goal.fact)`. See #1487.
+    #
     # --one-file-system as a second line of defence: if a mount survives the
     # check above, this refuses to cross it instead of deleting through it.
     rm -rf --one-file-system "$SCRATCH"
@@ -100,13 +123,13 @@ case "$cmd" in
     ;;
 
   "")
-    echo "usage: $0 {up|status|logs [service...]|teardown}" >&2
+    echo "usage: $0 {up|status|logs [service...]|stop|teardown}" >&2
     exit 1
     ;;
 
   *)
     echo "unknown command: $cmd" >&2
-    echo "usage: $0 {up|status|logs [service...]|teardown}" >&2
+    echo "usage: $0 {up|status|logs [service...]|stop|teardown}" >&2
     exit 1
     ;;
 esac

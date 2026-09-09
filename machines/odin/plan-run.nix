@@ -67,7 +67,20 @@ let
     # deploying now the choice rather than waiting: a pin bumped after the drill
     # fails again buys nothing.
     #
-    rev = "e840f301c93619894585646c2e2cf42cd264ed1a";
+    # 1fca259 — the drill clears its own scratch. `Effect::ClearUnder` and
+    # `Probe::EntriesUnder`, and a `Holds` row in `drill.dhall` ordered BEFORE
+    # the restore, so a scratch left by a run that died is emptied before the
+    # seed writes into it (#1487).
+    #
+    # ⚠ THIS BUMP IS REQUIRED, not optional, and that is unusual for a pin. The
+    # drill scripts on this host no longer delete the scratch — they REFUSE when
+    # it is not empty and name `plan-run drill --apply` as what clears it. A
+    # runner without ClearUnder cannot clear it, so the two have to arrive
+    # together or a dirty scratch becomes a drill that will not start.
+    #
+    # Also carries `--tools` and the guard holding ALL_LOCAL_TOOLS to the match
+    # arms (#1399), and the `.`-names-the-root fix in ClearUnder (301cb24).
+    rev = "1fca259b7f0aecc5b0b64a0dcbd9990532fc1f46";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through

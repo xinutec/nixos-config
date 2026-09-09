@@ -52,8 +52,12 @@ safe_rm() {
     echo "BUG: safe_rm called with empty path" >&2; exit 99
   fi
   case "$target" in
+    # ⚠ ONLY the restore tree this script made with mktemp. $SCRATCH used to be
+    # here and is not any more: emptying it is `Effect::ClearUnder`, issued by
+    # the drill plan (#1487). A script that creates a temp tree may remove it;
+    # deleting the shared scratch is a different act and belongs to the typed
+    # layer, under a declared root.
     /tmp/drill-restore-*) ;;
-    "$SCRATCH")  ;;
     *) echo "BUG: safe_rm refusing unexpected path: $target" >&2; exit 99 ;;
   esac
   rm -rf --one-file-system "$target"
@@ -90,10 +94,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. teardown any previous state
-log "teardown previous drill stack and wipe $SCRATCH"
-./drill-smoke.sh teardown >/dev/null 2>&1 || true
-safe_rm "$SCRATCH"
+# 1. stop any previous state, and REQUIRE an empty scratch
+#
+# ⚠ This script does not delete the scratch. The plan does, before the restore
+# (#1487). See drill-seed-fast.sh for the same note at length.
+log "stop previous drill stack"
+./drill-smoke.sh stop >/dev/null 2>&1 || true
+if [ -n "$(find "$SCRATCH" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+  echo "REFUSING to seed: $SCRATCH is not empty." >&2
+  echo "  The plan clears it: plan-run drill --host odin --prod-host isis \\" >&2
+  echo "    --settings /etc/plan/settings.json --apply --full" >&2
+  find "$SCRATCH" -mindepth 1 -maxdepth 1 -printf '    %P\n' >&2
+  exit 1
+fi
 mkdir -p "$SCRATCH"/{mysql,redis,nextcloud}
 
 # 2. restore from restic

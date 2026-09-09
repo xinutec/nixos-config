@@ -20,9 +20,9 @@
 # landed. Do not remove any of them:
 #   1. overlayfs never writes to a lower layer, so the drill's own writes
 #      (including modifying a file that exists in staging) cannot reach it;
-#   2. `drill-smoke.sh teardown` unmounts before deleting, and REFUSES to
-#      delete at all if the unmount fails — every drill script reaches its
-#      wipe through it;
+#   2. `drill-smoke.sh teardown` unmounts before deleting and REFUSES to delete
+#      at all if the unmount fails. It is now the ONLY thing in the drill that
+#      deletes the scratch, and it runs once, at the END of a run;
 #   3. both wipes pass `--one-file-system`, so a mount that survives (2)
 #      is skipped rather than deleted through.
 #
@@ -69,25 +69,18 @@ unmount_nextcloud() {
   # A container still holding the tree is the ordinary reason. Stop the stack
   # and try once more.
   #
-  # ⚠ NOT `drill-smoke.sh teardown`: that wipes the scratch, and calling it from
-  # here would run a deletion over a tree we have just established is STILL
-  # MOUNTED over the isis mirror. Stop the containers, nothing else.
-  docker compose down -v --remove-orphans >/dev/null 2>&1 || true
+  # ⚠ `stop`, NEVER `teardown`. The latter deletes, and calling it from here
+  # would run a deletion over a tree we have just established is STILL MOUNTED
+  # over the isis mirror. `stop` exists so this has something safe to call —
+  # it was an inline `docker compose down` before the verbs were split.
+  ./drill-smoke.sh stop >/dev/null 2>&1 || true
   umount "$NC_MNT" 2>/dev/null || return 1
 }
 
-# --- safe deletion ---
-safe_rm() {
-  local target="$1"
-  if [[ -z "$target" ]]; then
-    echo "BUG: safe_rm called with empty path" >&2; exit 99
-  fi
-  case "$target" in
-    "$SCRATCH") ;;
-    *) echo "BUG: safe_rm refusing unexpected path: $target" >&2; exit 99 ;;
-  esac
-  rm -rf --one-file-system "$target"
-}
+# ⚠ NO safe_rm HERE ANY MORE. This script had a deletion helper with an
+# allowlist and --one-file-system; it is gone because the deletion is gone. The
+# plan clears the scratch (Effect::ClearUnder) and the end-of-run teardown in
+# drill-smoke.sh holds the only `rm` left in the drill.
 
 # --- sanity checks ---
 for cmd in docker zstd mount umount mountpoint systemctl; do
@@ -131,18 +124,33 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. teardown previous state
-log "teardown previous drill stack and wipe $SCRATCH"
-./drill-smoke.sh teardown >/dev/null 2>&1 || true
-# BEFORE the wipe, always. safe_rm would refuse to cross the mount and fail
-# the run, which is the safe outcome but not a useful one.
+# 1. stop whatever is running, and REQUIRE an empty scratch
+#
+# ⚠ THIS SCRIPT NO LONGER DELETES ANYTHING. Emptying the scratch is
+# `Effect::ClearUnder`, issued by the drill plan before the restore (#1487):
+# a declared root, a `rel` that cannot name the root, and a walk that refuses
+# to cross a filesystem boundary rather than an `rm` that recurses through one.
+#
+# So this refuses instead of clearing. `plan-run drill --apply` is the path that
+# clears — a manual `./drill-run.sh` against a dirty scratch is a run that would
+# seed on top of a previous one, and saying so beats deleting 560G on a guess.
+log "stop previous drill stack"
+./drill-smoke.sh stop >/dev/null 2>&1 || true
 unmount_nextcloud || true
 if mountpoint -q "$NC_MNT"; then
-  echo "REFUSING to wipe $SCRATCH: $NC_MNT is still mounted over $SRC/server-data" >&2
+  echo "REFUSING to seed: $NC_MNT is still mounted over $SRC/server-data" >&2
   echo "unmount it by hand, then re-run" >&2
   exit 1
 fi
-safe_rm "$SCRATCH"
+if [ -n "$(find "$SCRATCH" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+  echo "REFUSING to seed: $SCRATCH is not empty." >&2
+  echo "  Something is left from a previous run. The plan clears it:" >&2
+  echo "    plan-run drill --host odin --prod-host isis \\" >&2
+  echo "      --settings /etc/plan/settings.json --apply" >&2
+  echo "  That runs the whole drill. To clear only, remove it by hand." >&2
+  find "$SCRATCH" -mindepth 1 -maxdepth 1 -printf '    %P\n' >&2
+  exit 1
+fi
 mkdir -p "$SCRATCH"/{mysql,redis,nextcloud} "$NC_UPPER" "$NC_WORK"
 
 # 2. nextcloud file tree — overlay, not copy. Seconds, not hours.
