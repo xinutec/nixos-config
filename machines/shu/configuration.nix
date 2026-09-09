@@ -30,6 +30,10 @@ let
   # minute of radio inside a ten-minute slot would be two code paths to keep
   # level for nothing.
   goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
+  # The AirVisual reader talks the SMB PROTOCOL over TCP rather than mounting a
+  # share, which is what makes it portable to a Linux box at all — no cifs, no
+  # mount, no root-only namespace games.
+  airvisualPython = pkgs.python3.withPackages (ps: with ps; [ smbprotocol ]);
 
   # shu's checkout of xinutec-infra, where the pusher and the shared modules
   # live. That repository is private and this one is public, so the code cannot
@@ -161,6 +165,13 @@ in
     mode = "0400";
   };
 
+  # The IQAir Pro's SMB share password. shu ONLY — see agenix/secrets.nix for why
+  # this is a second store for a value the Mac keeps in its Keychain.
+  age.secrets."airvisual-smb-password" = {
+    file = ../../agenix/airvisual-smb-password.age;
+    mode = "0400";
+  };
+
   systemd.services.govee-push = {
     description = "Scan the Govee BLE hygrometers and push their readings to home";
     # Bluetooth is the whole job, and the pusher stamps each reading with its own
@@ -178,6 +189,60 @@ in
       '';
       ExecStart = "${goveePython}/bin/python3 ${infra}/shu/govee-push.py";
       User = "root";
+    };
+  };
+
+  # A SECOND pusher for the IQAir AirVisual Pro, so one Mac reboot does not stop
+  # air-quality data (#1409). The Pro is at 192.168.1.206 on the home LAN and is
+  # unreachable from isis, which is why this is pushed from inside the house
+  # rather than pulled by a cronjob.
+  #
+  # ⚠ **TWO PUSHERS ARE FREE HERE, and that is NOT true of the Govee path.** A
+  # Govee reading is a RECEIVER'S capture — each ear hears at its own instant
+  # with its own RSSI — so those rows carry a `source` and each receiver's row is
+  # distinct. An AirVisual reading is the DEVICE'S OWN measurement carrying the
+  # DEVICE'S OWN timestamp, so two pushers reading it produce the SAME row, and
+  # the batch endpoint's `INSERT IGNORE` on `(device, ts)` keeps one. Idempotent
+  # by construction rather than by coordination.
+  #
+  # ⚠ It runs `mac-mini/airvisual-push.py`, not a `shu/` wrapper. The script is
+  # host-agnostic now — the Keychain calls became "a file if one is named" — and
+  # a second copy would be two files to keep level for nothing. The directory
+  # name is where the home tooling lives, not a claim about which host runs it.
+  systemd.services.airvisual-push = {
+    description = "Read the IQAir AirVisual Pro over SMB and push to home";
+    # Unlike govee-push this needs the network, not bluetooth: the reading comes
+    # over TCP from the LAN and goes out over the WAN.
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+      # Same clone-never-pull rule as govee-push: updating shu is a deliberate
+      # `git -C /opt/xinutec-infra pull`.
+      ExecStartPre = ''
+        ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
+      '';
+      ExecStart = "${airvisualPython}/bin/python3 ${infra}/mac-mini/airvisual-push.py";
+      # PATHS, not values: a secret in the environment is readable from
+      # /proc/<pid>/environ by anyone who can list processes.
+      Environment = [
+        "AIRVISUAL_SMB_PASSWORD_FILE=/run/agenix/airvisual-smb-password"
+        "HOME_INGEST_TOKEN_FILE=/run/agenix/home-ingest-token"
+      ];
+    };
+  };
+
+  systemd.timers.airvisual-push = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      # The Mac pushes every 5 minutes on a launchd interval, which is not
+      # phase-locked to the clock, so this cannot interleave exactly — :02/5 just
+      # keeps them from starting together most of the time. Exactness does not
+      # matter here the way it does for the Govee receivers: identical readings
+      # dedup, so the worst case of a collision is one ignored INSERT.
+      OnCalendar = "*:02/5";
+      AccuracySec = "30s";
     };
   };
 

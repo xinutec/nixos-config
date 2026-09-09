@@ -124,6 +124,22 @@ in {
   # hold an ingest token for a home dashboard.
   "home-ingest-token.age".publicKeys = [ geb shu tefnut admin ];
 
+  # The IQAir AirVisual Pro's SMB share password, so shu can read the Pro's
+  # current reading and push it — a second source for air quality, where today
+  # `airvisual-push` runs on the Mac and nowhere else (#1409).
+  #
+  # shu ONLY. The Pro is on the home LAN and shu already reaches it (445 open,
+  # 12ms) — the same argument that made shu the fourth Govee receiver: no new
+  # access, no new attack surface, one more credential held by one more machine
+  # that is already inside the boundary.
+  #
+  # ⚠ The Mac does NOT read this. It keeps the same value in its Keychain
+  # (`airvisual-pro-smb`), which is where `airvisual.py` looks when no password
+  # file is named. Two stores for one secret is worth knowing: rotating the
+  # Pro's SMB password means changing BOTH, and the Mac's copy is not in any
+  # repo.
+  "airvisual-smb-password.age".publicKeys = [ shu admin ];
+
   "hc-ping-md.age".publicKeys = [ amun admin ];
   "hc-ping-backup.age".publicKeys = [ odin admin ];
   "hc-ping-drill.age".publicKeys = [ odin admin ];
