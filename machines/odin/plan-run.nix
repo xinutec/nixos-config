@@ -80,7 +80,19 @@ let
     #
     # Also carries `--tools` and the guard holding ALL_LOCAL_TOOLS to the match
     # arms (#1399), and the `.`-names-the-root fix in ClearUnder (301cb24).
-    rev = "1fca259b7f0aecc5b0b64a0dcbd9990532fc1f46";
+    #
+    # ⚠ 2026-09-10 IS REQUIRED FOR THE SAME REASON, one turn further on. The
+    # 09-09 drill found a stranded overlay under the scratch and could not
+    # proceed: ClearUnder refuses to delete through a mountpoint, so the required
+    # `scratch-clear` goal had no way to close and the unit exited 3. What
+    # released it was this unit's ExecStopPost, outside the plan. This revision
+    # adds `scratch-unmounted` above it, with Probe::MountsUnder and
+    # Effect::UnmountUnder, so the plan owns both halves (#1502).
+    #
+    # ⚠ It needs `umount`, which this host has via `util-linux` on the drill
+    # unit's `path` below. `plan-run drill --tools --host odin --prod-host isis`
+    # is what says so rather than reading the list and hoping.
+    rev = "49777267b380c56b040ac30e1b6e7add6754ad10";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through
