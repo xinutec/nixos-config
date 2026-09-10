@@ -16,6 +16,22 @@
   # both ends of the tunnel have to agree. See memview/docs/agent-console.md.
   consolePort = 8097;
 
+  # The Mac's OWN sshd, reverse-tunnelled to isis so the phone can reach it from
+  # away. isis binds this on its VPN address and hands whatever arrives back down
+  # the tunnel to the Mac's port 22; the phone then SSHes THROUGH it and forwards
+  # screen sharing inside its own session.
+  #
+  # ⚠ **PORT 22 AND NOT 5900, and the difference is the whole security argument.**
+  # Reverse-tunnelling VNC directly would make isis a keylogger: the console is
+  # safe because the phone's TLS session terminates on the Mac, so isis carries
+  # ciphertext and holds no key that opens anything. VNC has no such property and
+  # carries keystrokes. Tunnelling ssh keeps that property — isis carries an ssh
+  # session it cannot read, and the screen forward rides inside it.
+  #
+  # Named here because both ends have to agree; the other end is the Mac's
+  # `scripts/screen-tunnel.sh`. See task #1413.
+  macSshPort = 8122;
+
   nodes = rec {
     # amun is the Kubernetes/NFS/Wireguard master. All other nodes connect to
     # it. If it is down, other nodes still work, e.g. isis deployments still

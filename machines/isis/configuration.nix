@@ -191,5 +191,14 @@ in {
     ''restrict,port-forwarding,permitlisten="${config.node.vpn}:${
       toString net.consolePort
     }" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBJAGJDba9uOuPZNe/LHngVUXao8Uv+2y5TDLvOA7icR console-tunnel@mac-mini''
+
+    # The screen-sharing tunnel's key, and the same shape for the same reason:
+    # one listener, no shell, no agent, no local forwards. It carries the Mac's
+    # port 22, so what isis relays is an ssh session it cannot read — the phone
+    # forwards screen sharing INSIDE that session rather than isis forwarding
+    # VNC, which would make this host a keylogger. See task #1413.
+    ''restrict,port-forwarding,permitlisten="${config.node.vpn}:${
+      toString net.macSshPort
+    }" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKl+vneSt2ECqLNFcEGZ3RNNUfVBTNaDymn6VU8Mo4Jq screen-tunnel@mac-mini''
   ];
 }
