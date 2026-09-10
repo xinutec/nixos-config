@@ -100,7 +100,11 @@ let
     # host that can take that proof: the mac's key into the repository is
     # `rrsync -wo`, write-only, so the machine that owns the transcripts cannot
     # read them back.
-    rev = "02daa6821e090679302256527a72bcada8afb6e7";
+    #
+    # 2026-09-10, third of the day and the cheapest: it carries only the table
+    # change that raised `claude-archive` to `Proof::Drilled`, which this host's
+    # `backup-report` renders. The capability it records was already here.
+    rev = "08e7da0408982974f2f6408732602d2992ede51f";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through

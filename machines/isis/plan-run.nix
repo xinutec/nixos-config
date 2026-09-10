@@ -110,7 +110,17 @@ let
     # otherwise, and report messages healthy on exactly the evidence that cannot
     # show it. The table and the runner are two sides of one comparison and are
     # bumped together, the rule fbc135a states above.
-    rev = "3acc95d9654605355f9dcd373cc950f4224d4b0f";
+    #
+    # ⚠ BUMPED 2026-09-10 TO CARRY AN ETXTBSY FIX, and that is the reason rather
+    # than the features. This host builds plan-run with `doCheck`, so its rebuild
+    # runs the runner's test suite -- and `cargo_sweep`'s fixture raced itself:
+    # Linux refuses to exec a file open for writing anywhere, and a test forking
+    # while another had just written its fake `cargo` inherited the write
+    # descriptor. It FAILED an odin deploy that day, on a commit with nothing to
+    # do with cargo-sweep, reading exactly like "your change broke the tests"
+    # (#1508). Every host on the older pins carries that landmine into its next
+    # rebuild.
+    rev = "08e7da0408982974f2f6408732602d2992ede51f";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {

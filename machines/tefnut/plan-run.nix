@@ -40,7 +40,17 @@ let
     # though they were IPv4 — measured on geb and shu 2026-09-05: nine declared
     # against four owned, and the plan blocked. The declaration and the runner
     # that understands it have to move together.
-    rev = "fbc135a3e887fe544ca593b445871386c686c53d";
+    #
+    # ⚠ BUMPED 2026-09-10 TO CARRY AN ETXTBSY FIX, and that is the reason rather
+    # than the features. This host builds plan-run with `doCheck`, so its rebuild
+    # runs the runner's test suite -- and `cargo_sweep`'s fixture raced itself:
+    # Linux refuses to exec a file open for writing anywhere, and a test forking
+    # while another had just written its fake `cargo` inherited the write
+    # descriptor. It FAILED an odin deploy that day, on a commit with nothing to
+    # do with cargo-sweep, reading exactly like "your change broke the tests"
+    # (#1508). Every host on the older pins carries that landmine into its next
+    # rebuild.
+    rev = "08e7da0408982974f2f6408732602d2992ede51f";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
