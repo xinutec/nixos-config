@@ -92,7 +92,15 @@ let
     # ⚠ It needs `umount`, which this host has via `util-linux` on the drill
     # unit's `path` below. `plan-run drill --tools --host odin --prod-host isis`
     # is what says so rather than reading the list and hoping.
-    rev = "49777267b380c56b040ac30e1b6e7add6754ad10";
+    #
+    # ⚠ 2026-09-10, second bump of the day, and this one is NOT required by the
+    # host's scripts — it is the capability itself. `Effect::RunArchiveDrill`
+    # and the `plan-run archive-drill` command are what raise the claude
+    # archive's proof from Loadable to Drilled (#1259), and odin is the ONLY
+    # host that can take that proof: the mac's key into the repository is
+    # `rrsync -wo`, write-only, so the machine that owns the transcripts cannot
+    # read them back.
+    rev = "02daa6821e090679302256527a72bcada8afb6e7";
   };
 
   # Built with odin's channel nixpkgs, while the Mac builds the same source through
