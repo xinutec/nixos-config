@@ -181,6 +181,42 @@ let
   # precisely the moment :80 changes hands, so depending on :80 to issue the
   # certificates that :443 needs would make renewal fail exactly when it is
   # least recoverable.
+  # ⚠ **`irc-tls` HAS NO OTHER RENEWER, AND THAT WAS SILENT FOR TEN DAYS.**
+  # inspircd does not read `/var/lib/acme`; it mounts the `irc-tls` Kubernetes
+  # Secret. Until #1294 a cert-manager Certificate filled that Secret, and the
+  # migration removed every Certificate on this cluster — so nothing renewed it
+  # and the served certificate was set to expire 2026-11-10 with no successor.
+  # The check that should have said so read a WARN, because a probe that cannot
+  # ask its question never gets to answer it (fixed, xinutec-infra 18935dc).
+  #
+  # **Why `postRun` and not a timer.** A separate sync unit is one more thing
+  # that can stop quietly, which is the failure being repaired here. `postRun`
+  # is `ExecStartPost` of the acme unit itself: it runs as root (systemd `+`
+  # prefix), in the certificate's own directory, and ONLY when a renewal
+  # actually happened — the module guards it on the `renewed` marker. So the
+  # copy cannot drift from the renewal: either both happen or the acme unit
+  # fails where systemd can see it.
+  #
+  # **Why not mount the host certificate directly** and drop the Secret, which
+  # would leave exactly one copy of the key: it needs a per-certificate group
+  # (the pod is uid/gid 39, these files are `acme:nginx` 0640, and granting
+  # `nginx` would hand the IRC server read access to EVERY certificate here,
+  # including the vault's), a `hostPath` volume the model has no constructor
+  # for, and a `gnutls.conf` repoint in a repository that auto-deploys in five
+  # minutes. All of that ends in a pod rollout, and every rollout is a visible
+  # reconnect for everyone on the server. This is the same end state without
+  # disconnecting anybody.
+  #
+  # `kubectl apply` rather than `create`: it must update an existing Secret, and
+  # it must be idempotent because a renewal can be retried.
+  ircdSecretSync = ''
+    ${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml \
+      -n ircd create secret tls irc-tls \
+      --cert=fullchain.pem --key=key.pem \
+      --dry-run=client -o yaml \
+    | ${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f -
+  '';
+
   certFor = host: {
     name = host;
     value = {
@@ -190,6 +226,8 @@ let
       # environment file on the host, and provisioning it is a cutover step.
       environmentFile = "/var/lib/secrets/acme-cloudflare.env";
       group = "nginx";
+    } // lib.optionalAttrs (host == "irc.xinutec.net") {
+      postRun = ircdSecretSync;
     };
   };
   publicAddrs = [ net.nodes.isis.ipv4 net.nodes.isis.ipv6 ];
