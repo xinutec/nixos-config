@@ -10,6 +10,7 @@
         "python3",
         "scripts/eval_machines.py"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "nix eval — every machine's full NixOS config",
@@ -28,6 +29,7 @@
         "-E",
         "let p = import <nixpkgs> {}; m = import ./machines/isis/frontdoor.nix { config = {}; lib = p.lib; pkgs = p; }; in builtins.length (builtins.attrNames m.services.nginx.virtualHosts)"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "isis front door evaluates, and no VpnOnly name listens publicly",
@@ -44,6 +46,7 @@
         "check",
         "."
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "ruff (operational Python)",
@@ -62,6 +65,7 @@
         "machines/odin/backup_preview.py",
         "plan-fleetwatch-push.py"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "mypy --strict (operational Python)",
@@ -81,6 +85,7 @@
         "machines",
         "test_plan_fleetwatch_push.py"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "pytest (operational Python)",
@@ -104,6 +109,7 @@
         "{}",
         "+"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "shellcheck (host-side shell scripts)",
@@ -117,6 +123,7 @@
         "--",
         "."
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "dev-lint",
@@ -132,6 +139,7 @@
         "gate.dhall",
         "gate.json"
       ],
+      "artifacts": [],
       "cwd": ".",
       "env": {},
       "name": "the table matches its Dhall",
