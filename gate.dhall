@@ -105,10 +105,27 @@ in  { name = "nixos-config"
               , "--strict"
               , "machines/amun/vpn-nodes-push.py"
               , "scripts/firewall_order.py"
+              , "scripts/ssh_config_order.py"
               , "machines/odin/backup_preview.py"
               , "plan-fleetwatch-push.py"
               ]
         , timeout_s = 600
+        }
+      , {-  Root's ssh_config order, which nothing else could see.
+
+            ssh_config takes the first value it obtains for a keyword, so
+            `Host github.com` must precede `Match localuser root` or root offers
+            the fleet key to GitHub. The failure is latent: fetchGit only reaches
+            the network for a revision the store lacks, so every rebuild succeeds
+            and the first pin bump fails.
+
+            Evaluation only, so it runs on the Mac. Proved by ablation: swapping
+            the two blocks makes this report amun with the line numbers.
+        -}
+        G.Check::{
+        , name = "root's ssh_config holds its order"
+        , argv = inNixShell [ "python3", "scripts/ssh_config_order.py" ]
+        , timeout_s = 1800
         }
       , {-  The one-way chain's ORDER, which nothing else could see.
 
@@ -140,6 +157,7 @@ in  { name = "nixos-config"
               , "-q"
               , "machines"
               , "scripts/test_firewall_order.py"
+              , "scripts/test_ssh_config_order.py"
               , "test_plan_fleetwatch_push.py"
               ]
         , timeout_s = 600

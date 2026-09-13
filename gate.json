@@ -63,6 +63,7 @@
         "--strict",
         "machines/amun/vpn-nodes-push.py",
         "scripts/firewall_order.py",
+        "scripts/ssh_config_order.py",
         "machines/odin/backup_preview.py",
         "plan-fleetwatch-push.py"
       ],
@@ -71,6 +72,22 @@
       "env": {},
       "name": "mypy --strict (operational Python)",
       "timeout_s": 600
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
+        "python3",
+        "scripts/ssh_config_order.py"
+      ],
+      "artifacts": [],
+      "cwd": ".",
+      "env": {},
+      "name": "root's ssh_config holds its order",
+      "timeout_s": 1800
     },
     {
       "argv": [
@@ -101,6 +118,7 @@
         "-q",
         "machines",
         "scripts/test_firewall_order.py",
+        "scripts/test_ssh_config_order.py",
         "test_plan_fleetwatch_push.py"
       ],
       "artifacts": [],

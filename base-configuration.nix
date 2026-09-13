@@ -14,11 +14,11 @@ let
     sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
   };
 
-  # ⚠ A one-way node defends ITSELF. This was inverted until 2026-09-04, so the
+  # A one-way node defends ITSELF. This was inverted until 2026-09-04, so the
   # machines the threat model distrusts were the ones enforcing it.
   selfOneWay = config.node.oneWay or false;
 
-  # ⚠ Created on EVERY host, jumped to only where `selfOneWay`: `iptables -S` on a
+  # Created on EVERY host, jumped to only where `selfOneWay`: `iptables -S` on a
   # missing chain errors, and the firewall plan reads that as Unreadable rather
   # than as "declares nothing" — the one distinction that fact exists to keep.
   oneWayChain = "xinutec-oneway";
@@ -36,11 +36,11 @@ let
   # Rendered to /etc/plan/declared-firewall.json so the declared side can be READ;
   # rules otherwise exist only as shell evaluation. #727 is what that cost.
   #
-  # ⚠ Spelled in `iptables -S` OUTPUT form, copied from live output, not composed:
+  # Spelled in `iptables -S` OUTPUT form, copied from live output, not composed:
   # iptables re-renders canonically (`-d X` becomes `-d X/32`, ctstate reorders).
-  # ⚠ A second rendering of the same values, deliberately NOT a generator for the
+  # A second rendering of the same values, deliberately NOT a generator for the
   # first. A drifting declaration is the thing being detected.
-  # ⚠ Every rule carries its family, or a v4 reading satisfies a v6 declaration.
+  # Every rule carries its family, or a v4 reading satisfies a v6 declaration.
   # Scope is OUR rules only, not what the firewall module, Docker or k3s inject.
   withFamily = f: rules: map (r: r // { family = f; }) rules;
 
@@ -87,7 +87,7 @@ let
       why = "containers reach the API and nothing else internal";
     }) [ "tcp" "udp" ])
     # Reads the same `net.vpnPort` the module does, so no second list can go stale.
-    # ⚠ SSH's 22 is deliberately absent: openssh.openFirewall opens it, and
+    # SSH's 22 is deliberately absent: openssh.openFirewall opens it, and
     # declaring it here would assert another module's default.
     ++ (map (proto: {
       chain = "nixos-fw";
@@ -96,7 +96,7 @@ let
         } -j nixos-fw-accept";
       why = "WireGuard, one of the two remote lifelines";
     }) [ "tcp" "udp" ])
-    # ⚠ `RELATED,ESTABLISHED` here against `ESTABLISHED,RELATED` in the command
+    # `RELATED,ESTABLISHED` here against `ESTABLISHED,RELATED` in the command
     # below is not a typo — this side must match what `iptables -S` prints.
     ++ (lib.optionals selfOneWay ([{
       chain = "INPUT";
@@ -129,9 +129,9 @@ let
 
   # ── The same property, one address family over ────────────────────────────
   #
-  # ⚠ The VPN is IPv4-only, so this half is about the INTERNET: at home the boxes
+  # The VPN is IPv4-only, so this half is about the INTERNET: at home the boxes
   # hold globally routable v6 addresses with no NAT in front of them.
-  # ⚠ No `reachableFrom` admits here — those name VPN peers, which have no v6
+  # No `reachableFrom` admits here — those name VPN peers, which have no v6
   # address, so such a rule could never match.
   oneWayTeardown6 = ''
     ip6tables -w -D INPUT -i ${config.node.externalInterface} -j ${oneWayChain} 2>/dev/null || true
@@ -140,17 +140,17 @@ let
   '';
 
   oneWayRules6 = ''
-    # ⚠ Created on every host. Asserted by scripts/firewall_order.py.
+    # Created on every host. Asserted by scripts/firewall_order.py.
   '' + oneWayTeardown6 + ''
     ip6tables -w -N ${oneWayChain}
   '' + lib.optionalString selfOneWay (''
     ip6tables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    # ⚠ Before the DROP. Order asserted by scripts/firewall_order.py.
+    # Before the DROP. Order asserted by scripts/firewall_order.py.
     ip6tables -w -A ${oneWayChain} -p ipv6-icmp -j ACCEPT
     # Link-local: router advertisements, DHCPv6, mDNS.
     ip6tables -w -A ${oneWayChain} -s fe80::/10 -j ACCEPT
     ip6tables -w -A ${oneWayChain} -j DROP
-    # ⚠ Scoped to the external interface, where v4 scopes to wg0 — an unscoped
+    # Scoped to the external interface, where v4 scopes to wg0 — an unscoped
     # jump would also judge lo, and ::1 traffic would meet the DROP.
     ip6tables -w -I INPUT 1 -i ${config.node.externalInterface} -j ${oneWayChain}
   '');
@@ -160,7 +160,7 @@ let
   '' + oneWayTeardown + ''
     iptables -w -N ${oneWayChain}
   '' + lib.optionalString selfOneWay (''
-    # ⚠ First. Order asserted by scripts/firewall_order.py.
+    # First. Order asserted by scripts/firewall_order.py.
     iptables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   '' + lib.concatMapStrings (peer: ''
     # ${peer} may initiate toward this host.
@@ -271,7 +271,7 @@ in {
       enable = true;
 
       # PUBLIC EXPOSURE POLICY: closed by default, explicit list to open — but this
-      # governs ONLY host daemons. ⚠ Docker/k8s published ports DNAT in the nat table
+      # governs ONLY host daemons. Docker/k8s published ports DNAT in the nat table
       # BEFORE this chain and bypass it, so deleting an entry here does not close such
       # a service; bind its publish to the VPN address or use ingress instead.
       # SSH is opened by services.openssh; kubelet 10250 is absent on purpose, since
@@ -307,12 +307,12 @@ in {
   age.secrets."wireguard-${config.node.name}".file =
     ./agenix/wireguard-${config.node.name}.age;
 
-  # ⚠ agenix WRITES AT ACTIVATION AND NEVER DELETES. The retired root-ssh-* entries
+  # agenix WRITES AT ACTIVATION AND NEVER DELETES. The retired root-ssh-* entries
   # left their files on disk, and a host RESTORED FROM AN OLDER BACKUP brings them
   # back — both names are on OpenSSH's default identity list, so they would silently
   # resume carrying root logins. fleet_health.py asserts their absence. See #1049.
 
-  # The fleet's inter-host root key. ⚠ `id_fleet`, deliberately NOT `id_ed25519` or
+  # The fleet's inter-host root key. `id_fleet`, deliberately NOT `id_ed25519` or
   # `id_rsa`: those are OpenSSH's default identity list and would be offered to
   # everything. A name outside that list is used where NAMED and nowhere else.
   age.secrets."root-ssh-fleet" = {
@@ -325,18 +325,17 @@ in {
   # Root's ssh must NAME the fleet key, since id_fleet is off the default list.
   # `localuser`, not `user`: `Match user` means the REMOTE username.
   #
-  # ⚠ Naming an IdentityFile REPLACES root's default list rather than adding to it.
+  # Naming an IdentityFile REPLACES root's default list rather than adding to it.
   # That broke the one root ssh consumer outside the fleet; /etc/nixos uses the
   # HTTPS remote now, which needs no credential for a public repo.
   #
-  # ⚠ The private xinutec-infra fetch in machines/{odin,isis}/plan-run.nix still
+  # The private xinutec-infra fetch in machines/{odin,isis}/plan-run.nix still
   # needs a key, and its failure is LATENT: fetchGit only hits the network for a rev
   # the store lacks, so every rebuild succeeds until the first pin BUMP. Each host
   # has its own read-only deploy key, generated in place and never in agenix; list
   # them with `gh repo deploy-key list --repo xinutec/xinutec-infra`.
   #
-  # ⚠ `Host github.com` must come FIRST: ssh_config takes the FIRST value for a
-  # keyword, so the root match below would otherwise pin id_fleet for GitHub too.
+  # Order asserted by scripts/ssh_config_order.py.
   programs.ssh.extraConfig = ''
     Host github.com
       IdentityFile /root/.ssh/id_github_infra
