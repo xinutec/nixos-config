@@ -1,6 +1,4 @@
-# Edit this configuration file to define what should be installed on
-# your system.  Help is available in the configuration.nix(5) man page
-# and in the NixOS manual (accessible by running ‘nixos-help’).
+# Shared base for every fleet host. Machine files undo what does not suit them.
 
 { config, pkgs, lib, ... }:
 
@@ -16,88 +14,34 @@ let
     sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
   };
 
-  # ⚠ A ONE-WAY NODE DEFENDS ITSELF. Until 2026-09-04 this was inverted: every
-  # OTHER host generated an OUTPUT/FORWARD drop toward the protected node, so the
-  # machines the threat model DISTRUSTS were the ones enforcing it — and a
-  # compromised server removes its own rule with one `iptables -D`.
-  #
-  # Pippijn, 2026-09-04: *"We have to assume the server could be hacked, but it
-  # wouldn't be able to hack into the home machines from there."*
-  #
-  # The Mac already worked this way and always had: its pf anchor holds even
-  # against a compromised hub. geb and shu had the LABEL without the defence.
-  #
-  # What this costs: the fleet no longer stops itself dialling home, so the
-  # property now depends on the protected host being up and configured. That is
-  # the right trade — an unreachable home machine is a home machine nobody can
-  # damage either.
+  # ⚠ A one-way node defends ITSELF. This was inverted until 2026-09-04, so the
+  # machines the threat model distrusts were the ones enforcing it.
   selfOneWay = config.node.oneWay or false;
 
-  # ⚠ CREATED ON EVERY HOST, jumped to only where `selfOneWay`. `iptables -S` on
-  # a chain that does not exist is an ERROR, and the firewall plan would read
-  # that as Unreadable rather than as "declares nothing" — the one distinction
-  # that whole fact exists to keep apart.
+  # ⚠ Created on EVERY host, jumped to only where `selfOneWay`: `iptables -S` on a
+  # missing chain errors, and the firewall plan reads that as Unreadable rather
+  # than as "declares nothing" — the one distinction that fact exists to keep.
   oneWayChain = "xinutec-oneway";
 
-  # The VPN address of a node named in some other node's `reachableFrom`.
-  # `throw` rather than a silent skip: a misspelled name would generate no rule
-  # at all, which reads exactly like the exception having been granted — and the
-  # thing being granted is the right to open connections to a machine the fleet
-  # is otherwise forbidden to touch.
+  # `throw`, not a silent skip: a misspelled name would generate no rule at all,
+  # which reads exactly like the exception having been granted.
   vpnOf = named:
     (net.nodes.${named} or (throw
       "reachableFrom names ${named}, which is not a node in network.nix"
     )).vpn;
 
 
-  # The peer may initiate into the VPN; nothing here — this host, its pods, or
-  # forwarded peer traffic — may initiate toward it. Only return traffic for
-  # connections the peer opened gets through. The peer is expected to enforce the same
-  # locally (mac-mini uses pf); this is defence in depth.
+  # ── The rules this repository declares, AS DATA ───────────────────────────
   #
-  # Ordering holds at any peer count: each peer's ACCEPT is inserted immediately before
-  # its own DROP, and both match on that peer's address alone.
+  # Rendered to /etc/plan/declared-firewall.json so the declared side can be READ;
+  # rules otherwise exist only as shell evaluation. #727 is what that cost.
   #
-  # `reachableFrom` names the exceptions. Each goes in at position 2 AFTER the DROP
-  # does, which puts it above the DROP and below the ESTABLISHED accept, so an admitted
-  # peer may open a connection and nobody else may. Several admits stack in reverse
-  # order among themselves, which does not matter — all ACCEPTs above the one DROP.
-  #
-  # ⚠ The OUTPUT rule is deliberately NOT excepted: it stops this host dialling the peer
-  # itself, and forwarding somebody else's connection is not a reason to grant your own.
-
-  # ── The rules this repository declares, AS DATA ────────────────────────────
-  #
-  # Rendered to /etc/plan/declared-firewall.json so the declared side becomes something
-  # that can be READ. Nothing could read it before: rules come out of shell evaluation
-  # — `extraCommands` below is 92 rendered lines with a function and a loop — so a
-  # static parse is a guess and running the script is not a read. #727 is what that
-  # cost: a hand-added rule sat in amun's FORWARD chain for at least 88 days,
-  # undeclared, found because somebody happened to look.
-  #
-  # ⚠ Spelled in `iptables -S` FORM, not as the commands below are written, and the
-  # difference is the whole point of measuring rather than assuming. iptables renders a
-  # rule back canonically: `-d 10.100.0.5` returns as `-d 10.100.0.5/32`, `--ctstate
-  # ESTABLISHED,RELATED` as `RELATED,ESTABLISHED`, and `--dport 6443` gains a `-m tcp`.
-  # Every string here was copied from live output on geb (2026-08-12), not composed.
-  #
-  # ⚠ A SECOND rendering of the same values, not a generator for the first, and
-  # deliberately: driving `extraCommands` from this list would mean reproducing its
-  # comments, teardown ordering and `-w` placement exactly — intricacy added to a
-  # firewall generator to remove intricacy from it. What keeps the two honest is the
-  # check that consumes this file. A drifting declaration is the thing being detected,
-  # not a weakness in detecting it.
-  #
-  # SCOPE: our rules only — the k8s API accepts and the one-way VPN block. NOT
-  # everything the NixOS firewall module generates, nor what Docker, k3s or kube-router
-  # inject: reproducing the module's own output as data would duplicate its logic and
-  # become its own drift risk. #727 sat in a chain we own, so the scoped version still
-  # catches its shape.
-  # ⚠ EVERY DECLARED RULE CARRIES ITS ADDRESS FAMILY. Untagged the two families
-  # cancel: `-A INPUT -j nixos-fw` exists in both tables and is a DIFFERENT rule
-  # in each, so a v4 reading would satisfy a v6 declaration and a host missing
-  # its entire v6 half would compare as converged. The reader defaults a missing
-  # family to `inet`, so a host on an older generation keeps its v4 judgement.
+  # ⚠ Spelled in `iptables -S` OUTPUT form, copied from live output, not composed:
+  # iptables re-renders canonically (`-d X` becomes `-d X/32`, ctstate reorders).
+  # ⚠ A second rendering of the same values, deliberately NOT a generator for the
+  # first. A drifting declaration is the thing being detected.
+  # ⚠ Every rule carries its family, or a v4 reading satisfies a v6 declaration.
+  # Scope is OUR rules only, not what the firewall module, Docker or k3s inject.
   withFamily = f: rules: map (r: r // { family = f; }) rules;
 
   declaredFirewall = withFamily "inet" declaredFirewall4
@@ -132,11 +76,6 @@ let
     }
   ];
 
-  # ⚠ Spellings MEASURED on geb 2026-09-04, not predicted: ip6tables renders
-  # `--ctstate ESTABLISHED,RELATED` back as `RELATED,ESTABLISHED`, exactly as
-  # iptables does. A declaration written the way the command is typed would
-  # compare unequal on that rule for ever.
-
   declaredFirewall4 =
     # The two container→API accepts, from the same `net` values `extraCommands`
     # interpolates.
@@ -147,13 +86,9 @@ let
         } -j nixos-fw-accept";
       why = "containers reach the API and nothing else internal";
     }) [ "tcp" "udp" ])
-    # Ours even though the firewall MODULE renders it rather than `extraCommands`.
-    # `allowedTCPPorts`/`allowedUDPPorts` below are literally `[ net.vpnPort ]`, so this
-    # reads the same value and no second list can go stale.
-    #
-    # ⚠ SSH's 22 is deliberately NOT here: `services.openssh.openFirewall` opens it, so
-    # declaring it would be this file asserting another module's default — and if that
-    # default changed, the check would go red at the declaration rather than the cause.
+    # Reads the same `net.vpnPort` the module does, so no second list can go stale.
+    # ⚠ SSH's 22 is deliberately absent: openssh.openFirewall opens it, and
+    # declaring it here would assert another module's default.
     ++ (map (proto: {
       chain = "nixos-fw";
       spec = "-A nixos-fw -p ${proto} -m ${proto} --dport ${
@@ -161,13 +96,8 @@ let
         } -j nixos-fw-accept";
       why = "WireGuard, one of the two remote lifelines";
     }) [ "tcp" "udp" ])
-    # ...and, ONLY on a node that is itself one-way, the chain it refuses the VPN
-    # with. Per host now, not fleet-wide: the rule lives on the machine being
-    # protected, so the declaration does too.
-    #
     # ⚠ `RELATED,ESTABLISHED` here against `ESTABLISHED,RELATED` in the command
-    # below is not a typo — iptables NORMALISES the order when it renders, and
-    # this side must match what `iptables -S` prints, not what was typed.
+    # below is not a typo — this side must match what `iptables -S` prints.
     ++ (lib.optionals selfOneWay ([{
       chain = "INPUT";
       spec = "-A INPUT -i wg0 -j ${oneWayChain}";
@@ -199,16 +129,10 @@ let
 
   # ── The same property, one address family over ────────────────────────────
   #
-  # ⚠ THE VPN IS IPv4-ONLY: wg0 carries no IPv6 address on any host, so a v6
-  # chain jumped from `-i wg0` would be dead code. This half is about the
-  # INTERNET. At home the machines hold globally routable v6 addresses with no
-  # NAT in front of them, and `allowedTCPPorts` is family- and source-agnostic,
-  # so "ssh is open" meant open to anyone the router let through. Measured
-  # 2026-09-04: the pixel9 opened geb's public v6 :22 directly.
-  #
-  # ⚠ NO `reachableFrom` ADMITS HERE, deliberately. Those name VPN peers, and
-  # peers have no v6 address to admit — an admit spelled in this family would be
-  # a rule that can never match, and a declaration nobody can satisfy.
+  # ⚠ The VPN is IPv4-only, so this half is about the INTERNET: at home the boxes
+  # hold globally routable v6 addresses with no NAT in front of them.
+  # ⚠ No `reachableFrom` admits here — those name VPN peers, which have no v6
+  # address, so such a rule could never match.
   oneWayTeardown6 = ''
     ip6tables -w -D INPUT -i ${config.node.externalInterface} -j ${oneWayChain} 2>/dev/null || true
     ip6tables -w -F ${oneWayChain} 2>/dev/null || true
@@ -216,31 +140,21 @@ let
   '';
 
   oneWayRules6 = ''
-    # ⚠ CREATED ON EVERY HOST, exactly as the v4 chain is, so `ip6tables -S
-    # xinutec-oneway` ANSWERS everywhere. The probe loops families x chains and
-    # reads a non-zero exit as Unreadable, so a chain present in one table and
-    # absent from the other would make the whole firewall fact unreadable on the
-    # three hosts that are not one-way — losing the v4 judgement that works.
+    # ⚠ Created on every host so `ip6tables -S` ANSWERS everywhere; a chain in one
+    # table and not the other makes the whole firewall fact unreadable.
   '' + oneWayTeardown6 + ''
     ip6tables -w -N ${oneWayChain}
   '' + lib.optionalString selfOneWay (''
     ip6tables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    # ⚠ ICMPv6 BEFORE THE DROP, AND THIS IS NOT POLITENESS — it is what keeps
-    # IPv6 working at all. A neighbour advertisement from an ON-LINK host carries
-    # that host's GLOBAL source address, not its link-local one, so the fe80::/10
-    # line below does NOT cover it; without this rule the DROP eats it and the
-    # machine cannot open an IPv6 connection to its own subnet. Packet Too Big
-    # goes the same way, so PMTU discovery fails and large transfers HANG rather
-    # than fail. The Mac shipped exactly this bug hours earlier and it verified
-    # clean, because traffic via the ROUTER kept working the whole time — the
-    # router answers from fe80::.
+    # ⚠ ICMPv6 BEFORE the DROP, or IPv6 stops working: a neighbour advertisement
+    # carries the sender's GLOBAL address so fe80::/10 below does not cover it,
+    # and losing Packet Too Big makes large transfers HANG rather than fail.
     ip6tables -w -A ${oneWayChain} -p ipv6-icmp -j ACCEPT
     # Link-local: router advertisements, DHCPv6, mDNS.
     ip6tables -w -A ${oneWayChain} -s fe80::/10 -j ACCEPT
     ip6tables -w -A ${oneWayChain} -j DROP
-    # ⚠ Scoped to the EXTERNAL interface, where the v4 jump is scoped to wg0.
-    # Same chain name, same meaning, different door. An unscoped jump would also
-    # judge lo, and ::1 traffic would meet the DROP.
+    # ⚠ Scoped to the external interface, where v4 scopes to wg0 — an unscoped
+    # jump would also judge lo, and ::1 traffic would meet the DROP.
     ip6tables -w -I INPUT 1 -i ${config.node.externalInterface} -j ${oneWayChain}
   '');
 
@@ -249,10 +163,8 @@ let
   '' + oneWayTeardown + ''
     iptables -w -N ${oneWayChain}
   '' + lib.optionalString selfOneWay (''
-    # ⚠ ESTABLISHED FIRST, or this drops the replies to our OWN outbound traffic
-    # and kills the VPN in the legitimate direction too. The Mac shipped exactly
-    # that bug on 2026-06-10 — macOS pf needs `pass out keep state` for the same
-    # reason — and fixed it the same day. Do not reorder these.
+    # ⚠ ESTABLISHED FIRST, or this drops the replies to our own outbound traffic
+    # and kills the VPN in the legitimate direction too. Do not reorder.
     iptables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   '' + lib.concatMapStrings (peer: ''
     # ${peer} may initiate toward this host.
@@ -305,10 +217,6 @@ in {
   };
 
   virtualisation.oci-containers.containers = {
-    # grafana-agent docker container retired 2026-05-14 in favour of
-    # services.alloy via grafana-alloy.nix (native NixOS service).
-    # grafana-agent reached EOL on 2025-11-01; Alloy is the supported
-    # successor.
     buildfarm-worker = {
       image = "toxchat/buildfarm-worker";
       extraOptions = [
@@ -366,29 +274,12 @@ in {
     firewall = {
       enable = true;
 
-      # PUBLIC EXPOSURE POLICY: closed by default, explicit list to open. ⚠ But this
-      # list governs ONLY host daemons on the public interface, and is NOT where most
-      # public ports live — there are two layers:
-      #
-      #   1. This firewall (nixos-fw INPUT): SSH, kubelet, WireGuard, NFS. SSH (22) is
-      #      opened implicitly by services.openssh, so it is absent here — it and
-      #      WireGuard are the two remote lifelines, never drop them.
-      #
-      #   2. Docker / k8s published ports. `docker -p`, k8s hostPort and the ingress
-      #      controller open ports via their OWN nat-table DNAT, evaluated BEFORE this
-      #      INPUT chain and BYPASSING it. Deleting a port here does NOT close such a
-      #      service — verified: the toktok container stayed reachable after its entry
-      #      was removed. To keep a containerised service private, bind its publish to
-      #      the WireGuard IP (e.g. "${node.vpn}:2223:22") or route it through ingress.
-      #      Editing this list is the wrong lever.
-      #
-      # Internal services need no entry: VPN traffic is trusted (trustedInterfaces
-      # below), so anything is reachable over WireGuard.
-      #
-      # kubelet 10250 is deliberately ABSENT. Both k8s nodes advertise their WireGuard
-      # address as InternalIP (amun 10.100.0.1, isis 10.100.0.2), so control-plane→
-      # kubelet runs over wg0; listing it only exposed it to the internet, where it
-      # answered 401 to the world for no purpose.
+      # PUBLIC EXPOSURE POLICY: closed by default, explicit list to open — but this
+      # governs ONLY host daemons. ⚠ Docker/k8s published ports DNAT in the nat table
+      # BEFORE this chain and bypass it, so deleting an entry here does not close such
+      # a service; bind its publish to the VPN address or use ingress instead.
+      # SSH is opened by services.openssh; kubelet 10250 is absent on purpose, since
+      # both k8s nodes advertise their WireGuard address as InternalIP.
       allowedTCPPorts = [ net.vpnPort ];
       allowedUDPPorts = [ net.vpnPort ];
 
@@ -412,33 +303,22 @@ in {
     };
   };
 
-  # The declared side of #728's comparison, on disk where a probe can read it.
-  # Beside /etc/plan/settings.json rather than anywhere else, because a plan
-  # reads it and that directory is what a plan's inputs live in.
+  # The declared side of #728's comparison, beside the other plan inputs.
   environment.etc."plan/declared-firewall.json".text =
     builtins.toJSON { rules = declaredFirewall; };
 
-  # WireGuard private key for this host — an agenix secret, decrypted
-  # at activation to /run/agenix/wireguard-<host>. Each host carries
-  # only its own key; recipients are set in agenix/secrets.nix.
+  # Each host carries only its own key; recipients are in agenix/secrets.nix.
   age.secrets."wireguard-${config.node.name}".file =
     ./agenix/wireguard-${config.node.name}.age;
 
-  # ⚠ agenix WRITES AT ACTIVATION AND NEVER DELETES. The retired
-  # `root-ssh-{ed25519,rsa}` entries were dropped here 2026-08-22, which left
-  # their files on disk — `/root/.ssh/id_{rsa,ed25519}` had to be moved aside by
-  # hand on all four hosts. **A host restored from a backup older than that
-  # brings them back**, and both names are on OpenSSH's default identity list, so
-  # they would silently resume carrying inter-host root logins with a key that is
-  # also Pippijn. `fleet_health.py` asserts their absence for that reason.
-  # What they were and why they are gone: `agenix/README.md`, #1049.
+  # ⚠ agenix WRITES AT ACTIVATION AND NEVER DELETES. The retired root-ssh-* entries
+  # left their files on disk, and a host RESTORED FROM AN OLDER BACKUP brings them
+  # back — both names are on OpenSSH's default identity list, so they would silently
+  # resume carrying root logins. fleet_health.py asserts their absence. See #1049.
 
-  # The fleet's own inter-host root key (#1049 step 1).
-  #
-  # ⚠ `id_fleet`, deliberately NOT `id_ed25519` or `id_rsa`. Those two names are
-  # OpenSSH's default identity list, so a key at either is offered by every ssh
-  # on the host whether anyone meant it to be or not. A name outside that list
-  # means the fleet key is used where it is NAMED and nowhere else.
+  # The fleet's inter-host root key. ⚠ `id_fleet`, deliberately NOT `id_ed25519` or
+  # `id_rsa`: those are OpenSSH's default identity list and would be offered to
+  # everything. A name outside that list is used where NAMED and nowhere else.
   age.secrets."root-ssh-fleet" = {
     file = ./agenix/root-ssh-fleet.age;
     path = "/root/.ssh/id_fleet";
@@ -446,67 +326,21 @@ in {
     symlink = false;
   };
 
-  # Root's ssh must NAME the fleet key, because `id_fleet` is deliberately not on
-  # OpenSSH's default identity list (see the agenix entry above). Without this
-  # line, removing `id_rsa` and `id_ed25519` would leave root's outbound ssh
-  # offering no key at all — and the thing that would notice is odin's nightly
-  # backup, at 02:00, by failing.
+  # Root's ssh must NAME the fleet key, since id_fleet is off the default list.
+  # `localuser`, not `user`: `Match user` means the REMOTE username.
   #
-  # `localuser`, not `user`: in ssh_config `Match user` is the REMOTE username
-  # being connected as, which is not the question.
+  # ⚠ Naming an IdentityFile REPLACES root's default list rather than adding to it.
+  # That broke the one root ssh consumer outside the fleet; /etc/nixos uses the
+  # HTTPS remote now, which needs no credential for a public repo.
   #
-  # ⚠ NAMING AN IdentityFile REPLACES ROOT'S DEFAULT LIST — it does not add to
-  # it. Measured 2026-08-22 with `ssh -v -T git@github.com` from odin: the only
-  # line is `Offering public key: /root/.ssh/id_fleet`, and nothing else is
-  # tried. That is the behaviour this file WANTS for the fleet, and it broke the
-  # one root ssh consumer outside the fleet in the same breath: `/etc/nixos` had
-  # a `git@github.com:` remote on amun, isis and odin, authenticated with the
-  # very personal key #1049 is removing, and the fetch died on
-  # `Permission denied (publickey)`.
+  # ⚠ The private xinutec-infra fetch in machines/{odin,isis}/plan-run.nix still
+  # needs a key, and its failure is LATENT: fetchGit only hits the network for a rev
+  # the store lacks, so every rebuild succeeds until the first pin BUMP. Each host
+  # has its own read-only deploy key, generated in place and never in agenix; list
+  # them with `gh repo deploy-key list --repo xinutec/xinutec-infra`.
   #
-  # Fixed where the credential was, not where the symptom was: all three now use
-  # the HTTPS remote geb always had. The repository is public, so a read-only
-  # fetch needs no credential at all, and root holding a GitHub key was itself
-  # a thing worth not having.
-  # ⚠ The HTTPS fix above covers `/etc/nixos` and NOT the other root consumer of
-  # GitHub: `builtins.fetchGit` on the PRIVATE xinutec-infra repo, in
-  # machines/{odin,isis}/plan-run.nix. A private repo cannot be fetched
-  # anonymously, so from 2026-08-22 — when root's personal keys were renamed
-  # away — those hosts could no longer fetch it.
-  #
-  # ⚠ THE FAILURE IS LATENT, which is why two days passed without it showing.
-  # fetchGit only reaches the network for a rev the store does not already have,
-  # so every rebuild that keeps the pin succeeds and the first pin BUMP fails.
-  # Found 2026-08-24 by bumping odin's pin for #1120.
-  #
-  # Each host has its own key, generated on the host and never copied, whose
-  # public half is a READ-ONLY deploy key on that one repository. Read-only
-  # because these hosts only ever fetch, per-host so revoking one leaves the
-  # other alone, and per-repo so it is not a fleet credential. Enumerate them
-  # with `gh repo deploy-key list --repo xinutec/xinutec-infra`.
-  #
-  #   odin  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMWMrtZlJW7/JCzulLls7j1jNAewBADETjZkPdqolh4N
-  #   isis  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEwI9CKCOOA0OHv43FIJzZID3BxWe/HRm5B2WgifD2on
-  #   geb   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEItSyDjL29z1c8MkdHN1FWYsblOJecO3Kyp4lh8/jmr
-  #
-  # ⚠ geb IS ONE OF THESE, and calling its clone "inert behind a `test -d`" was
-  # wrong. /opt/xinutec-infra already exists, so the guard never fires — but the
-  # remote is this ssh URL and `git -C /opt/xinutec-infra pull` is geb's
-  # DOCUMENTED update path (see machines/geb/configuration.nix). That pull was
-  # broken from 08-22 until 08-24, and only fleet-health's
-  # PRIVATE FETCH CREDENTIALS check surfaced it.
-  #
-  # amun offers github nothing, which is what every host did before this block
-  # existed; it fetches nothing over ssh, so it needs nothing.
-  #
-  # The private half is NOT in agenix: it is generated in place like a host key,
-  # so it never transits and a reinstall regenerates it — at the cost of a new
-  # deploy key, which the line above says how to list.
-  #
-  # ⚠ `Host github.com` must come FIRST. ssh_config takes the FIRST value it
-  # obtains for a keyword, so the `Match localuser root` below would otherwise
-  # pin id_fleet for github too — and id_fleet is authorised on the fleet, not on
-  # GitHub.
+  # ⚠ `Host github.com` must come FIRST: ssh_config takes the FIRST value for a
+  # keyword, so the root match below would otherwise pin id_fleet for GitHub too.
   programs.ssh.extraConfig = ''
     Host github.com
       IdentityFile /root/.ssh/id_github_infra
@@ -516,53 +350,39 @@ in {
   '';
 
   networking.wireguard.interfaces = {
-    # "wg0" is the network interface name. You can name the interface arbitrarily.
     wg0 = let
       networkConfig = {
-        # Determines the IP address and subnet of the server's end of the tunnel interface.
         ips = [ "${config.node.vpn}/24" ];
 
-        # The port that WireGuard listens to. Must be accessible by the client.
         listenPort = net.vpnPort;
 
-        # Path to the private key file — the agenix-decrypted secret
-        # declared above. Read by wireguard-wg0.service at runtime.
         privateKeyFile = config.age.secrets."wireguard-${config.node.name}".path;
       };
       peerConfig = if config.node.name == net.nodes.master.name then {
-        # This allows the wireguard server to route your traffic to the internet and hence be like a VPN
-        # For this to work you have to set the dnsserver IP of your router (or dnsserver of choice) in your clients
+        # Masquerade so the hub can route peer traffic to the internet.
         postSetup = ''
           ${pkgs.iptables}/bin/iptables -t nat -A POSTROUTING -s ${net.vpn} -o ${config.node.externalInterface} -j MASQUERADE
         '';
 
-        # This undoes the above command
         postShutdown = ''
           ${pkgs.iptables}/bin/iptables -t nat -D POSTROUTING -s ${net.vpn} -o ${config.node.externalInterface} -j MASQUERADE
         '';
 
-        # Allow all other nodes to be peers.
         peers = builtins.map (node: {
           publicKey = "${node.publicKey}";
           allowedIPs = [ "${node.vpn}/32" ];
         }) (builtins.filter (node: node.name != config.node.name) (builtins.attrValues net.nodes));
       } else {
         peers = [
-          # For a client configuration, one peer entry for the server will suffice.
           {
-            # Public key of the server (not a file path).
             publicKey = net.nodes.master.publicKey;
 
-            # Forward all the traffic via VPN.
-            #allowedIPs = [ "0.0.0.0/0" ];
-            # Or forward only particular subnets
+            # Split tunnel: fleet addresses only.
             allowedIPs = [ net.vpn ];
 
-            # Set this to the server IP and port.
-            # TODO: route to endpoint not automatically configured https://wiki.archlinux.org/index.php/WireGuard#Loop_routing https://discourse.nixos.org/t/solved-minimal-firewall-setup-for-wireguard-client/7577
             endpoint = "${net.nodes.master.ipv4}:${toString net.vpnPort}";
 
-            # Send keepalives every 25 seconds. Important to keep NAT tables alive.
+            # Keeps the NAT mapping alive so the hub can reach back.
             persistentKeepalive = 25;
           }
         ];
@@ -592,16 +412,10 @@ in {
     };
   };
 
-  # Keep the pippijn home checkout fast-forwarded to origin/main. Every
-  # server's home dir is a clone of github.com:xinutec/pippijn, and with
-  # no automation they silently drift (observed 2026-06-16: 41–261 commits
-  # behind). FAST-FORWARD ONLY: if a host ever has local commits or a real
-  # conflict it logs and skips — it never merges, rebases or forces, so
-  # local work and the perpetually-rewritten .config/rclone/rclone.conf are
-  # left untouched. Uses `git merge --ff-only` rather than `git pull` so a
-  # host-local `pull.rebase=true` (isis has it) can't turn the sync into a
-  # rebase that aborts on the dirty rclone.conf. Drift that can't auto-heal
-  # is surfaced by the home-checkout check in xinutec-infra fleet_health.py.
+  # Every server's home dir is a clone of xinutec/pippijn, and they silently drift.
+  # FAST-FORWARD ONLY — local commits or a conflict log and skip, never merge or
+  # force. `merge --ff-only` rather than `pull`, so a host-local pull.rebase cannot
+  # turn this into a rebase that aborts on the dirty rclone.conf.
   systemd.services.home-autosync = {
     description = "Fast-forward the pippijn home checkout to origin/main";
     after = [ "network-online.target" ];

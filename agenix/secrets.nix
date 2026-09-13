@@ -1,11 +1,6 @@
-# agenix recipient rules — which keys can decrypt each .age secret in
-# this directory. The agenix CLI reads this file (RULES) to know whom
-# to encrypt each secret to.
-#
-# Recipients are each host's SSH host key (the identity agenix uses to
-# decrypt at activation) plus the fleet admin age key — held on the Mac
-# and in an offline copy — which can always decrypt and re-encrypt,
-# e.g. to onboard a reinstalled host with a fresh host key.
+# agenix recipient rules: which keys can decrypt each .age file here. Recipients are
+# each host's SSH host key plus the fleet admin age key (on the Mac and offline), which
+# can always re-encrypt — e.g. to onboard a reinstalled host with a fresh host key.
 let
   admin = "age16dmqs08qf9szzzzdx3w3na8tkavypq3q22dc393kgn6sv4myagtsuh6szu";
 
@@ -13,22 +8,15 @@ let
   isis = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFXU6IYZCUEdYeu4I83e8kp9haP7DhajHWXuajwxWVCB";
   odin = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
 
-  # The house box (#726), installed 2026-08-10. Not a Kubernetes node and not
-  # public, but it is a NixOS host, so it needs every secret base-configuration
-  # declares unconditionally — which is three of the four below, not just its
-  # own WireGuard key.
+  # A NixOS host, so it needs every secret base-configuration declares unconditionally,
+  # not just its own WireGuard key.
   geb = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHknQkqhrNDTXrL0o6omTOb/1LZNF4/IWbMrGgpgKzPZ";
 
-  # The second house box (#1403), installed 2026-09-04. Same class as geb — a
-  # NixOS host, so it needs every secret base-configuration declares
-  # unconditionally — but it is the machine that gets REBUILT, which means its
-  # host key will change again, deliberately and more than once. Re-keying is
-  # part of that cycle rather than an incident.
+  # ⚠ The box that gets REBUILT, so its host key changes deliberately and repeatedly.
+  # Re-keying is part of that cycle, not an incident.
   shu = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE069LNzN0xeKpgYwzWR9ABi4SIDf/CjwFQZ0WT/WP6";
 
-  # The third house box (#1469), installed 2026-09-06. A NixOS host like the
-  # other two, so it needs every secret base-configuration declares
-  # unconditionally, not just its own WireGuard key.
+  # Same class as geb and shu.
   tefnut = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINFHDsCe+/BArl+STKvhvucxNCdoeMjFwdJvy5g51c8s";
 
   allHosts = [ amun isis odin geb shu tefnut ];

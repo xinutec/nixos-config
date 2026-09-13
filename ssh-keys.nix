@@ -1,26 +1,17 @@
-# SSH public keys.
-#
-# TWO LISTS, and the difference between them is the whole point (#1049).
-#
-# `pippijn` is the person: every key Pippijn logs in with, installed on the
-# `pippijn` USER account. `root` is the Mac plus the fleet's own key, bound to
-# the only source that has ever legitimately used it. Since 2026-08-23 the two
-# lists share exactly one key, `macMini`, and nothing else.
-#
-# Until 2026-08-21 root's list WAS `pippijn`, and that single line made the fleet
-# a flat mesh: `pippijn@xinutec.org` is also the agenix secret
-# `root-ssh-{ed25519,rsa}`, deployed to /root/.ssh on every host, so root on any
-# host was root on every host. A compromise of amun or isis — both
-# internet-facing — yielded root everywhere.
+# SSH public keys. TWO LISTS, and the difference is the whole point (#1049): `pippijn`
+# is the person, `root` is the Mac plus the fleet's own key. Until 2026-08-21 root's
+# list WAS `pippijn`, which made the fleet a flat mesh — root on any host was root on
+# every host, from two internet-facing machines.
 let
-  # The Mac. UNRESTRICTED, deliberately: it is the control plane, every plan,
-  # collector and deploy originates there, and it made 77,195 of the fleet's
-  # root logins in the 30 days to 2026-08-21. Restricting this would break the
-  # fleet, and leaving it unrestricted is what guarantees a way back in if the
-  # `from=` below is ever wrong.
+  # UNRESTRICTED deliberately: the Mac is the control plane and originates nearly every
+  # root login. It is also the guaranteed way back in if a `from=` below is wrong.
   macMini =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIODCVuDCe0SWwm5ZwG6yqwXD/8LcLxDvmCK8ZQB9W9N0 pippijn@mac-mini";
 
+  # ⚠ These lived only in a hand-copied ~pippijn/.ssh/authorized_keys until 2026-08-22 —
+  # outside review, undiffable between hosts, and holding two forgotten corporate keys
+  # still authorized on both internet-facing hosts. A standing credential nobody can
+  # enumerate is the fault, whatever it happens to name.
   # Pippijn's other devices. These lived ONLY in `~pippijn/.ssh/authorized_keys`
   # — a plain file, hand-copied to four hosts, dated 9 July, not in git and not
   # touched by `nixos-rebuild` — until they were moved here 2026-08-22.

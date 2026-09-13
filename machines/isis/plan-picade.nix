@@ -1,59 +1,17 @@
-# `plan-run picade --apply` on a timer: the picade fleet CONVERGES, rather than
-# being observed drifting for ever.
+# `plan-run picade --apply` on a timer, so the picade fleet CONVERGES rather than
+# being observed drifting for ever. Sibling of picade-health.nix, which only REPORTS —
+# a reporter that also writes is a different kind of thing, and would not want the
+# same cadence or blast radius.
 #
-# Sibling of picade-health.nix, and the split between them is the point. That
-# one REPORTS — it runs the same plan `--simulate`, reaches the world exactly as
-# much as observing does, writes nothing, and pushes a verdict per cabinet per
-# layer to fleetwatch. This one ACTS. A reporter that also writes is a different
-# kind of thing from a reporter, and the two would not want the same cadence,
-# the same failure handling or the same blast radius.
+# It exists because EmulationStation rewrites es_settings.cfg at exit with identical
+# content and a fresh mtime, so drift went yellow after anyone played and stayed
+# yellow. Only an apply can close it.
 #
-# ┌─ WHY THIS EXISTS AT ALL — the recurring yellow that only closes by ACTING ──┐
-# │ EmulationStation rewrites `es_settings.cfg` at exit with byte-identical     │
-# │ content and a fresh mtime, so base drift goes yellow after anyone plays a   │
-# │ cabinet and stays yellow. Measured 2026-08-09: a push closes it — `rsync    │
-# │ -a` restores canonical's mtime and the next check is clean.                 │
-# │                                                                            │
-# │ So the permanent warn was an artefact of a checker with no remedy.          │
-# │ `picade health` observed and warned for ever; `Fact::PicadeLayerInSync`     │
-# │ has `Effect::PicadePushLayer` and can close it, at the cost of one small    │
-# │ rsync per play session. That only holds if something runs `--apply`, which  │
-# │ nothing did until this file. Approved by Pippijn 2026-08-11.                │
-# └────────────────────────────────────────────────────────────────────────────┘
-#
-# ⚠ WHAT AN UNATTENDED APPLY WILL DELETE, stated rather than left to be found.
-# Three of the four layers cannot delete by construction: `Base` is
-# `mode = Upsert`, `Boot` is `prune = No`, and `Overlay` has no mode field at
-# all. The fourth, `Operator`, force-pushes as an exact mirror and DOES delete —
-# `rsync.py:build_operator_push_invocations` appends `--delete` unconditionally,
-# because a path the fleet declares it owns holding a file nobody put there is
-# the defect being corrected.
-#
-# That bites in exactly one place. OPERATOR_PATHS is six entries and five are
-# FILES, where `--delete` is a no-op:
-#
-#     /etc/wpa_supplicant/wpa_supplicant.conf   file
-#     /etc/sudoers                              file
-#     /etc/ssh/sshd_config                      file
-#     /etc/hosts                                file
-#     /boot/config.txt                          file
-#     /etc/sudoers.d                            DIRECTORY  <- pruned hourly
-#
-# So an hourly apply removes anything in a cabinet's `/etc/sudoers.d` that
-# canonical does not have. That is the intended behaviour of an operator path
-# and it is also the one thing here that can destroy something a human put
-# somewhere by hand. `deploy --prune` and `--fresh`, the wide deletions, stay
-# operator-invoked and are not expressible from `picade.dhall` at all.
-#
-# VERIFIED BY HAND FIRST, the way odin's backup cutover was: a full
-# `plan-run picade --apply` ran on 2026-08-11 before this file existed and came
-# back `converged: all picade goals hold` with ZERO effects — 12 live goals
-# holding, 8 unreadable (picade3/picade4, off for months, #70). So the first
-# scheduled run is also the safest possible one: it proves the wiring without
-# changing anything. It equally means the PUSH path is unexercised by that run —
-# what covers it is `runner/tests/picade_drift.rs`, which pins the probe and the
-# push to one argv, and `picade deploy` having done this for years.
-
+# ⚠ WHAT AN UNATTENDED APPLY DELETES: three layers cannot delete by construction, but
+# `Operator` force-pushes an exact mirror with `--delete`. Five of its six paths are
+# files, where that is a no-op; the sixth is `/etc/sudoers.d`, so an hourly apply
+# removes anything there that canonical does not have. Intended, and the one thing
+# here that can destroy something a human put on a cabinet.
 { config, pkgs, lib, planRun, ... }:
 
 {

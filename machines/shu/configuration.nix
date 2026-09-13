@@ -1,43 +1,24 @@
-# shu — the second house box, and the one the fleet is ALLOWED TO LOSE.
+# shu — the second house box, and the one the fleet is ALLOWED TO LOSE. Same shape as
+# geb (home LAN, no public address, wifi, one-way peer admitting only the Mac), but it
+# is REBUILT ON PURPOSE, because that is the only restore drill worth anything.
+# Everything lax here — intermittent, no /data, no job anyone feels — follows from that.
 #
-# Storage-class rather than a Kubernetes node, so odin's sentence in network.nix
-# ("Backup machine. No Kubernetes, only storage") is the closest existing shape,
-# and geb is the closest existing machine: a home LAN behind the router, no
-# public address, wifi, one-way VPN peer admitting only the Mac.
-#
-# ⚠ WHAT MAKES IT DIFFERENT FROM geb IS NOT THE HARDWARE, IT IS THE PROMISE.
-# geb must not go quietly down, because it holds backups. shu is REBUILT ON
-# PURPOSE: a restore drill against a machine that was really doing something is
-# the only kind that proves anything, and a staging box with synthetic data
-# proves the mechanism rather than the recovery. Everything here that looks
-# lax — `intermittent = true` in network.nix, no /data, a job whose absence
-# nobody feels — follows from that and is not an omission.
-#
-# Everything below undoes an assumption in base-configuration.nix (three rented
-# BIOS-boot machines with public addresses and a Kubernetes cluster), and every
-# one of them is a line geb needed too.
+# Everything below undoes a base-configuration assumption that suits the three rented
+# machines and not a house box. geb needed each of these too.
 
 { config, pkgs, lib, ... }:
 
 let
-  # The Govee pusher's runtime. bleak pulls in dbus-fast, which the shared reader
-  # uses to power-cycle the adapter between scan rounds.
-  #
-  # ⚠ shu does NOT need that power-cycle — its Realtek controller does not filter
-  # duplicates, unlike geb's Intel one — and it runs the shared reader anyway.
-  # Measured 2026-09-04: the flushed path takes 1m06s here and hears five of
-  # seven, the top of geb's documented 2-to-5 range. A second reader to save a
-  # minute of radio inside a ten-minute slot would be two code paths to keep
-  # level for nothing.
+  # bleak pulls in dbus-fast for the shared reader's adapter power-cycle. shu does not
+  # need that flush (see hardware.bluetooth below) but runs the shared reader anyway —
+  # a second code path to save a minute of radio in a ten-minute slot is not worth it.
   goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
-  # The AirVisual reader talks the SMB PROTOCOL over TCP rather than mounting a
-  # share, which is what makes it portable to a Linux box at all — no cifs, no
-  # mount, no root-only namespace games.
+  # Speaks the SMB protocol over TCP rather than mounting a share, which is what makes
+  # the AirVisual reader portable here at all: no cifs, no mount, no root namespaces.
   airvisualPython = pkgs.python3.withPackages (ps: with ps; [ smbprotocol ]);
 
-  # shu's checkout of xinutec-infra, where the pusher and the shared modules
-  # live. That repository is private and this one is public, so the code cannot
-  # be fetched at evaluation time.
+  # shu's checkout of xinutec-infra. That repo is private and this one is public, so
+  # the code cannot be fetched at eval time.
   infra = "/opt/xinutec-infra";
 in
 {
@@ -48,125 +29,61 @@ in
     ../../plan-fleetwatch.nix
   ];
 
-  # ⚠ ONE PLAN, and it is here because the thing it judges is here. The one-way
-  # VPN block moved off the servers onto this host on 2026-09-04 (#1403), and
-  # `plan-run` existed only on odin and isis — so without this the control that
-  # keeps the VPN out of the house would be checked by nothing at all.
-  #
-  # No other plan: this host is not a Kubernetes node, drives no backups of its
-  # own and pushes no cabinets. A row it cannot answer is worse than no row.
+  # Only `firewall`: the one-way VPN block moved onto this host (#1403), and without
+  # this nothing would check it. A row this host cannot answer is worse than no row.
   services.planFleetwatch.plans = [ "firewall" ];
 
-  # UEFI, not BIOS. base-configuration sets `boot.loader.grub.device` for the
-  # OVH machines. Verified at install rather than assumed: /sys/firmware/efi was
-  # present and efivars writable.
-  #
-  # ⚠ The firmware would NOT let CSM be disabled outright — the boot-option
-  # filter set to "UEFI only" is what actually settles it, and the installer
-  # booted in legacy mode first because the firmware offers the same USB stick
-  # twice. If this box is ever reinstalled, check /sys/firmware/efi before
-  # trusting the menu.
+  # UEFI, not the BIOS boot base-configuration assumes for the OVH machines.
+  # ⚠ CSM could not be disabled outright — the boot-option filter set to "UEFI only"
+  # is what settles it. On any reinstall, check /sys/firmware/efi rather than the menu.
   boot.loader.grub.enable = lib.mkForce false;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Installed on 26.05, 2026-09-04. The fleet-wide 21.11 in base-configuration is
-  # amun's install version; stateVersion pins the stateful defaults a machine was
-  # BUILT with, and claiming 21.11 on a disk formatted in 2026 asserts a
-  # migration history it does not have.
+  # Installed on 26.05; the fleet-wide 21.11 is amun's install version, and claiming
+  # it here would assert a migration history this disk does not have.
   system.stateVersion = lib.mkForce "26.05";
 
-  # Wifi only, so NetworkManager owns the link and the connection profile is
-  # machine state in /etc/NetworkManager/system-connections — deliberately NOT a
-  # declarative networking.wireless block, which would want the PSK in a Nix
-  # file and this repository is public.
-  #
-  # Two profiles live there: 5 GHz preferred (it associates at -63 dBm from
-  # where it sits) and 2.4 GHz behind it, because this box is a floor up and a
-  # headless machine that cannot associate is a trip to a monitor.
-  #
-  # ⚠ THAT FALLBACK COULD NOT WORK AT ALL UNTIL 2026-09-06, and this comment
-  # asserted it for two days. The 2.4 GHz profile specified `key-mgmt=sae`
-  # (WPA3) while the 2.4 GHz AP advertises **WPA2** — association could never
-  # complete. Nobody noticed because shu has always been on 5 GHz, so the
-  # fallback was never exercised, which is exactly what README.md's "a
-  # capability never exercised is not a capability" is about.
-  #
-  # ⚠ AND THE ERROR NAMES THE WRONG THING. `nmcli` reports `The Wi-Fi network
-  # could not be found` — the network is in the scan list and visible. The
-  # journal says what actually happened: `association took too long, failing
-  # activation`. Diagnosing from the client message sends you looking for a
-  # missing SSID.
-  #
-  # Fixed to `wpa-psk` and TESTED from where shu sits: it associates at signal
-  # 19, keeps its address and reaches the gateway, then returns to 5 GHz.
+  # Wifi only, via NetworkManager so the PSK stays out of this public repo. 5 GHz
+  # preferred with 2.4 GHz behind it, because this box is a floor up and headless.
+  # ⚠ Both must be `wpa-psk`. The 2.4 GHz profile said `sae` (WPA3) against a WPA2 AP
+  # for two days and could never have associated — and nmcli blames a missing network
+  # while the journal says "association took too long". Trust the journal.
   networking.networkmanager.enable = true;
 
-  # ⚠ Both NetworkManager and base-configuration define this as plain
-  # definitions, so the module system cannot pick one and evaluation fails
-  # outright rather than warning. mkForce settles it in NetworkManager's favour.
+  # ⚠ Both NetworkManager and base-configuration define this plainly, so evaluation
+  # fails outright rather than warning. mkForce settles it.
   networking.useDHCP = lib.mkForce false;
 
-  # The RTL8822CE (rtw88) needs redistributable firmware. Without it the adapter
-  # is simply not present, the connection profile has nothing to bind to, and
-  # there is no cable to fall back on.
+  # Without this the RTL8822CE is simply not present, and there is no cable.
   hardware.enableRedistributableFirmware = true;
 
-  # base-configuration points every host at kube-dns (10.43.0.10) and OVH's
-  # resolver: the first is a cluster service IP not routed over WireGuard, so it
-  # is a dead first query on every lookup, and the second is only near the
-  # rented machines. Let NetworkManager write resolv.conf from DHCP.
+  # base-configuration's kube-dns entry is a cluster IP not routed over WireGuard —
+  # a dead first query on every lookup. Let NetworkManager write resolv.conf.
   networking.nameservers = lib.mkForce [ ];
 
-  # Not a build node. base-configuration runs a buildfarm worker on every host,
-  # mounting ~/.config/buildfarm/${config.node.name}.yml — a file shu has no
-  # reason to have, so the container would restart-loop indefinitely.
+  # Not a build node; the buildfarm worker would restart-loop on a config file this
+  # host has no reason to have.
   virtualisation.oci-containers.containers = lib.mkForce { };
 
-  # The Realtek half of the RTL8822CE, for the Govee scan.
-  #
-  # ⚠ THIS ADAPTER DOES NOT BEHAVE LIKE geb's. geb has Intel `btintel`, whose
-  # controller reports each sensor once and then goes deaf until the duplicate
-  # table is flushed — which is what `LINUX_ROUNDS` in xinutec-infra exists for.
-  # Measured here 2026-09-04: one uninterrupted 60 s scan, no flush, reported
-  # A562 nine times, 525D nine and B7AC five, spread over 52 s. So shu needs no
-  # flushing, and must not inherit geb's rounds by copy-paste.
-  #
-  # ⚠ AND NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX while it is a BLE
-  # receiver. Measured the same day: with two SuperSpeed sticks plugged in, the
-  # strong sensor came through at an unchanged rate while ALL FIVE weaker ones
-  # vanished — 6 of 7 sensors became 1 of 7. Textbook desensitisation, and it
-  # reads exactly like bad siting.
-  #
-  # powerOnBoot because the only consumer is a passive advertisement scan: an
-  # adapter that comes up soft-blocked reads exactly like a sensor out of range,
-  # and this box is headless.
+  # ⚠ Realtek, NOT geb's Intel: this controller does not filter duplicates, so shu
+  # needs no flush and must not inherit geb's rounds by copy-paste.
+  # ⚠ NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX: two SuperSpeed sticks took it
+  # from 6 of 7 sensors to 1, and it reads exactly like bad siting.
+  # powerOnBoot because a soft-blocked adapter looks like sensors out of range.
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;
   };
 
-  # The house's FOURTH Govee receiver, after the Mac, the pixel5 and geb.
-  #
-  # ⚠ NOT ADDED FOR COVERAGE — every sensor already had two or three ears, and
-  # that was measured rather than assumed. What shu adds is a third ear for
-  # `govee-267F`, whose only two are the Mac and a phone that has gone silent
-  # twice, and the strongest reading in the house for `govee-B7AC`. Redundancy,
-  # which per README.md's "redundant, parallel, or movable" is the point rather
-  # than a weak reason.
-  #
-  # ⚠ shu is in `home_receivers.py`'s RECEIVERS, so its SILENCE IS A FAULT. That
-  # is correct and deliberate: shu is always on. A deliberate rebuild will turn
-  # that row red for as long as it takes, and that is a true statement about the
-  # house rather than a false alarm — the collector has no "often off" class on
-  # purpose, and shu does not need one.
+  # ⚠ shu is in home_receivers.py's RECEIVERS, so its silence IS a fault — correct and
+  # deliberate. A rebuild turns that row red, which is a true statement about the house.
   age.secrets."home-ingest-token" = {
     file = ../../agenix/home-ingest-token.age;
     mode = "0400";
   };
 
-  # The IQAir Pro's SMB share password. shu ONLY — see agenix/secrets.nix for why
-  # this is a second store for a value the Mac keeps in its Keychain.
+  # shu ONLY — see agenix/secrets.nix for why this duplicates a Keychain value.
   age.secrets."airvisual-smb-password" = {
     file = ../../agenix/airvisual-smb-password.age;
     mode = "0400";
@@ -174,16 +91,14 @@ in
 
   systemd.services.govee-push = {
     description = "Scan the Govee BLE hygrometers and push their readings to home";
-    # Bluetooth is the whole job, and the pusher stamps each reading with its own
-    # capture time and spools on failure, so it does not wait on the network.
+    # No network ordering: readings carry their own capture time and spool on failure.
     after = [ "bluetooth.service" ];
     requires = [ "bluetooth.service" ];
     serviceConfig = {
       Type = "oneshot";
       StateDirectory = "govee-push";
-      # Clone if absent, and deliberately never pull: a timer that fetched code
-      # every run would deploy whatever was last pushed, half-finished or not.
-      # Updating shu is `git -C /opt/xinutec-infra pull`, on purpose.
+      # Clone if absent and deliberately never pull: a timer that fetched every run
+      # would deploy whatever was last pushed. Updating is a manual `git pull`.
       ExecStartPre = ''
         ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
       '';
@@ -192,40 +107,28 @@ in
     };
   };
 
-  # A SECOND pusher for the IQAir AirVisual Pro, so one Mac reboot does not stop
-  # air-quality data (#1409). The Pro is at 192.168.1.206 on the home LAN and is
-  # unreachable from isis, which is why this is pushed from inside the house
-  # rather than pulled by a cronjob.
+  # A second pusher for the IQAir Pro, so one Mac reboot is not an outage (#1409).
+  # The Pro is on the home LAN and unreachable from isis, hence pushed not pulled.
   #
-  # ⚠ **TWO PUSHERS ARE FREE HERE, and that is NOT true of the Govee path.** A
-  # Govee reading is a RECEIVER'S capture — each ear hears at its own instant
-  # with its own RSSI — so those rows carry a `source` and each receiver's row is
-  # distinct. An AirVisual reading is the DEVICE'S OWN measurement carrying the
-  # DEVICE'S OWN timestamp, so two pushers reading it produce the SAME row, and
-  # the batch endpoint's `INSERT IGNORE` on `(device, ts)` keeps one. Idempotent
-  # by construction rather than by coordination.
-  #
-  # ⚠ It runs `mac-mini/airvisual-push.py`, not a `shu/` wrapper. The script is
-  # host-agnostic now — the Keychain calls became "a file if one is named" — and
-  # a second copy would be two files to keep level for nothing. The directory
-  # name is where the home tooling lives, not a claim about which host runs it.
+  # ⚠ Two pushers are free HERE and would not be for Govee: an AirVisual reading is
+  # the device's own measurement with its own timestamp, so both produce the same row
+  # and `INSERT IGNORE` on (device, ts) keeps one. A Govee reading is a receiver's
+  # capture and each ear's row is distinct.
+  # It runs mac-mini/airvisual-push.py deliberately — the script is host-agnostic and
+  # a shu/ copy would be a second file to keep level for nothing.
   systemd.services.airvisual-push = {
     description = "Read the IQAir AirVisual Pro over SMB and push to home";
-    # Unlike govee-push this needs the network, not bluetooth: the reading comes
-    # over TCP from the LAN and goes out over the WAN.
+    # Unlike govee-push this needs the network: LAN in, WAN out.
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
-      # Same clone-never-pull rule as govee-push: updating shu is a deliberate
-      # `git -C /opt/xinutec-infra pull`.
       ExecStartPre = ''
         ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
       '';
       ExecStart = "${airvisualPython}/bin/python3 ${infra}/mac-mini/airvisual-push.py";
-      # PATHS, not values: a secret in the environment is readable from
-      # /proc/<pid>/environ by anyone who can list processes.
+      # PATHS, not values: a secret in the environment is readable from /proc.
       Environment = [
         "AIRVISUAL_SMB_PASSWORD_FILE=/run/agenix/airvisual-smb-password"
         "HOME_INGEST_TOKEN_FILE=/run/agenix/home-ingest-token"
@@ -236,11 +139,8 @@ in
   systemd.timers.airvisual-push = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      # The Mac pushes every 5 minutes on a launchd interval, which is not
-      # phase-locked to the clock, so this cannot interleave exactly — :02/5 just
-      # keeps them from starting together most of the time. Exactness does not
-      # matter here the way it does for the Govee receivers: identical readings
-      # dedup, so the worst case of a collision is one ignored INSERT.
+      # The Mac's launchd interval is not phase-locked, so this only avoids starting
+      # together most of the time. Collisions are harmless — identical readings dedup.
       OnCalendar = "*:02/5";
       AccuracySec = "30s";
     };
@@ -249,12 +149,9 @@ in
   systemd.timers.govee-push = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      # The :08 phase, against the Mac's :00 and geb's :05, so the receivers'
-      # rows interleave rather than landing together.
+      # Phased against the Mac's :00 and geb's :05 so rows interleave.
       OnCalendar = "*:08/10";
-      # A run is four scan rounds plus delivery — 1m06s measured, comfortably
-      # inside the ten-minute slot, but a machine that has been asleep must not
-      # stack them.
+      # A machine that has been asleep must not stack runs.
       AccuracySec = "30s";
     };
   };

@@ -1,6 +1,4 @@
-# Xinutec network layout.
-#
-# See options.nix for the schema for nodes below.
+# Xinutec network layout. See options.nix for the node schema.
 {
   cluster = "10.42.0.0/24";
   k8sApiPort = 6443;
@@ -8,24 +6,15 @@
   vpn = "10.100.0.0/24";
   vpnPort = 51820;
 
-  # The agent console on the Mac. It is reachable through a tunnel the Mac itself
-  # dials out to isis — nothing initiates toward the Mac, so the one-way rule
-  # stands unamended. isis binds this port on its VPN address and forwards it back
-  # down that tunnel; the phone's TLS session runs end to end through it, so isis
-  # carries ciphertext and holds no key that opens anything. Named here because
-  # both ends of the tunnel have to agree. See memview/docs/agent-console.md.
+  # The Mac's agent console, tunnelled out to isis. Named here because both ends
+  # must agree; see memview/docs/agent-console.md.
   consolePort = 8097;
 
-
   nodes = rec {
-    # amun is the Kubernetes/NFS/Wireguard master. All other nodes connect to
-    # it. If it is down, other nodes still work, e.g. isis deployments still
-    # run, and nothing on any of the nodes should depend on the NFS share, but
-    # communication between the nodes will be broken, because we have a star
-    # topology for the VPN.
+    # Star topology: every node peers with amun and nothing else.
     master = amun;
 
-    # Kubernetes/NFS/Wireguard master (and node).
+    # Kubernetes/NFS/Wireguard master.
     amun = {
       name = "amun";
       ipv4 = "94.23.247.133";
@@ -71,24 +60,8 @@
       intermittent = true; # laptop — powered off when not in use
     };
 
-    # Windows desktop PC. RETIRED AND BACK: it was removed on 2026-06-21
-    # (be31bb0, alongside hermes, mouad and mouad-phone) and returns 2026-09-13
-    # because it was switched on again and had no way in.
-    #
-    # ⚠ THE ADDRESS IS NOT THE ONE IT HAD. It held 10.100.0.6 until it was
-    # retired, and that address went to shu when shu was installed on
-    # 2026-09-04 — so restoring the old block verbatim would have collided with
-    # a live host. .16 was the next free address in both planes: network.nix
-    # declares .1-.15 and .100-.104, and amun's own `wg show wg0 allowed-ips`
-    # agreed exactly. The tunnel config on the PC was edited to match; its
-    # keypair is the original, so the public key below is unchanged from the
-    # entry be31bb0 deleted.
-    #
-    # Not `oneWay`, which follows osiris and anubis rather than the house NixOS
-    # boxes. geb, shu and tefnut are one-way because the fleet administers them
-    # and they hold data; this is a personal desktop that dials out and is not
-    # a fleet resource, and nothing here is protecting it from the VPN that a
-    # desktop firewall should not already be doing.
+    # Windows desktop PC. Retired 2026-06-21 (be31bb0), back 2026-09-13.
+    # ⚠ NOT its old .6 — that has been shu's since 2026-09-04.
     horus = {
       name = "horus";
       vpn = "10.100.0.16";
@@ -104,88 +77,41 @@
       intermittent = true; # general-purpose Pi again — powered on when it's wanted
     };
 
-    # Android phones.
-    # ⚠ THE PHONES ARE always-on, AND THAT IS A DELIBERATE FLIP (2026-09-13).
-    # They carried `intermittent = true` from the day they were enrolled, on the
-    # generic reasoning that a phone "connects only when actively passing
-    # traffic". That reasoning was never tested against what they actually do,
-    # and when it was, it did not survive: over the 21 days to 2026-09-13 the
-    # fleetwatch vpn-nodes history put pixel5 at 96.7% and oneplus6t at 99.5%,
-    # with EVERY pixel5 gap falling on one day and oneplus6t's only real gap
-    # being its own LineageOS re-key. Those are incidents, not a duty cycle.
-    #
-    # Pippijn's framing, which is the actual requirement: "I want to know when
-    # the always-on phones are broken and I need to act on that." A SKIP cannot
-    # say that. So a missing handshake is a FAIL here.
-    #
-    # ⚠ pixel9 and dasha are NOT in this class, and the exceptions are the point:
-    #   pixel9  stays intermittent — it goes offline in flights and on the metro,
-    #           which is normal and not actionable. 99.0% up, so the flag costs
-    #           almost nothing and buys silence on the one thing it should be
-    #           silent about.
-    #   dasha   stays intermittent — it has handshaked ONCE in 9,571 samples
-    #           (last 2026-08-18). Flipping it would paint a permanent red that
-    #           nobody can act on, which is the opposite of the goal. If it is
-    #           retired, retire it here rather than leaving it to read as a fault.
+    # Android phones. These are always-on: a gap is a fault to act on, not a
+    # duty cycle. pixel9 and dasha are exceptions, reasoned on their own lines.
     pixel5 = {
       name = "pixel5";
       vpn = "10.100.0.10";
       publicKey = "FSaKx2UvFEM3LCMTeNrMr3S1RYg2h+FaWE8JkWn7R2s=";
-      intermittent = false; # ⚠ always-on, see the note above the phones
+      intermittent = false;
     };
     pixel9 = {
       name = "pixel9";
       vpn = "10.100.0.12";
       publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
-      # ⚠ THE EXCEPTION among the phones, and not for want of uptime — it is at
-      # 99.0%, better than pixel5. It stays intermittent because its gaps are
-      # flights and the metro, which are expected and cannot be acted on.
+      # Exception: its gaps are flights and the metro, which are not actionable.
       intermittent = true;
     };
-    # OnePlus 6T, enrolled 2026-09-05 as a recall recorder (source id
-    # `oneplus6t`). Key generated on the Mac like the iPhone's; the private key
-    # lives only in the phone's WireGuard tunnel. Split-tunnel client:
-    # AllowedIPs = the VPN subnet.
-    #
-    # RE-KEYED 2026-09-08, and the reason is worth keeping: the phone was wiped
-    # to install LineageOS 22.2 (Android 15), because Android 11 could not
-    # re-acquire the microphone after a household pause while the screen was
-    # locked — it retried every 2s for as long as nobody picked the phone up
-    # (recall #1468). A wipe destroys the tunnel's private key, which existed
-    # nowhere else, so re-enrolling means a new keypair rather than a restore.
+    # OnePlus 6T, a recall recorder. Re-keyed 2026-09-08 — the LineageOS wipe
+    # destroyed the old private key, which existed nowhere else.
     oneplus6t = {
       name = "oneplus6t";
       vpn = "10.100.0.8";
       publicKey = "b8BIWhtElkAFcXZ1f/mvLoXak6zus8Q2UGAP1YF+8AY=";
-      # Always-on: it is a recall recorder, so a gap here is lost audio, which
-      # is exactly the kind of fault worth waking up to.
-      intermittent = false; # ⚠ always-on, see the note above the phones
+      intermittent = false; # a gap here is lost audio
     };
 
-    # iPhone (Pippijn). Private key generated on the Mac 2026-06-28, lives only
-    # in the device's WireGuard tunnel (provisioned by QR); only the public key
-    # is here. Split-tunnel client: AllowedIPs = the VPN subnet.
+    # iPhone (Pippijn). Never leaves the house, so a gap is a real fault — see
+    # #1597, and do not silence it by flipping this back to intermittent.
     iphone = {
       name = "iphone";
       vpn = "10.100.0.13";
       publicKey = "YqxVUL48NOPh6cbu1Dgu6BS9YUycByEVPrNiyHgtk0c=";
-      # ⚠ FLIPPED KNOWING IT WILL FIRE. Its WireGuard On-Demand rule triggers on
-      # wifi, so off the house wifi there is no tunnel — on the 21 days to
-      # 2026-09-13 that was 82.8 hours across four clean multi-hour blocks, and
-      # under this flag every one of them is a FAIL. That is accepted rather
-      # than overlooked: the expectation is always-on, so the row should say so
-      # when it is not met. ⚠ The fix belongs ON THE PHONE (let On-Demand cover
-      # cellular), NOT by flipping this back — flipping it back only restores
-      # the silence that hid the gap.
-      intermittent = false; # ⚠ always-on, see the note above the phones
+      intermittent = false;
     };
 
-    # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
-    # the VPN may initiate toward it (it is the offsite-backup host; see
-    # xinutec-infra/mac-mini.md). Enforced by the firewall rules that
-    # base-configuration.nix generates for every node with `oneWay`, plus pf on
-    # the Mac itself. Key generated on the Mac 2026-06-10; private key never
-    # leaves it.
+    # ONE-WAY: it may dial the VPN, nothing on the VPN may dial it. The firewall
+    # rules come from `oneWay` in base-configuration.nix, plus pf on the Mac.
     mac-mini = {
       name = "mac-mini";
       vpn = "10.100.0.11";
@@ -193,122 +119,56 @@
       oneWay = true;
     };
 
-    # The house's own NixOS box: storage, no Kubernetes — odin's shape rather
-    # than isis's. ONE-WAY like mac-mini, and for the same reason: it sits on a
-    # home LAN behind the router, so the fleet has no business dialling into it.
-    #
-    # No ipv4/ipv6: it has no public address at all. It reaches the VPN by
-    # dialling amun, which is the only direction that has to work.
-    #
-    # Installed 2026-08-10 on NixOS 26.05 (#726). Both keys were generated ON
-    # the machine; only the public one is here, and unlike mac-mini the private
-    # key does go into agenix (wireguard-geb.age), because that is how every
-    # NixOS host in this fleet carries its own.
+    # House NixOS box: storage, no Kubernetes, no public address — it dials out.
     geb = {
       name = "geb";
       vpn = "10.100.0.5";
       publicKey = "VCTpVsYEoDmifhS8WGBQ6ejdRNW3rJoTRvU8275iWW0=";
-      # The interface carrying its default route. geb is on wifi, and that is
-      # the answer rather than a stopgap: the link is stable, its address does
-      # not move, and 25 MB/s over it carried the 424 GB first seed. There is an
-      # ethernet port (enp1s0), down for want of a cable, and nothing waits on it.
+      # Wifi by decision, not for want of a cable: the link is stable and fast.
       externalInterface = "wlp0s20f3";
       oneWay = true;
-      # ...with one exception. The Mac administers it, and it does so today only
-      # by being on the same LAN — 192.168.1.x, no VPN involved. That works
-      # until the Mac leaves the house, at which point geb becomes unreachable
-      # from the one machine that is supposed to reach it. Naming mac-mini here
-      # makes the reachability a property rather than a side effect of both
-      # being at home. Nothing else on the VPN gains anything.
+      # The Mac administers it, and does so over the LAN today. Naming it here
+      # keeps that working if the Mac ever has to reach geb over the VPN.
       reachableFrom = [ "mac-mini" ];
-      # Flipped 2026-08-12: geb holds backups now (the 6 TB HDD is its /data,
-      # #697 closed), so it is the one class of machine where "no handshake"
-      # must be a fault — a backup target that is quietly down is indistinguishable
-      # from one that is working until the day it is needed. It qualifies on the
-      # other side too: it is a client peer, so it keepalives amun every 25s
-      # (base-configuration.nix) and its handshake was 8s old when this changed,
-      # well inside the pusher's 180s freshness window. Nothing here is
-      # intermittent by nature the way a phone or an arcade cabinet is.
+      # It holds backups, so a quiet handshake failure must be a fault.
       intermittent = false;
     };
 
-    # The second house box, and the one the fleet is ALLOWED TO LOSE. Same shape
-    # as geb — storage-class, no Kubernetes, one-way, no public address — but
-    # with the opposite availability requirement: shu exists to be wiped and
-    # rebuilt, because a restore drill against a machine that was really doing
-    # something is the only kind that proves anything.
-    #
-    # Installed 2026-09-04 (#1403). Both keys generated ON the machine; only the
-    # public one is here and the private half goes into agenix
-    # (wireguard-shu.age), as every NixOS host in this fleet carries its own.
+    # Second house box, and the one we are ALLOWED TO LOSE: it exists to be
+    # wiped and rebuilt, because that is the only restore drill worth anything.
     shu = {
       name = "shu";
       vpn = "10.100.0.6";
       publicKey = "Ls3RbTPsbp6uUtVBZyPgWFWdpv22iR6RCxul2QW5NnM=";
-      # Wifi is the link, decided rather than defaulted: it sits a floor up,
-      # associates on 5 GHz at -63 dBm, and has a 2.4 GHz profile behind that
-      # for the day the 5 GHz stops reaching. There is no cable and none is
-      # wanted, same as geb.
+      # 5 GHz wifi, with a 2.4 GHz profile behind it. No cable wanted.
       externalInterface = "wlp1s0";
       oneWay = true;
-      # The Mac administers it and nothing else has any business dialling in —
-      # identical reasoning to geb, and it is what makes the reachability a
-      # property rather than a side effect of both being in the house.
       reachableFrom = [ "mac-mini" ];
-      # ⚠ TRUE HERE, and FALSE on geb, which is the whole point of the pair.
-      # geb holds backups, so a missing handshake is a fault: a backup target
-      # quietly down is indistinguishable from a working one until the day it
-      # is needed. shu is the machine we rebuild ON PURPOSE, so the same signal
-      # would fire every time we did the thing it exists for — and an alert that
-      # cries wolf on schedule is worse than none, because it teaches the fleet
-      # to ignore that row.
+      # ⚠ true here and false on geb, which is the point of the pair: we rebuild
+      # shu on purpose, so always-on would cry wolf every time we did that.
       intermittent = true;
     };
 
-    # The third house box, and the one with NO JOB YET. Named for shu's twin:
-    # Shu and Tefnut are siblings, so it sits beside shu as shu sits beside geb.
-    #
-    # ⚠ UNLIKE shu, THIS ONE REALLY IS geb's TWIN — same Quieter 4C board, same
-    # `Rev TWL6-DDR4 1.10`, same `ML_TWL6 V11.7` BIOS, same N150, same 31 GiB,
-    # same `wlp0s20f3`. shu was sold as an N150 and is an i3-6006U, which is why
-    # this was read off the DMI rather than inferred from the CPU. So geb's
-    # config transfers here rather than needing translation.
-    #
-    # Installed 2026-09-06 (#1469). Both keys generated ON the machine; only the
-    # public one is here and the private half goes into agenix
-    # (wireguard-tefnut.age), as every NixOS host in this fleet carries its own.
+    # Third house box, geb's actual hardware twin, with NO JOB YET.
     tefnut = {
       name = "tefnut";
       vpn = "10.100.0.15";
       publicKey = "onPLb2wm036baPhMjHMG9Tz5CnH/Auw9ZOIsce1ibgU=";
       externalInterface = "wlp0s20f3";
       oneWay = true;
-      # Identical reasoning to geb and shu: the Mac administers it and nothing
-      # else has any business dialling in.
       reachableFrom = [ "mac-mini" ];
-      # ⚠ FALSE, which is geb's answer rather than shu's, and the difference is
-      # deliberate. shu is `true` because it is rebuilt ON PURPOSE, so an
-      # always-on signal would fire every time we did the thing it exists for.
-      # Nothing here is taken down deliberately: it is a mains-powered box that
-      # is meant to be on, so a missing handshake is a true statement about the
-      # house.
-      #
-      # ⚠ REVISIT WHEN IT GETS A JOB. A job that involves powering it off would
-      # make this alert on schedule, which is the failure shu's flag avoids.
+      # Mains-powered and meant to be on, so a gap is true news.
+      # ⚠ REVISIT WHEN IT GETS A JOB that involves powering it off.
       intermittent = false;
     };
 
-    # Dasha's phone. Private key generated on the Mac 2026-07-08, lives only in
-    # the device's WireGuard tunnel (provisioned by QR); only the public key is
-    # here. Split-tunnel client: AllowedIPs = the VPN subnet.
+    # Dasha's phone.
     dasha = {
       name = "dasha";
       vpn = "10.100.0.14";
       publicKey = "FyeFKOIM9xGZbUcjcTLpsI/zL7r5aoj4MIsPkb164To=";
-      # ⚠ Stays intermittent while the other phones move to always-on: it has
-      # handshaked ONCE in 9,571 samples, last on 2026-08-18. An always-on flag
-      # here would be a permanent red nobody can act on. Retire it or fix it,
-      # but do not let it alert in the meantime.
+      # Has barely connected since 2026-08-18. Always-on would be a permanent
+      # red nobody can act on — retire it or fix it, do not let it alert.
       intermittent = true;
     };
 

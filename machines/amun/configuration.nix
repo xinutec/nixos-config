@@ -16,6 +16,8 @@ in {
   environment.systemPackages = with pkgs; [
     kubectl # to manage kubernetes
     kubernetes-helm # to install kubernetes packages (helm charts)
+    # Needed in the closure, not fetched at backup time: odin's staging runs sqlite3
+    # here, and nix-shell -p would make the backup depend on the binary cache.
     # odin's nightly staging ssh's in and runs `sqlite3 ... ".backup"` to take a
     # consistent snapshot of nocodb's DB. It must be present in the system closure:
     # fetching it at backup time (nix-shell -p) makes the backup depend on working
@@ -33,6 +35,9 @@ in {
   # List services that you want to enable:
   services.k3s = {
     enable = true;
+    # Channel default, like isis. ⚠ So a channel bump IS a Kubernetes upgrade: 25.05
+    # ships 1.32 and 26.05 ships 1.35, and k3s supports one minor at a time. Before
+    # moving this host off 25.05, pin the package and step it, rebuilding each time.
     # No explicit package: take the channel default, like isis. On this machine's
     # channel (25.05) that is 1.32.7+k3s1 — exactly what it already runs, so this is
     # not an upgrade. It replaces a `k3s_1_32` pin that nixpkgs has since removed as
@@ -43,41 +48,21 @@ in {
     # only one minor at a time. Before bumping this machine off 25.05, pin the package
     # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
-    # ⚠ **`--secrets-encryption` REMOVED 2026-08-31, and this is a REGRESSION held
-    # open on purpose — secrets are now unencrypted at rest on amun.**
+    # ⚠ `--secrets-encryption` REMOVED 2026-08-31: a REGRESSION HELD OPEN ON PURPOSE
+    # (#1295). Secrets are unencrypted at rest here.
     #
-    # The encryption config written on 2026-07-04 ended up as
-    # `providers: [{aescbc: {keys: []}}, {identity: {}}]` — an EMPTY key list, which
-    # the apiserver refuses to parse ("at least one keys is required"). The box had
-    # been up since ~May 14, so the running apiserver held the key in memory and
-    # never re-read the file: it was broken on disk for 58 days and ONLY A BOOT
-    # could reveal it. The 2026-08-31 reboot did, and k3s crash-looped with every
-    # workload on this host down.
+    # An empty key list was written to the encryption config in July. The running
+    # apiserver held the key in memory and never re-read the file, so it was broken on
+    # disk for 58 days and only a BOOT could reveal it. The key is gone; both recovery
+    # routes failed, and all 68 secret rows were re-created rather than decrypted.
     #
-    # ⚠ **The key is GONE, and both recovery routes were tried and failed.** k3s
-    # restores cred files from the datastore bootstrap blob — it did, byte-identical,
-    # empty keys and all, so the datastore copy is broken too. Writing a good config
-    # by hand is refused: "newer than datastore and could cause a cluster outage".
-    # The backup table covers the k3s token and `tls/` but NOT `cred/`.
-    #
-    # So all 68 encrypted secret rows are unreadable and were re-created rather than
-    # decrypted. Re-enabling encryption is a deliberate operation with a verified
-    # reboot afterwards, NOT a flag to put back quietly — the whole failure was that
-    # nothing re-read the file for 58 days.
-    #
-    # ⚠ **PUTTING THE FLAG BACK RIGHT NOW WOULD CRASH-LOOP k3s ON THE NEXT k3s
-    # RESTART, NOT AT SOME LATER REBOOT.** The empty-key config is STILL on disk and
-    # still in the datastore bootstrap; only the apiserver no longer reads it. The
-    # dev-lint rule `nix-k3s-no-secrets-encryption` therefore fires here and is
-    # suppressed one line below — ⚠ **that suppression is the fix, not the bug. Do
-    # not "resolve the lint" by re-adding the flag.**
-    #
-    # ⚠ **AND THE RECOVERY BUDGET IS SPENT.** Pippijn, 2026-08-31: amun reboots are
-    # scarce because Simon's irssi runs here and needs a stable host — one reboot was
-    # used today and the next is a while away. So a mistake here is not "reboot and
-    # move on"; it is an outage for a second person until somebody switches the flag
-    # back out. `fleet_health.classify_k3s_startup` watches for exactly this and goes
-    # RED the moment the flag returns while the key list is empty.
+    # ⚠ PUTTING THE FLAG BACK CRASH-LOOPS k3s ON THE NEXT k3s RESTART, not at some
+    # later reboot — the empty-key config is STILL on disk and in the datastore. The
+    # lint below fires here and is suppressed: ⚠ THAT SUPPRESSION IS THE FIX. Do not
+    # "resolve the lint" by re-adding the flag.
+    # ⚠ And amun reboots are scarce because Simon runs here, so a mistake is an outage
+    # for a second person. fleet_health.classify_k3s_startup goes RED if the flag
+    # returns while the key list is empty.
     # ast-grep-ignore: nix-k3s-no-secrets-encryption
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
@@ -116,10 +101,8 @@ in {
      ports = [ "${config.node.vpn}:2223:22" ];
      extraOptions = [
        "--memory=10g"
-       # toktok is a VPN-only Nix build/dev container (bound to the WireGuard IP
-       # above): nix's sandboxed builds need broad privileges + setuid wrappers
-       # (nix-daemon build users, /run/wrappers). Candidate for narrowing to
-       # specific --cap-add later; --privileged is the current known-working set.
+       # A VPN-only Nix build container: sandboxed builds need broad privileges and
+       # setuid wrappers. --privileged is the current known-working set.
        # ast-grep-ignore: nix-oci-privileged
        "--privileged"
        "--tmpfs=/run"

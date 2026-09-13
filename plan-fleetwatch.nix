@@ -1,45 +1,16 @@
 # Report a `plan-run` plan's verdict to fleetwatch, one timer per plan.
 #
-# ┌─ WHY A PUSH AND NOT A UNIT GOING RED ──────────────────────────────────────┐
-# │ A failing systemd unit is the obvious answer and it is the wrong one here:  │
-# │ fleetwatch does NOT collect systemd unit state, so a unit that goes red is  │
-# │ a red nobody sees. Every other producer in this fleet pushes — amun's       │
-# │ vpn-nodes, isis's picade-health, the Mac's collectors — and a verdict that  │
-# │ lands anywhere else is a verdict that has to be gone looking for.           │
-# └────────────────────────────────────────────────────────────────────────────┘
+# A push, not a failing unit: fleetwatch does not collect systemd state, so a unit
+# going red is a red nobody sees.
 #
-# `plans` is a LIST because the shape is the same for every plan: run it
-# read-only, translate the verdict, POST. #728's `firewall` was the first,
-# `integrity` the second, `drill` the third.
+# ⚠ A list entry is the WIRING, not the work. `drill` and `deploy` take required
+# arguments, so an entry may be `{ name; args; }`. `backup --simulate` predicts a step
+# per artifact every run — that is what the plan DOES, not drift — so it would report
+# warn for ever (#978, still open). `offsite` runs on the Mac, which has no module.
 #
-# ⚠ This file used to say `backup`, `offsite` and `drill` were each one more
-# line. That was never measured, and on 2026-08-16 it was measured and is false
-# for all three — a list entry is the WIRING, not the work:
-#
-#   * `drill` and `deploy` take REQUIRED arguments (`--host`, `--prod-host`,
-#     `--app`…), and a list of bare names could not carry them, so they exited
-#     3 — "a defect in the plan" — and would have reported `fail` every hour.
-#     FIXED 2026-08-17 (#977): an entry may be `{ name; args; }`, and `drill`
-#     reports. `deploy` still does not: it needs four arguments and one entry
-#     per app, which is a different question, but the capability is here.
-#   * `backup --simulate` predicts a staging step for every artifact odin
-#     stages, every run, because staging is what that plan DOES rather than
-#     drift it has found. How many that is, is `plans::backup::staged_count()`
-#     rather than a number written here — and it is NOT `artifact_count()`:
-#     `claude-archive` arrives by push, so odin stages nothing for it. Exit 2, so
-#     it would report `warn` for ever: amber in the steady state is amber nobody
-#     reads. STILL OPEN — #978, and note it is not the same as `drill`'s amber,
-#     which arrives on day seven and means "the drill is due".
-#   * `offsite` runs on the Mac, which has no NixOS module at all.
-#
-# ⚠ INGEST TOKEN, and it is per machine. fleetwatch derives `source` from the
-# bearer token, so a producer can only ever write as its own mapped source —
-# that IS the guarantee the design has, and it is why odin cannot borrow isis's.
-# Each host needs its own `<host>:<token>` pair in FLEETWATCH_TOKENS (the
-# fleetwatch-secret k8s secret on isis) and the token at
-# /var/lib/fleetwatch/token, 0600. Until it is there the run fails visibly in
-# the journal and fleetwatch shows no data for that plan — the honest state
-# while a token is being minted, not a silent gap.
+# ⚠ The ingest token is PER MACHINE: fleetwatch derives `source` from the bearer
+# token, which is the guarantee the design has. Each host needs its own pair in
+# FLEETWATCH_TOKENS and the token at /var/lib/fleetwatch/token, 0600.
 { config, pkgs, lib, planRun, ... }:
 
 let

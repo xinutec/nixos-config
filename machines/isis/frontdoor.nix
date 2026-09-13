@@ -1,65 +1,31 @@
-# The host front door, rendered from the fleet model.
+# The host front door, rendered from the fleet model. Replaces ingress-nginx, which is
+# archived upstream: nginx here terminates TLS and proxies straight to Services (#1294).
 #
-# ⚠ **IMPORTED, AND THAT IMPORT IS THE CUTOVER** — see THE ORDER below, because
-# it does not work alone.
+# ⚠ IMPORTING THIS IS THE CUTOVER, and it does not work alone. klipper's svclb holds
+# :80/:443 by CNI hostport DNAT with no `-d` restriction, so nginx binds both ports and
+# receives NOTHING until the ingress-nginx LoadBalancer Service is deleted in the same
+# change. Getting the order wrong looks like a dead server, not a misconfiguration.
 #
-# ⚠ **THE FIRST ATTEMPT TOOK ALL 15 SERVICES DOWN**, 2026-09-01. The LoadBalancer
-# Service was deleted, nginx refused to start on a config error, and nothing
-# served until the Service was restored and the generation rolled back. TWO
-# config errors were involved, and `nixos-rebuild build` exited 0 on BOTH:
-#
-#     listen 2001:...::1:80    invalid port — the IPv6 literal needs brackets
-#     variables_hash           one $upstream variable per route overflowed it
-#
-# ⚠ **A GREEN BUILD IS NOT A PASSING `nginx -t`.** Nothing runs nginx against
-# this config until the service starts. Before switching, build and then run the
-# built nginx against the generated nginx.conf by hand:
+# ⚠ A GREEN BUILD IS NOT A PASSING `nginx -t` — nothing runs nginx against this config
+# until the service starts, and the first attempt took all 15 services down on two
+# errors that both built clean. Before switching, run the built nginx by hand:
 #
 #     conf=$(grep -ho '/nix/store/[a-z0-9]*-nginx.conf' result/etc/systemd/system/nginx.service | head -1)
 #     nginx=$(grep -ho '/nix/store/[a-z0-9]*-nginx-[0-9.]*/bin/nginx' result/etc/systemd/system/nginx.service | head -1)
 #     "$nginx" -t -c "$conf"
 #
-# That check found the second error after the first had already caused an
-# outage. It costs one command.
+# ⚠ ../../frontdoor.json IS A COPY of kubes/dhall/frontdoor.json, because isis builds
+# from its own checkout. `plan-run frontdoor-check` is what stops it going stale.
 #
-# WHAT IT REPLACES. `ingress-nginx` is archived upstream (read-only since March
-# 2026, v1.15.1 terminal). This takes it out of the path entirely: nginx on the
-# host terminates TLS and proxies straight to cluster Services. #1294.
-#
-# ⚠ **THE HOSTS COME FROM `../../frontdoor.json`, WHICH IS A COPY.** The source
-# is `kubes/dhall/frontdoor.json`, rendered by the same model that renders the
-# manifests. A copy rather than an import because isis builds from its own
-# checkout and the kubes tree is not there — the same lockfile discipline
-# `generate.sh --check` and `plan/tables/render.sh` already use deliberately.
-# `plan-run frontdoor-check` is what stops it going stale.
-#
-# ⚠ **UPSTREAMS ARE NAMES, RESOLVED AT REQUEST TIME.** CoreDNS answers
-# `cluster.local` with TTL 5, so a recreated Service is picked up within seconds.
-# A literal ClusterIP would be a front door pointing at nothing from the next
-# redeploy until a human noticed. That is why every `proxy_pass` goes through a
-# variable: nginx resolves a literal upstream ONCE at startup and caches it
-# forever, and only a variable makes it consult `resolver` per request.
-#
-# ⚠ **THE ORDER, and getting it wrong looks like a dead server rather than a
-# misconfiguration.** klipper's svclb pod holds :80/:443 by CNI hostport DNAT,
-# NOT by binding a socket — measured on isis 2026-09-01:
-#
-#     -A CNI-DN-2cd3d29... -p tcp -m tcp --dport 443 -j DNAT --to-destination 10.42.0.96:443
-#
-# There is no `-d` restriction, so it matches the public address AND the VPN
-# address. nginx will therefore BIND :80/:443 happily and receive nothing,
-# because PREROUTING diverts before local delivery. The ingress-nginx
-# LoadBalancer Service must be deleted in the same change that starts nginx.
-# isis activates by `boot`, so on reboot with the Service already gone no rules
-# are created and nginx gets the traffic — and the previous generation is one
-# power-cycle away in the boot menu.
+# ⚠ Upstreams are NAMES resolved per request, which is why every proxy_pass goes
+# through a variable: nginx resolves a literal upstream once at startup and caches it
+# for ever, so a recreated Service would leave the door pointing at nothing.
 { config, lib, pkgs, ... }:
 
 let
   net = import ../../network.nix;
 
-  # k3s's CoreDNS Service address. Fixed by the cluster's service CIDR rather
-  # than allocated, and already `nameserver` #1 in isis's /etc/resolv.conf.
+  # Fixed by the service CIDR, and already nameserver #1 in isis's resolv.conf.
   coreDnsIP = "10.43.0.10";
 
   cluster = "isis.xinutec.org";
@@ -72,31 +38,15 @@ let
 
   rulesFor = host: builtins.filter (e: e.host == host) mine;
 
-  # ⚠ A HOST is VpnOnly if ANY of its rules is, and the direction matters: two
-  # rules share `isis.xinutec.org`, and `server_name` is per host rather than
-  # per location. Taking the safer of the two exposures is the only reading that
-  # cannot accidentally publish something.
+  # ⚠ VpnOnly if ANY rule is: `server_name` is per host, not per location, so taking
+  # the safer exposure is the only reading that cannot accidentally publish something.
   vpnOnly = host: lib.any (e: e.exposure == "VpnOnly") (rulesFor host);
 
-  # ⚠ **THIS IS THE WHOLE POINT OF THE MIGRATION.** A VpnOnly host listens on
-  # the tunnel address and NOWHERE ELSE, so the public interface has no
-  # `server_name` for it at all. Today `VpnOnly` is a DNS record and the shared
-  # controller answers for the name on the public IP regardless (#1300) — a zone
-  # file is not a boundary; a socket that never listens for the name is.
-  # ⚠ **NO IPv6, AND `net.nodes.isis.ipv6` IS NOT EVIDENCE THAT THERE IS ANY.**
-  # That field records the address OVH allocated; nothing assigns it. `ip -6 addr
-  # show scope global` on isis returns NOTHING, and `base-configuration.nix` has
-  # its `static ip6_address` line commented out. nginx cannot bind an address the
-  # host does not hold — `bind() ... failed (99: Cannot assign requested
-  # address)` — and it fails the WHOLE config, not just that listener.
-  #
-  # Dropping it is not a regression: klipper reached these services by iptables
-  # DNAT, so the fleet has been IPv4-only throughout. Adding IPv6 means assigning
-  # the address first, and then this list.
-  #
-  # (It also needs brackets when it comes back: `listenAddresses` is pasted into
-  # `listen` verbatim, so a bare `2001:...::1` becomes `2001:...::1:80` and nginx
-  # reads the final group as a port. That one caused the 2026-09-01 outage.)
+  # ⚠ THE POINT OF THE MIGRATION: a VpnOnly host listens on the tunnel address and
+  # NOWHERE ELSE. A DNS record is not a boundary; a socket that never listens is.
+  # ⚠ No IPv6, and `net.nodes.isis.ipv6` is NOT evidence there is any — that field
+  # records what OVH allocated, nothing assigns it, and nginx fails the WHOLE config
+  # on an address the host does not hold.
   listenFor = host:
     if vpnOnly host
     then [ net.nodes.isis.vpn ]

@@ -1,14 +1,7 @@
-# Edit this configuration file to define what should be installed on
-# your system.  Help is available in the configuration.nix(5) man page
-# and in the NixOS manual (accessible by running ‘nixos-help’).
-
 { config, pkgs, ... }:
 
 let net = import ../../network.nix;
 in {
-  # The picade fleet moved here from amun 2026-08-11: plan-run cannot build on
-  # amun's held 25.05 (rustc 1.86 < the 1.88 let-chains need), and moving a
-  # service off amun is the reinstall plan's direction anyway.
   imports = [
     ../../base-configuration.nix
     ./plan-run.nix
@@ -16,116 +9,32 @@ in {
     ./picade-health.nix
     ./plan-picade.nix
     ../../plan-fleetwatch.nix
-    # The host front door — #1294. ⚠ Importing this is the CUTOVER, and it does
-    # not work alone: klipper's svclb holds :80/:443 by CNI hostport DNAT with no
-    # destination restriction, so nginx binds both ports and receives nothing
-    # until the ingress-nginx LoadBalancer Service is deleted. That Service goes
-    # in the same change that adds this line.
+    # ⚠ Importing this is the CUTOVER (#1294), and it does not work alone: nginx
+    # receives nothing until the ingress-nginx LoadBalancer Service is deleted.
     ./frontdoor.nix
   ];
 
-  # #728: the firewall plan finds a rule nobody declared, and until this it had
-  # nowhere to say so. Read-only by construction — `plans::firewall` has no
-  # effects, deliberately: re-running the firewall script would rebuild the
-  # one-way block, and deleting an unaccountable rule unattended could be
-  # deleting the only thing holding a service up.
-  # ⚠ `picade` ADDED 2026-08-28, and the reason is an incident: the convergence
-  # was completely broken from 2026-08-22 (isis's root keys were rotated and the
-  # cabinets still trusted the old pair) and nothing said so for six days. The
-  # hourly unit exited 0/SUCCESS the whole time, because every picade goal is
-  # advisory and a plan whose probes are all unreadable still settles. The
-  # verdict and its summary were honest — `0 picade goals hold, 20 could not be
-  # read` — and nobody was reading them, because this list did not have the plan
-  # in it. See #1233.
-  #
-  # `<plan>: verified` is the check that would have caught it: its verdict is
-  # `pass` only when `unread == 0 and adrift == 0`, so it goes amber the moment
-  # the fleet stops being readable, independently of whether the plan converged.
-  #
-  # ⚠ IT IS AMBER TODAY AND WILL BE FOR MONTHS — picade3 and picade4 are off
-  # (#70), so `verified` reports `8 could not be read`. Dry-run 2026-08-28:
-  #
-  #   picade: outcome   warn   6 step(s) pending — converged: 12 hold, 8 unread
-  #   picade: verified  warn   6 held, 6 pending, 8 could not be read, 0 adrift
-  #
-  # This file warns twice that amber in the steady state is amber nobody reads,
-  # and that warning is about `backup --simulate`, whose amber means "the plan is
-  # doing its job" and can never clear. This one means "two cabinets are dead",
-  # which is true, self-clearing, and carries a NUMBER (`value: 8.0 goals`) that
-  # moves if a live cabinet joins them. Different thing, kept deliberately.
-  # If it proves noisy, the tool is an EXPIRING MUTE on `picade: verified` —
-  # which is itself the reminder that the cabinets are still out — not deleting
-  # the entry.
-  #
-  # `frontdoor` ADDED 2026-09-03 (#1325): the host front door as a convergent
-  # plan, judged at the socket. It probes every name in the model's
-  # frontdoor.json — served with its own certificate at its exposure, and a
-  # VpnOnly name ABSENT on the public address — from the fleet side, hourly. It
-  # is observe-only (no effect on any goal), so it reports drift and never acts;
-  # its point is that a fake certificate goes red on the board within the hour
-  # instead of the ~18 hours it went unread on 2026-09-01.
-  # `images` ADDED 2026-09-02 (#1329), and it is the check that would have made
-  # #1311 a warning instead of two outages: it reports how many unreferenced
-  # container images this node holds, bounded at 250. The hoard regrows by design
-  # — `:latest` roll-forward adds one per rebuild and nothing removes them — so
-  # without this the only signal is a boot getting slower, noticed as downtime.
-  # Observe-only; the prune stays an operator verb (see plans/images.rs).
+  # All observe-only. `picade` is here because its absence hid six days of broken
+  # convergence (#1233) — an advisory plan still exits 0 when nothing is readable.
   services.planFleetwatch.plans = [ "firewall" "picade" "frontdoor" "images" ];
 
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
   environment.systemPackages = with pkgs; [
     kubectl # to manage kubernetes
     kubernetes-helm # to install kubernetes packages (helm charts)
-    # odin's backup-prepare.sh ssh's in and runs `sqlite3 ... ".backup"` to take a
-    # consistent snapshot of vaultwarden's DB. It must be present in the system
-    # closure: fetching it at backup time (nix-shell -p) makes the backup depend on
-    # working internet and an up binary cache — the conditions least likely to hold
-    # when you need the backup to have run — and nix GC re-evicts it, so it never
-    # settles. On this host that fetch was 101.6 MiB of stdenv, mid-backup.
+    # Needed in the closure, not fetched at backup time: odin's backup-prepare.sh
+    # runs sqlite3 here, and nix-shell -p pulled 101.6 MiB of stdenv mid-backup.
     sqlite
   ];
 
-  # No machine-specific PUBLIC ports. Verified against live `ss` (2026-07):
-  #   2223, 28192 → nothing was listening on isis; dead leftover rules.
+  # No machine-specific public ports; the old 2223/28192 rules listened on nothing.
   networking.firewall.allowedTCPPorts = [ ];
 
-  # List services that you want to enable:
-  #
-  # ⚠ **KEEP THE IMAGE HOARD DOWN, OR BOOTS GET SLOW AGAIN** (#1311, #1329).
-  # isis boots from a 7200rpm disk (`/sys/block/sda/queue/rotational` = 1, HGST
-  # HUS724020AL), and containerd's boltdb open does metadata work proportional to
-  # the number of images it holds. With 1912 images hoarded since Dec 2024 that
-  # took long enough at boot to look like a hang: on 2026-09-01 and 2026-09-02
-  # the node sat NotReady for minutes, kube-dns lost its endpoints, every pod
-  # read `Unknown`, and the fleet was down ~12 min while somebody restarted k3s.
-  #
-  # Pruning to 39 images (`k3s crictl --timeout 10m rmi --prune`) fixed it,
-  # measured by containerd's own startup line across reboots:
-  #
-  #     174.251s   cold boot, 1912 images     <- read as a "wedge"
-  #      35.772s   cold boot,   39 images     <- verified 2026-09-02, load avg 11
-  #
-  # ⚠ **NOTHING PRUNES THIS AUTOMATICALLY (#1329)** and `:latest` roll-forward
-  # adds an image per rebuild, so it WILL regrow. The cheapest alarm is already
-  # written every start: if `successfully booted in` in
-  # /var/lib/rancher/k3s/agent/containerd/containerd.log climbs back toward a
-  # minute, run `k3s crictl images -q | wc -l` before suspecting anything else.
-  #
-  # ⚠ **AN EARLIER COMMENT HERE CALLED THIS A DEADLOCK. IT WAS NOT** — and the
-  # claim cost two sessions chasing docker-containerd conflicts, boltdb
-  # corruption and the dbus wedge, all refuted. `WCHAN futex_do_wait` with
-  # near-zero CPU is EXACTLY what IO starvation looks like too: a blocked process
-  # burns no CPU either way. containerd's own log had said
-  # `successfully booted in 337.789166s` on 2026-08-29 all along, and a deadlock
-  # does not boot successfully.
-  #
-  # If a restart IS ever needed: `systemctl restart k3s`, and ⚠ **do not call it
-  # failed before ~2 minutes** (110s on 2026-09-02; 88s was misread as a
-  # failure). Afterwards `signal/messages` crash-loops on
-  # `writing /run/irc/id_ed25519: Permission denied` — a container restart reuses
-  # the pod's emptyDir, so `kubectl delete pod` is needed. Seen three times.
-
+  # ⚠ KEEP THE IMAGE HOARD DOWN (#1311, #1329). This host boots from a spinning
+  # disk and containerd's startup scales with image count: 1912 images took 174s
+  # and read as a k3s deadlock for two days; 39 take 36s. Nothing prunes it and
+  # `:latest` adds one per rebuild, so check `k3s crictl images -q | wc -l` before
+  # suspecting anything cleverer. If you must restart k3s, give it ~2 minutes, then
+  # `kubectl delete pod` signal/messages — a reused emptyDir crash-loops them.
   services.k3s = {
     enable = true;
     role = "server";
@@ -133,60 +42,19 @@ in {
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption";
   };
 
-  # List services that you want to enable:
-#  services.k3s = {
-#    enable = true;
-#    role = "agent";
-#    tokenFile = "/root/node-token";
-#    serverAddr = "https://${net.nodes.master.vpn}:${toString net.k8sApiPort}";
-#    extraFlags = "--node-ip ${config.node.vpn} --flannel-iface=wg0";
-#  };
-
-# fileSystems."/export/home" = {
-#   device = "${net.nodes.master.vpn}:/export/home";
-#   fsType = "nfs4";
-# };
-
-  # The agent console's way in, and the reason the Mac needs no open port.
-  #
-  # The Mac dials out and asks sshd to listen on this host's VPN address; the
-  # phone connects there and the bytes go back down the tunnel the Mac opened.
-  # The phone's TLS session terminates at the Mac, not here — so this host
-  # carries ciphertext, holds no key that opens anything, and cannot inject or
-  # impersonate. It can drop the tunnel, which is denial of service and
-  # unavoidable for anything in the middle. See memview/docs/agent-console.md.
-  #
-  # `clientspecified` rather than `yes`: `yes` would bind every remote forward to
-  # every interface, this host among other things being internet-facing. With
-  # `clientspecified` the client names the address, and the key below is only
-  # permitted to name one.
+  # The agent console's way in: the Mac dials out and asks sshd to listen on this
+  # host's VPN address. TLS terminates at the Mac, so this host carries only
+  # ciphertext. `clientspecified` keeps the listener off the public interface.
   services.openssh.settings.GatewayPorts = "clientspecified";
 
-  # ⚠ Reap a client that has vanished, or its listener outlives it and wedges
-  # the port for everyone after it.
-  #
-  # 2026-09-01: the home ISP reassigned the Mac's public address. The tunnel's
-  # connection died with it and no FIN was ever sent, so sshd went on believing
-  # the session was alive and kept its listener. Every redial — now from the new
-  # address — failed with `remote port forwarding failed` and exited, as
-  # `ExitOnForwardFailure` is meant to make it. What the phone met was not a
-  # refusal but a black hole: TCP connected, a TLS Client hello went out, and no
-  # Server hello ever came back, which reads to the app as a slow network rather
-  # than a broken route. It held for over two hours and 1050 redials, and
-  # nothing reported it.
-  #
-  # A residential address change is ordinary and will happen again. Ninety
-  # seconds of silence now ends the session and takes the listener with it,
-  # which is what lets the next redial bind. The numbers match the Mac's own
-  # ServerAliveInterval/ServerAliveCountMax in `console-tunnel.sh`, so both ends
-  # give up on the same schedule.
+  # ⚠ Reap a vanished client or its listener wedges the port for every redial —
+  # the ISP changed the Mac's address once and the console was a black hole for
+  # two hours. Matches console-tunnel.sh's own timings on the Mac side.
   services.openssh.settings.ClientAliveInterval = 30;
   services.openssh.settings.ClientAliveCountMax = 3;
 
-  # A key of its own, restricted to exactly that one listener — no shell, no
-  # agent, no X11, no local forwards. An unattended tunnel that ran on the
-  # ordinary admin key would give anything holding the Mac's disk a root session
-  # here, which is a far larger thing than the console it exists to carry.
+  # Its own key, restricted to that one listener: on the admin key, anything
+  # holding the Mac's disk would get a root session here.
   users.users.pippijn.openssh.authorizedKeys.keys = [
     ''restrict,port-forwarding,permitlisten="${config.node.vpn}:${
       toString net.consolePort

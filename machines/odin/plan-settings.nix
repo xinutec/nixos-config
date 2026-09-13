@@ -1,39 +1,20 @@
-# odin's settings for `plan-run` — what the names in a plan mean HERE.
+# odin's settings for `plan-run` — what the names in a plan mean HERE. A plan says
+# `From::Isis` and `Root::BackupStaging`; this says where those are, so the plan stays
+# pure. See xinutec-infra/plan/runner/src/settings.rs.
 #
-# A plan says `From::Isis` and `Root::BackupStaging`; this says where those are.
-# The split is the reconciler's central one: the plan is pure and carries no
-# path, no login and no address, so the same plan is correct on a machine that
-# resolves them differently. See xinutec-infra/plan/runner/src/settings.rs.
-#
-# ┌─ WHY THIS FILE HOLDS NO CHECK ID, ONLY A PATH TO ONE ──────────────────────┐
-# │ `monitor.checks` is empty, and that is the point rather than an omission.  │
-# │ A healthchecks id is a bearer capability — whoever holds one can mark the  │
-# │ check up and silence the dead-man's switch it feeds — and THIS REPO IS     │
-# │ PUBLIC. The Mac's settings.json may hold ids because that repo is private; │
-# │ this one may not.                                                          │
-# │                                                                            │
-# │ `plans::backup` never checks in, so for a long time nothing was lost.      │
-# │ Staging is not the thing being monitored: the backup's check-in belongs    │
-# │ after RESTIC succeeds, which is where it already is —                      │
-# │ restic-backups-cluster's ExecStartPost, reading /run/agenix/hc-ping-backup.│
-# │                                                                            │
-# │ `plans::drill` DOES check in, and that is what `monitor.check_files` below │
-# │ is for: the id is named by PATH, decrypted by agenix at activation, and    │
-# │ read by the runner at the moment it sends the ping. The capability lives   │
-# │ in the age file; this repo only says where to find it. Same answer the     │
-# │ restic passwords already got.                                              │
-# │                                                                            │
-# │ An empty `checks` is still not a permissive default. `Monitor::url_for`    │
-# │ refuses a name it holds NEITHER way, so a plan that tried to check in as   │
-# │ something undeclared stops rather than posting to a guessed URL — and a    │
-# │ name declared BOTH ways is refused rather than resolved by precedence.     │
-# └────────────────────────────────────────────────────────────────────────────┘
+# ⚠ NO CHECK IDS HERE, ONLY PATHS TO THEM: a healthchecks id is a bearer capability
+# and THIS REPO IS PUBLIC. `monitor.check_files` names them by path, decrypted by
+# agenix and read at ping time. An empty `checks` is not a permissive default —
+# `Monitor::url_for` refuses a name it holds neither way, and one held both ways.
 
 { pkgs, ... }:
 
 let
   settings = {
     roots = {
+      # A root rather than a free path: the runner refuses any root it was not started
+      # with, so staging cannot land elsewhere — in particular not under a mountpoint
+      # that failed to mount, quietly filling /.
       # The tree restic actually reads. A root rather than a free path: the
       # runner refuses any root it was not started with, so a staging run
       # cannot land anywhere else — and in particular cannot create this

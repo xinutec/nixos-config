@@ -1,21 +1,9 @@
-# geb — the house's own NixOS box. Storage, and a one-way VPN peer.
+# geb — the house's own NixOS box: storage, one-way peer, home LAN, no public address,
+# on wifi. Most of what follows undoes a base-configuration assumption that suits the
+# three rented machines and not a house box.
 #
-# Not a rented server and not a Kubernetes node: odin's sentence in network.nix
-# ("Backup machine. No Kubernetes, only storage") is the closest existing shape.
-# What it does NOT share with odin is where it sits — geb is on a home LAN
-# behind the router, with no public address, and on wifi rather than ethernet.
-#
-# Most of what follows is a place where base-configuration.nix's assumptions —
-# three rented BIOS-boot machines with public addresses and a Kubernetes cluster —
-# had to be undone, and undoing them is not a feature. Two of geb's three jobs are
-# not features of this file either: the fleet's third backup location is driven by
-# jobs on the Mac, and the house's third Govee receiver by govee-push below.
-#
-# The third IS geb's own, and is the reason this stopped being a box that only
-# holds things: being in a room, on mains, permanently, geb carries a microphone
-# for recall (./recall-recorder.nix). That is a job no rented machine can do and no
-# phone does reliably, and it is why the wifi link above is worth caring about —
-# it is the path the audio crosses.
+# Its distinguishing job is the microphone for recall (./recall-recorder.nix) — which
+# is why the wifi link is worth caring about: it is the path the audio crosses.
 
 { config, pkgs, lib, ... }:
 
@@ -39,13 +27,8 @@ in
     ./recall-recorder.nix
   ];
 
-  # ⚠ ONE PLAN, and it is here because the thing it judges is here. The one-way
-  # VPN block moved off the servers onto this host on 2026-09-04 (#1403), and
-  # `plan-run` existed only on odin and isis — so without this the control that
-  # keeps the VPN out of the house would be checked by nothing at all.
-  #
-  # No other plan: this host is not a Kubernetes node, drives no backups of its
-  # own and pushes no cabinets. A row it cannot answer is worse than no row.
+  # Only `firewall`: the one-way VPN block moved onto this host (#1403), and without
+  # this nothing would check it. A row this host cannot answer is worse than no row.
   services.planFleetwatch.plans = [ "firewall" ];
 
   # UEFI, not BIOS. base-configuration sets `boot.loader.grub.device =
@@ -62,11 +45,7 @@ in
   # a disk formatted in 2026 asserts a migration history it does not have.
   system.stateVersion = lib.mkForce "26.05";
 
-  # The only link today is wifi, so the machine is managed by NetworkManager
-  # and its connection profile is machine state in
-  # /etc/NetworkManager/system-connections — deliberately NOT a declarative
-  # networking.wireless block, which would want the PSK in a Nix file and this
-  # repository is public.
+  # Wifi only, via NetworkManager so the PSK stays out of this public repo.
   networking.networkmanager.enable = true;
 
   # ⚠ Both NetworkManager and base-configuration define this, and both do it as
@@ -91,30 +70,17 @@ in
   # reason to have, so the container would restart-loop indefinitely.
   virtualisation.oci-containers.containers = lib.mkForce { };
 
-  # The 6 TB WD Elements freed from the Mac by #697 and reformatted ext4 here on
-  # 2026-08-12. It lives in configuration.nix, not hardware-configuration.nix,
-  # because the latter is generated and a regeneration would drop this.
-  #
-  # By UUID: the disk is USB, and sd* names are assigned in enumeration order,
-  # so a second external device would silently swap them.
-  #
-  # ⚠ `nofail` because geb is headless on wifi with no monitor attached. Without
-  # it, a disk that is unplugged, spun down or slow to enumerate stops the boot
-  # in emergency mode on a machine that cannot show you why. The device timeout
-  # bounds the wait rather than leaving it to the 90 s default, since a spinning
-  # USB disk that is not there is not going to appear.
+  # The 6 TB WD Elements, here rather than in the generated hardware-configuration.nix,
+  # which a regeneration would drop. By UUID because sd* names follow enumeration order.
+  # ⚠ `nofail`: geb is headless, and without it an absent or slow USB disk stops the
+  # boot in emergency mode on a machine that cannot show you why.
   fileSystems."/data" =
     { device = "/dev/disk/by-uuid/2099398b-e6b1-4f31-9096-54a51edda1b3";
       fsType = "ext4";
       options = [ "nofail" "x-systemd.device-timeout=30" ];
     };
 
-  # The Intel AX combo card's other half. Enabled to find out whether geb can
-  # hear the house's Govee hygrometers, which is a question about where it sits,
-  # not about the radio — so it has to be measured from here rather than argued.
-  #
-  # `powerOnBoot` because the only consumer is a passive advertisement scan: an
-  # adapter that comes up soft-blocked reads exactly like a sensor out of range,
+  # powerOnBoot because a soft-blocked adapter reads exactly like sensors out of range,
   # and this box is headless.
   hardware.bluetooth = {
     enable = true;
