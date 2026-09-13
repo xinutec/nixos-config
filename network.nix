@@ -71,6 +71,31 @@
       intermittent = true; # laptop — powered off when not in use
     };
 
+    # Windows desktop PC. RETIRED AND BACK: it was removed on 2026-06-21
+    # (be31bb0, alongside hermes, mouad and mouad-phone) and returns 2026-09-13
+    # because it was switched on again and had no way in.
+    #
+    # ⚠ THE ADDRESS IS NOT THE ONE IT HAD. It held 10.100.0.6 until it was
+    # retired, and that address went to shu when shu was installed on
+    # 2026-09-04 — so restoring the old block verbatim would have collided with
+    # a live host. .16 was the next free address in both planes: network.nix
+    # declares .1-.15 and .100-.104, and amun's own `wg show wg0 allowed-ips`
+    # agreed exactly. The tunnel config on the PC was edited to match; its
+    # keypair is the original, so the public key below is unchanged from the
+    # entry be31bb0 deleted.
+    #
+    # Not `oneWay`, which follows osiris and anubis rather than the house NixOS
+    # boxes. geb, shu and tefnut are one-way because the fleet administers them
+    # and they hold data; this is a personal desktop that dials out and is not
+    # a fleet resource, and nothing here is protecting it from the VPN that a
+    # desktop firewall should not already be doing.
+    horus = {
+      name = "horus";
+      vpn = "10.100.0.16";
+      publicKey = "vMPacQKiSO+/6OjAYFZxKu7RSNQcRAN6z0cY9EaASFc=";
+      intermittent = true; # desktop PC — powered off when not in use
+    };
+
     # Raspberry Pi 4
     bes = {
       name = "bes";
