@@ -105,17 +105,42 @@
     };
 
     # Android phones.
+    # ⚠ THE PHONES ARE always-on, AND THAT IS A DELIBERATE FLIP (2026-09-13).
+    # They carried `intermittent = true` from the day they were enrolled, on the
+    # generic reasoning that a phone "connects only when actively passing
+    # traffic". That reasoning was never tested against what they actually do,
+    # and when it was, it did not survive: over the 21 days to 2026-09-13 the
+    # fleetwatch vpn-nodes history put pixel5 at 96.7% and oneplus6t at 99.5%,
+    # with EVERY pixel5 gap falling on one day and oneplus6t's only real gap
+    # being its own LineageOS re-key. Those are incidents, not a duty cycle.
+    #
+    # Pippijn's framing, which is the actual requirement: "I want to know when
+    # the always-on phones are broken and I need to act on that." A SKIP cannot
+    # say that. So a missing handshake is a FAIL here.
+    #
+    # ⚠ pixel9 and dasha are NOT in this class, and the exceptions are the point:
+    #   pixel9  stays intermittent — it goes offline in flights and on the metro,
+    #           which is normal and not actionable. 99.0% up, so the flag costs
+    #           almost nothing and buys silence on the one thing it should be
+    #           silent about.
+    #   dasha   stays intermittent — it has handshaked ONCE in 9,571 samples
+    #           (last 2026-08-18). Flipping it would paint a permanent red that
+    #           nobody can act on, which is the opposite of the goal. If it is
+    #           retired, retire it here rather than leaving it to read as a fault.
     pixel5 = {
       name = "pixel5";
       vpn = "10.100.0.10";
       publicKey = "FSaKx2UvFEM3LCMTeNrMr3S1RYg2h+FaWE8JkWn7R2s=";
-      intermittent = true; # phone — connects only when actively passing traffic
+      intermittent = false; # ⚠ always-on, see the note above the phones
     };
     pixel9 = {
       name = "pixel9";
       vpn = "10.100.0.12";
       publicKey = "bii6vS7aftv3h2CakeM1xr5SCucH8rtOkR6Zpryh+Qk=";
-      intermittent = true; # phone — connects only when actively passing traffic
+      # ⚠ THE EXCEPTION among the phones, and not for want of uptime — it is at
+      # 99.0%, better than pixel5. It stays intermittent because its gaps are
+      # flights and the metro, which are expected and cannot be acted on.
+      intermittent = true;
     };
     # OnePlus 6T, enrolled 2026-09-05 as a recall recorder (source id
     # `oneplus6t`). Key generated on the Mac like the iPhone's; the private key
@@ -132,7 +157,9 @@
       name = "oneplus6t";
       vpn = "10.100.0.8";
       publicKey = "b8BIWhtElkAFcXZ1f/mvLoXak6zus8Q2UGAP1YF+8AY=";
-      intermittent = true; # phone — connects only when actively passing traffic
+      # Always-on: it is a recall recorder, so a gap here is lost audio, which
+      # is exactly the kind of fault worth waking up to.
+      intermittent = false; # ⚠ always-on, see the note above the phones
     };
 
     # iPhone (Pippijn). Private key generated on the Mac 2026-06-28, lives only
@@ -142,7 +169,15 @@
       name = "iphone";
       vpn = "10.100.0.13";
       publicKey = "YqxVUL48NOPh6cbu1Dgu6BS9YUycByEVPrNiyHgtk0c=";
-      intermittent = true; # phone — connects only when actively passing traffic
+      # ⚠ FLIPPED KNOWING IT WILL FIRE. Its WireGuard On-Demand rule triggers on
+      # wifi, so off the house wifi there is no tunnel — on the 21 days to
+      # 2026-09-13 that was 82.8 hours across four clean multi-hour blocks, and
+      # under this flag every one of them is a FAIL. That is accepted rather
+      # than overlooked: the expectation is always-on, so the row should say so
+      # when it is not met. ⚠ The fix belongs ON THE PHONE (let On-Demand cover
+      # cellular), NOT by flipping this back — flipping it back only restores
+      # the silence that hid the gap.
+      intermittent = false; # ⚠ always-on, see the note above the phones
     };
 
     # Mac Mini — ONE-WAY peer: it may initiate into the VPN, but nothing on
@@ -270,7 +305,11 @@
       name = "dasha";
       vpn = "10.100.0.14";
       publicKey = "FyeFKOIM9xGZbUcjcTLpsI/zL7r5aoj4MIsPkb164To=";
-      intermittent = true; # phone — connects only when actively passing traffic
+      # ⚠ Stays intermittent while the other phones move to always-on: it has
+      # handshaked ONCE in 9,571 samples, last on 2026-08-18. An always-on flag
+      # here would be a permanent red nobody can act on. Retire it or fix it,
+      # but do not let it alert in the meantime.
+      intermittent = true;
     };
 
     # Picade
