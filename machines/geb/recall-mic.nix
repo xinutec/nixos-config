@@ -90,7 +90,7 @@ in
       Restart = "always";
       RestartSec = "5s";
 
-      # ⚠ A RECORDER MUST OUTRANK WHATEVER ELSE THE BOX IS DOING. On the Mac this
+      # A RECORDER MUST OUTRANK WHATEVER ELSE THE BOX IS DOING. On the Mac this
       # was learnt expensively: capture sat in macOS's throttled class by
       # configuration and dropped a quarter of its minutes under load, for weeks,
       # while looking healthy (recall #1330). geb is nearly idle today, so this

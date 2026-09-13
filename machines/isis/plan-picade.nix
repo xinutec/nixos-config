@@ -7,7 +7,7 @@
 # content and a fresh mtime, so drift went yellow after anyone played and stayed
 # yellow. Only an apply can close it.
 #
-# ⚠ WHAT AN UNATTENDED APPLY DELETES: three layers cannot delete by construction, but
+# WHAT AN UNATTENDED APPLY DELETES: three layers cannot delete by construction, but
 # `Operator` force-pushes an exact mirror with `--delete`. Five of its six paths are
 # files, where that is a no-op; the sixth is `/etc/sudoers.d`, so an hourly apply
 # removes anything there that canonical does not have. Intended, and the one thing

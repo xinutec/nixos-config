@@ -23,7 +23,7 @@
 # cabinet over WG with the shared fleet key (verified 2026-08-11 against
 # picade0-2, the three that are up), which is what `picade health` relies on.
 #
-# ⚠ INGEST TOKEN: THIS IS THE ONE THING THE MOVE COULD NOT CARRY.
+# INGEST TOKEN: THIS IS THE ONE THING THE MOVE COULD NOT CARRY.
 # fleetwatch derives `source` from the token, so a producer can only ever write
 # as its mapped source — that is the whole guarantee the token design has. On
 # amun this reused the existing /var/lib/fleetwatch/token and wrote as
@@ -54,7 +54,7 @@ in
     # plan-run is what now decides what "drift" means — `health.plan_drift`
     # shells out to it and reads its `--simulate --json` report.
     #
-    # ⚠ A UNIT'S `path` IS ITS WHOLE PATH. It does NOT include
+    # A UNIT'S `path` IS ITS WHOLE PATH. It does NOT include
     # /run/current-system/sw/bin, so a package being in systemPackages does not
     # put it here. Measured 2026-08-11, an hour after health started reading
     # the plan: this list held only openssh and rsync, the run finished in 8s

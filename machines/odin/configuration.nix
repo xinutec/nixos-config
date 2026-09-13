@@ -29,7 +29,7 @@ in {
   # bare string: the plan was written to be driven from the Mac, so every effect
   # goes over ssh even when it is odin talking to odin.
   #
-  # ⚠ Unlike `integrity`, this one is EXPECTED to go amber, and that is the
+  # Unlike `integrity`, this one is EXPECTED to go amber, and that is the
   # point: the drill's freshness window is six days against a seven-day timer,
   # so it reads pass for six and amber on the seventh — amber exactly when the
   # drill is due. Do not "fix" that by widening the window; the window being

@@ -8,7 +8,7 @@ let
   macMini =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIODCVuDCe0SWwm5ZwG6yqwXD/8LcLxDvmCK8ZQB9W9N0 pippijn@mac-mini";
 
-  # ⚠ These lived only in a hand-copied ~pippijn/.ssh/authorized_keys until 2026-08-22 —
+  # These lived only in a hand-copied ~pippijn/.ssh/authorized_keys until 2026-08-22 —
   # outside review, undiffable between hosts, and holding two forgotten corporate keys
   # still authorized on both internet-facing hosts. A standing credential nobody can
   # enumerate is the fault, whatever it happens to name.
@@ -16,7 +16,7 @@ let
   # — a plain file, hand-copied to four hosts, dated 9 July, not in git and not
   # touched by `nixos-rebuild` — until they were moved here 2026-08-22.
   #
-  # ⚠ WHY THAT FILE WAS A PROBLEM even though every key in it was Pippijn's. It
+  # WHY THAT FILE WAS A PROBLEM even though every key in it was Pippijn's. It
   # sat outside review: nothing listed its contents, nothing diffed them between
   # hosts, and a rebuild could neither add to it nor take from it. What it held
   # when finally read was two keys named for Google corporate machines,
@@ -35,7 +35,7 @@ let
   # directly; it is declared because removing a path Pippijn holds is his call,
   # not a tidy-up.
   #
-  # ⚠ **JuiceSSH WAS THE THIRD, AND IS GONE (2026-09-04).** Pippijn: the app is
+  # JuiceSSH WAS THE THIRD, AND IS GONE (2026-09-04). Pippijn: the app is
   # no longer developed and its service is down, so the client that held the
   # private half cannot be used at all. It had already logged in ZERO times in
   # the 90 days above — the count was recorded here as evidence the key was live,
@@ -49,7 +49,7 @@ let
   roamMac =
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE8e2iWRYdr+Wzy9uBca/VLzexcWCnHwYb8TQhaeGA7j pippijn@pippijn-mac.roam.internal";
 
-  # ⚠ `pippijn@xinutec.org` (ed25519 AND RSA) WAS HERE UNTIL 2026-08-23 and is
+  # `pippijn@xinutec.org` (ed25519 AND RSA) WAS HERE UNTIL 2026-08-23 and is
   # RETIRED, not moved — do not re-add it to either list. It was simultaneously
   # Pippijn's personal key and, as agenix `root-ssh-{ed25519,rsa}`, the fleet's
   # inter-host root credential, which is #1049. Why it was retired rather than
@@ -75,12 +75,12 @@ let
   #   isis -> amun        2, both on Aug 11, the picade move
   #   geb  -> odin        1, Aug 10, its install day
   #
-  # ⚠ BOTH OF ODIN'S ADDRESSES, and this is the line that would have broken the
+  # BOTH OF ODIN'S ADDRESSES, and this is the line that would have broken the
   # backup. odin reaches the others over the VPN normally and over its public
   # address when the tunnel is down — 461 logins in 30 days took the public
   # path, i.e. exactly the circumstance in which a backup most needs to work.
   #
-  # ⚠ 127.0.0.1 IS NOT PADDING. The restore drill ssh's odin to itself
+  # 127.0.0.1 IS NOT PADDING. The restore drill ssh's odin to itself
   # (machines/odin/drill/*.sh, and `--host odin` in backups.nix); those 12
   # logins arrive from the loopback, not from 10.100.0.3.
   #
@@ -93,7 +93,7 @@ in
 {
   # The person: installed on the `pippijn` user, unrestricted.
   #
-  # ⚠ THIS LIST IS NOW THE WHOLE ANSWER for the `pippijn` account. sshd consults
+  # THIS LIST IS NOW THE WHOLE ANSWER for the `pippijn` account. sshd consults
   # both `/etc/ssh/authorized_keys.d/pippijn`, which this writes, and
   # `~pippijn/.ssh/authorized_keys`, which it cannot see; the second held three
   # of these keys and two nobody had enumerated. The home file is deleted on
@@ -113,7 +113,7 @@ in
   # credential — a general shell it genuinely needs (measured; see #1049). The
   # bound here is on WHERE the key may be used, which is the property that
   # closes the mesh. Narrowing WHAT it may run is a separate, harder question.
-  # ⚠ THE SHARED KEYS ARE IN NEITHER LIST NOW. #1049 took them off root on
+  # THE SHARED KEYS ARE IN NEITHER LIST NOW. #1049 took them off root on
   # 2026-08-22 because the fleet must not authenticate to itself with a
   # credential that is also a person; 2026-08-23 took them off the person as
   # well, because their private halves are published. See the note above the

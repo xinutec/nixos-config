@@ -12,7 +12,7 @@ let
   # not just its own WireGuard key.
   geb = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHknQkqhrNDTXrL0o6omTOb/1LZNF4/IWbMrGgpgKzPZ";
 
-  # ⚠ The box that gets REBUILT, so its host key changes deliberately and repeatedly.
+  # The box that gets REBUILT, so its host key changes deliberately and repeatedly.
   # Re-keying is part of that cycle, not an incident.
   shu = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE069LNzN0xeKpgYwzWR9ABi4SIDf/CjwFQZ0WT/WP6";
 
@@ -43,7 +43,7 @@ in {
   # disk together and /data/restic-mac is unopenable: observe-data, recall,
   # dicom-scan-download, the credential exports (#836).
   #
-  # ⚠ ODIN, NOT GEB, and the difference is the point. geb HOLDS
+  # ODIN, NOT GEB, and the difference is the point. geb HOLDS
   # /data/restic-mac; encrypting its password to it would put the repository and
   # the key to it on one machine. odin holds neither, and is in-datacenter — so
   # this is also the copy that survives the house. Same rule as
@@ -71,7 +71,7 @@ in {
   # The fleet's OWN inter-host root key (#1049 step 1), generated 2026-08-22 for
   # this purpose and nothing else.
   #
-  # ⚠ WHY A THIRD KEY RATHER THAN A RE-KEY OF THE TWO ABOVE. Their public halves
+  # WHY A THIRD KEY RATHER THAN A RE-KEY OF THE TWO ABOVE. Their public halves
   # are `pippijn@xinutec.org` — the same key Pippijn logs in with personally. So
   # the private half of a PERSONAL identity sits in /root/.ssh on four hosts, two
   # of them internet-facing: reading one host's disk yields the credential that
@@ -121,7 +121,7 @@ in {
   # access, no new attack surface, one more credential held by one more machine
   # that is already inside the boundary.
   #
-  # ⚠ The Mac does NOT read this. It keeps the same value in its Keychain
+  # The Mac does NOT read this. It keeps the same value in its Keychain
   # (`airvisual-pro-smb`), which is where `airvisual.py` looks when no password
   # file is named. Two stores for one secret is worth knowing: rotating the
   # Pro's SMB password means changing BOTH, and the Mac's copy is not in any

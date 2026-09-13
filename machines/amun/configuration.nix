@@ -35,7 +35,7 @@ in {
   # List services that you want to enable:
   services.k3s = {
     enable = true;
-    # Channel default, like isis. ⚠ So a channel bump IS a Kubernetes upgrade: 25.05
+    # Channel default, like isis. So a channel bump IS a Kubernetes upgrade: 25.05
     # ships 1.32 and 26.05 ships 1.35, and k3s supports one minor at a time. Before
     # moving this host off 25.05, pin the package and step it, rebuilding each time.
     # No explicit package: take the channel default, like isis. On this machine's
@@ -48,21 +48,11 @@ in {
     # only one minor at a time. Before bumping this machine off 25.05, pin the package
     # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
-    # ⚠ `--secrets-encryption` REMOVED 2026-08-31: a REGRESSION HELD OPEN ON PURPOSE
-    # (#1295). Secrets are unencrypted at rest here.
-    #
-    # An empty key list was written to the encryption config in July. The running
-    # apiserver held the key in memory and never re-read the file, so it was broken on
-    # disk for 58 days and only a BOOT could reveal it. The key is gone; both recovery
-    # routes failed, and all 68 secret rows were re-created rather than decrypted.
-    #
-    # ⚠ PUTTING THE FLAG BACK CRASH-LOOPS k3s ON THE NEXT k3s RESTART, not at some
-    # later reboot — the empty-key config is STILL on disk and in the datastore. The
-    # lint below fires here and is suppressed: ⚠ THAT SUPPRESSION IS THE FIX. Do not
-    # "resolve the lint" by re-adding the flag.
-    # ⚠ And amun reboots are scarce because Simon runs here, so a mistake is an outage
-    # for a second person. fleet_health.classify_k3s_startup goes RED if the flag
-    # returns while the key list is empty.
+    # `--secrets-encryption` is deliberately absent (#1295): an empty key list was
+    # written to the encryption config, so putting the flag back crash-loops k3s on
+    # the next restart, not at some later reboot. The suppression below IS the fix —
+    # do not resolve the lint by re-adding the flag. fleet_health's
+    # classify_k3s_startup goes red if it returns while the key list is empty.
     # ast-grep-ignore: nix-k3s-no-secrets-encryption
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";

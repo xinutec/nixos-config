@@ -48,7 +48,7 @@ in
   # Wifi only, via NetworkManager so the PSK stays out of this public repo.
   networking.networkmanager.enable = true;
 
-  # ⚠ Both NetworkManager and base-configuration define this, and both do it as
+  # Both NetworkManager and base-configuration define this, and both do it as
   # plain definitions, so the module system cannot pick one and evaluation
   # fails outright rather than warning. mkForce settles it in NetworkManager's
   # favour, which is what "NM owns the link" means.
@@ -72,7 +72,7 @@ in
 
   # The 6 TB WD Elements, here rather than in the generated hardware-configuration.nix,
   # which a regeneration would drop. By UUID because sd* names follow enumeration order.
-  # ⚠ `nofail`: geb is headless, and without it an absent or slow USB disk stops the
+  # `nofail`: geb is headless, and without it an absent or slow USB disk stops the
   # boot in emergency mode on a machine that cannot show you why.
   fileSystems."/data" =
     { device = "/dev/disk/by-uuid/2099398b-e6b1-4f31-9096-54a51edda1b3";

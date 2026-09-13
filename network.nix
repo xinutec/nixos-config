@@ -61,7 +61,7 @@
     };
 
     # Windows desktop PC. Retired 2026-06-21 (be31bb0), back 2026-09-13.
-    # ⚠ NOT its old .6 — that has been shu's since 2026-09-04.
+    # NOT its old .6 — that has been shu's since 2026-09-04.
     horus = {
       name = "horus";
       vpn = "10.100.0.16";
@@ -144,7 +144,7 @@
       externalInterface = "wlp1s0";
       oneWay = true;
       reachableFrom = [ "mac-mini" ];
-      # ⚠ true here and false on geb, which is the point of the pair: we rebuild
+      # true here and false on geb, which is the point of the pair: we rebuild
       # shu on purpose, so always-on would cry wolf every time we did that.
       intermittent = true;
     };
@@ -158,7 +158,7 @@
       oneWay = true;
       reachableFrom = [ "mac-mini" ];
       # Mains-powered and meant to be on, so a gap is true news.
-      # ⚠ REVISIT WHEN IT GETS A JOB that involves powering it off.
+      # REVISIT WHEN IT GETS A JOB that involves powering it off.
       intermittent = false;
     };
 

@@ -14,7 +14,7 @@
 # │ exists for. Adding a one-way host means adding its judge in the same       │
 # │ breath, or the security model is asserted rather than verified.            │
 # │                                                                            │
-# │ ⚠ THE POINT IS THE `firewall` PLAN AND NOTHING ELSE. This host is not a    │
+# │ THE POINT IS THE `firewall` PLAN AND NOTHING ELSE. This host is not a    │
 # │ Kubernetes node, has no backups of its own to drive and no cabinets to     │
 # │ push; adding plans here because they exist would be adding rows that       │
 # │ cannot be answered.                                                        │
@@ -29,7 +29,7 @@ let
   # generated on the host and never copied; `Host github.com` in
   # base-configuration.nix names it.
   #
-  # ⚠ A MISSING KEY FAILS LATE, NOT NOW. fetchGit only reaches the network for a
+  # A MISSING KEY FAILS LATE, NOT NOW. fetchGit only reaches the network for a
   # rev the store does not already hold, so every rebuild that KEEPS the pin
   # succeeds and the first BUMP is what fails. Found on odin 2026-08-24.
   src = builtins.fetchGit {
@@ -41,7 +41,7 @@ let
     # against four owned, and the plan blocked. The declaration and the runner
     # that understands it have to move together.
     #
-    # ⚠ BUMPED 2026-09-10 TO CARRY AN ETXTBSY FIX, and that is the reason rather
+    # BUMPED 2026-09-10 TO CARRY AN ETXTBSY FIX, and that is the reason rather
     # than the features. This host builds plan-run with `doCheck`, so its rebuild
     # runs the runner's test suite -- and `cargo_sweep`'s fixture raced itself:
     # Linux refuses to exec a file open for writing anywhere, and a test forking
@@ -59,7 +59,7 @@ let
     src = src + "/plan";
     cargoLock.lockFile = src + "/plan/Cargo.lock";
 
-    # ⚠ SECOND COPY OF xinutec-infra's flake.nix line, and it has to be: this
+    # SECOND COPY OF xinutec-infra's flake.nix line, and it has to be: this
     # host builds the same source through its own channel nixpkgs, so the test
     # closure is assembled again here. `ps` for cargo_sweep's build probe,
     # rsync for the mirror tests; the sandbox has neither on PATH.

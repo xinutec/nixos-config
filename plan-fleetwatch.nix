@@ -3,12 +3,12 @@
 # A push, not a failing unit: fleetwatch does not collect systemd state, so a unit
 # going red is a red nobody sees.
 #
-# ⚠ A list entry is the WIRING, not the work. `drill` and `deploy` take required
+# A list entry is the WIRING, not the work. `drill` and `deploy` take required
 # arguments, so an entry may be `{ name; args; }`. `backup --simulate` predicts a step
 # per artifact every run — that is what the plan DOES, not drift — so it would report
 # warn for ever (#978, still open). `offsite` runs on the Mac, which has no module.
 #
-# ⚠ The ingest token is PER MACHINE: fleetwatch derives `source` from the bearer
+# The ingest token is PER MACHINE: fleetwatch derives `source` from the bearer
 # token, which is the guarantee the design has. Each host needs its own pair in
 # FLEETWATCH_TOKENS and the token at /var/lib/fleetwatch/token, 0600.
 { config, pkgs, lib, planRun, ... }:
@@ -34,7 +34,7 @@ let
       # runs and still reads the host, which is the part that matters.
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      # ⚠ A UNIT'S `path` IS ITS WHOLE PATH — it does not include
+      # A UNIT'S `path` IS ITS WHOLE PATH — it does not include
       # /run/current-system/sw/bin, so a package being in systemPackages does
       # NOT put it here. iptables is on this list because `plans::firewall`
       # probes by running `iptables -S`, and a plan-run that cannot find it
@@ -47,7 +47,7 @@ let
       # from plan-run.nix's `_module.args` — not the name `plan-run` resolved
       # against whatever generation is current when the timer fires.
       #
-      # ⚠ `rsync` and `openssh` ADDED 2026-08-28, and the paragraph above had
+      # `rsync` and `openssh` ADDED 2026-08-28, and the paragraph above had
       # already predicted the failure — it even names the picade module as where
       # the same symptom was measured on 2026-08-11. `plans::picade` probes by
       # running a dry-run rsync over ssh, so without these two it answers every
@@ -56,16 +56,16 @@ let
       #   unit's PATH            6 ms   "0 picade goals hold, 20 could not be read"
       #   + rsync + openssh   55429 ms   "12 picade goals hold, 8 could not be read"
       #
-      # ⚠ The 6 ms arm is the WORSE failure, because `picade: outcome` reads
+      # The 6 ms arm is the WORSE failure, because `picade: outcome` reads
       # `pass` while the run established nothing — the exact shape of the
       # six-day silence this entry was added to end (#1233), reproduced by the
       # reporting of it. The duration is what gave it away: a real simulate
       # takes 55 s because two cabinets time out.
-      # ⚠ `curl` ADDED for the `frontdoor` plan (#1325): its socket witnesses
+      # `curl` ADDED for the `frontdoor` plan (#1325): its socket witnesses
       # probe `https://<name>/ --resolve` per name, so without curl on the
       # unit's PATH every name answers `Unreadable` — the same shy-host failure
       # the rsync/openssh note above describes, one plan over.
-      # ⚠ `k3s` ADDED for the `images` plan (#1329), and it shipped without this:
+      # `k3s` ADDED for the `images` plan (#1329), and it shipped without this:
       # the probe runs `k3s crictl images -q`, root's login PATH has k3s and this
       # unit's does not, so every hourly run since the plan landed answered
       # `could not start k3s: No such file or directory` — a BLOCKED verdict, red
@@ -87,7 +87,7 @@ let
         # keeps a value with a space intact, where one flat string would be
         # re-split by the shell this ExecStart is.
         #
-        # ⚠ `--arg=VALUE`, with the equals sign, and NOT `--arg VALUE`. The
+        # `--arg=VALUE`, with the equals sign, and NOT `--arg VALUE`. The
         # values here are themselves flags (`--host`, `--prod-host`), and
         # argparse refuses a separate value starting with `-` — it reads it as
         # the next option. Shipped without the `=` first and the unit died on
@@ -144,7 +144,7 @@ in
               `drill` needs `--host` and `--prod-host`; without them it exits 3
               and reports a red every hour for ever.
 
-              ⚠ Not a place for `--apply`. The push script always passes
+              Not a place for `--apply`. The push script always passes
               `--simulate`, and `plan-run` refuses the two together rather than
               resolving them by precedence, so the read-only property is the
               runner's guarantee and not this module's promise.

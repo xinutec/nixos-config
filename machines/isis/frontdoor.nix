@@ -1,12 +1,12 @@
 # The host front door, rendered from the fleet model. Replaces ingress-nginx, which is
 # archived upstream: nginx here terminates TLS and proxies straight to Services (#1294).
 #
-# ⚠ IMPORTING THIS IS THE CUTOVER, and it does not work alone. klipper's svclb holds
+# IMPORTING THIS IS THE CUTOVER, and it does not work alone. klipper's svclb holds
 # :80/:443 by CNI hostport DNAT with no `-d` restriction, so nginx binds both ports and
 # receives NOTHING until the ingress-nginx LoadBalancer Service is deleted in the same
 # change. Getting the order wrong looks like a dead server, not a misconfiguration.
 #
-# ⚠ A GREEN BUILD IS NOT A PASSING `nginx -t` — nothing runs nginx against this config
+# A GREEN BUILD IS NOT A PASSING `nginx -t` — nothing runs nginx against this config
 # until the service starts, and the first attempt took all 15 services down on two
 # errors that both built clean. Before switching, run the built nginx by hand:
 #
@@ -14,10 +14,10 @@
 #     nginx=$(grep -ho '/nix/store/[a-z0-9]*-nginx-[0-9.]*/bin/nginx' result/etc/systemd/system/nginx.service | head -1)
 #     "$nginx" -t -c "$conf"
 #
-# ⚠ ../../frontdoor.json IS A COPY of kubes/dhall/frontdoor.json, because isis builds
+# ../../frontdoor.json IS A COPY of kubes/dhall/frontdoor.json, because isis builds
 # from its own checkout. `plan-run frontdoor-check` is what stops it going stale.
 #
-# ⚠ Upstreams are NAMES resolved per request, which is why every proxy_pass goes
+# Upstreams are NAMES resolved per request, which is why every proxy_pass goes
 # through a variable: nginx resolves a literal upstream once at startup and caches it
 # for ever, so a recreated Service would leave the door pointing at nothing.
 { config, lib, pkgs, ... }:
@@ -38,13 +38,13 @@ let
 
   rulesFor = host: builtins.filter (e: e.host == host) mine;
 
-  # ⚠ VpnOnly if ANY rule is: `server_name` is per host, not per location, so taking
+  # VpnOnly if ANY rule is: `server_name` is per host, not per location, so taking
   # the safer exposure is the only reading that cannot accidentally publish something.
   vpnOnly = host: lib.any (e: e.exposure == "VpnOnly") (rulesFor host);
 
-  # ⚠ THE POINT OF THE MIGRATION: a VpnOnly host listens on the tunnel address and
+  # THE POINT OF THE MIGRATION: a VpnOnly host listens on the tunnel address and
   # NOWHERE ELSE. A DNS record is not a boundary; a socket that never listens is.
-  # ⚠ No IPv6, and `net.nodes.isis.ipv6` is NOT evidence there is any — that field
+  # No IPv6, and `net.nodes.isis.ipv6` is NOT evidence there is any — that field
   # records what OVH allocated, nothing assigns it, and nginx fails the WHOLE config
   # on an address the host does not hold.
   listenFor = host:
@@ -52,7 +52,7 @@ let
     then [ net.nodes.isis.vpn ]
     else [ net.nodes.isis.ipv4 net.nodes.isis.vpn ];
 
-  # ⚠ **ONE VARIABLE NAME, REUSED IN EVERY LOCATION — NOT ONE PER ROUTE.**
+  # ONE VARIABLE NAME, REUSED IN EVERY LOCATION — NOT ONE PER ROUTE.
   # Locations are mutually exclusive within a request, so `$fd_upstream` holds
   # whichever route matched and there is nothing to collide with. Naming them
   # per route instead produced 15 variables with names like
@@ -64,7 +64,7 @@ let
   # Found 2026-09-01 by running `nginx -t` against the GENERATED config. The
   # build does not run it, and this is the second config error in a row that a
   # green `nixos-rebuild build` reported as fine.
-  # ⚠ The leading `$` is PART OF THIS STRING. In a Nix indented string `$${` is
+  # The leading `$` is PART OF THIS STRING. In a Nix indented string `$${` is
   # an escape for a literal `${`, so writing `$${upstreamVar}` emits the text
   # `${upstreamVar}` rather than the variable reference — checked, not assumed.
   upstreamVar = "$fd_upstream";
@@ -90,7 +90,7 @@ let
       ''
       + lib.optionalString ((e.basicAuth or null) != null) ''
         auth_basic "Authentication required";
-        # ⚠ THE FILE MUST EXIST BEFORE CUTOVER. The credentials live as a
+        # THE FILE MUST EXIST BEFORE CUTOVER. The credentials live as a
         # git-crypt'd Kubernetes Secret (${e.basicAuth or ""}) and nothing puts them
         # on the host yet. nginx refuses to start on a missing file, which is
         # the right failure: silently dropping auth would publish the share.
@@ -108,7 +108,7 @@ let
       listenAddresses = listenFor host;
       forceSSL = true;
       useACMEHost = host;
-      # ⚠ HSTS, restored (#1320) — ingress-nginx sent exactly this value on every
+      # HSTS, restored (#1320) — ingress-nginx sent exactly this value on every
       # name it served, and the cutover silently dropped it; measured 2026-09-02.
       # Per SERVER, not at http scope: nginx `add_header` is per-block-OVERRIDE —
       # any block that adds its own headers discards every inherited one, so a
@@ -125,13 +125,13 @@ let
     };
   };
 
-  # ⚠ **DNS-01 FOR EVERY NAME, INCLUDING THE PUBLIC ONES.** VpnOnly names have
+  # DNS-01 FOR EVERY NAME, INCLUDING THE PUBLIC ONES. VpnOnly names have
   # no choice — HTTP-01 cannot reach a name that resolves inside the tunnel. The
   # public ones could use HTTP-01, and deliberately do not: the cutover is
   # precisely the moment :80 changes hands, so depending on :80 to issue the
   # certificates that :443 needs would make renewal fail exactly when it is
   # least recoverable.
-  # ⚠ **`irc-tls` HAS NO OTHER RENEWER, AND THAT WAS SILENT FOR TEN DAYS.**
+  # `irc-tls` HAS NO OTHER RENEWER, AND THAT WAS SILENT FOR TEN DAYS.
   # inspircd does not read `/var/lib/acme`; it mounts the `irc-tls` Kubernetes
   # Secret. Until #1294 a cert-manager Certificate filled that Secret, and the
   # migration removed every Certificate on this cluster — so nothing renewed it
@@ -139,7 +139,7 @@ let
   # The check that should have said so read a WARN, because a probe that cannot
   # ask its question never gets to answer it (fixed, xinutec-infra 18935dc).
   #
-  # **Why `postRun` and not a timer.** A separate sync unit is one more thing
+  # Why `postRun` and not a timer. A separate sync unit is one more thing
   # that can stop quietly, which is the failure being repaired here. `postRun`
   # is `ExecStartPost` of the acme unit itself: it runs as root (systemd `+`
   # prefix), in the certificate's own directory, and ONLY when a renewal
@@ -147,7 +147,7 @@ let
   # copy cannot drift from the renewal: either both happen or the acme unit
   # fails where systemd can see it.
   #
-  # **Why not mount the host certificate directly** and drop the Secret, which
+  # Why not mount the host certificate directly and drop the Secret, which
   # would leave exactly one copy of the key: it needs a per-certificate group
   # (the pod is uid/gid 39, these files are `acme:nginx` 0640, and granting
   # `nginx` would hand the IRC server read access to EVERY certificate here,
@@ -171,7 +171,7 @@ let
     name = host;
     value = {
       dnsProvider = "cloudflare";
-      # ⚠ NOT IN THIS REPOSITORY — nixos-config is public. The token exists as
+      # NOT IN THIS REPOSITORY — nixos-config is public. The token exists as
       # the `cloudflare-api-token` Secret in cert-manager; this wants it as an
       # environment file on the host, and provisioning it is a cutover step.
       environmentFile = "/var/lib/secrets/acme-cloudflare.env";
@@ -182,7 +182,7 @@ let
   };
   publicAddrs = [ net.nodes.isis.ipv4 net.nodes.isis.ipv6 ];
 
-  # ⚠ **THE ONE MISTAKE HERE THAT WOULD BE SILENT.** Every other error in this
+  # THE ONE MISTAKE HERE THAT WOULD BE SILENT. Every other error in this
   # file announces itself: a wrong upstream 502s, a missing htpasswd refuses to
   # start, a bad certificate shows in the browser. A VpnOnly host that also
   # listens on the public address serves perfectly — it is simply reachable by
@@ -203,7 +203,7 @@ assert lib.assertMsg (leaked == [ ])
     recommendedGzipSettings = true;
     recommendedOptimisation = true;
 
-    # ⚠ `valid=5s` MATCHES CoreDNS's TTL rather than overriding it. `ipv6=off`
+    # `valid=5s` MATCHES CoreDNS's TTL rather than overriding it. `ipv6=off`
     # because Services are v4-only here and nginx treats a failed AAAA as a
     # resolution failure.
     appendHttpConfig = ''
@@ -219,7 +219,7 @@ assert lib.assertMsg (leaked == [ ])
     certs = builtins.listToAttrs (map certFor hosts);
   };
 
-  # ⚠ **THE htpasswd FILES ARE PROVISIONED OUT OF BAND, BUT THEIR PERMISSIONS
+  # **THE htpasswd FILES ARE PROVISIONED OUT OF BAND, BUT THEIR PERMISSIONS
   # ARE NOT.** The content comes from git-crypt'd Kubernetes Secrets and cannot
   # live in this repository, so a human or a script puts it here. Ownership is a
   # different question and belongs in the model: `nginx` workers read

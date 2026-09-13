@@ -28,7 +28,7 @@ in
   services.planFleetwatch.plans = [ "firewall" ];
 
   # UEFI, not the BIOS boot base-configuration assumes for the OVH machines.
-  # ⚠ The firmware boots USB before the internal disk and offers no way to say
+  # The firmware boots USB before the internal disk and offers no way to say
   # otherwise — a stick left plugged in reads as "it did not come back up" (#1469).
   boot.loader.grub.enable = lib.mkForce false;
   boot.loader.systemd-boot.enable = true;
@@ -40,11 +40,11 @@ in
 
   # Wifi only, via NetworkManager so the PSK stays out of this public repo. Two
   # profiles: 5 GHz at priority 10, 2.4 GHz behind it.
-  # ⚠ Both must be `wpa-psk`. shu's copied profile said `sae` (WPA3) and the 2.4 GHz
+  # Both must be `wpa-psk`. shu's copied profile said `sae` (WPA3) and the 2.4 GHz
   # AP is WPA2, so association timed out every time.
   networking.networkmanager.enable = true;
 
-  # ⚠ Both NetworkManager and base-configuration define this plainly, so evaluation
+  # Both NetworkManager and base-configuration define this plainly, so evaluation
   # fails outright rather than warning. mkForce settles it.
   networking.useDHCP = lib.mkForce false;
 
@@ -59,10 +59,10 @@ in
   # host has no reason to have.
   virtualisation.oci-containers.containers = lib.mkForce { };
 
-  # ⚠ geb's Intel controller, NOT shu's Realtek: it hears each sensor ONCE and is
+  # geb's Intel controller, NOT shu's Realtek: it hears each sensor ONCE and is
   # then deaf until the duplicate table is flushed. Dropping that flush does not
   # degrade the reading, it silently ENDS it — so model this pusher on geb's.
-  # ⚠ NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX: on shu, two SuperSpeed sticks
+  # NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX: on shu, two SuperSpeed sticks
   # took it from 6 of 7 sensors to 1, and it reads exactly like bad siting.
   # powerOnBoot because a soft-blocked adapter looks like sensors out of range.
   hardware.bluetooth = {

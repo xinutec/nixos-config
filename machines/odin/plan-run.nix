@@ -12,7 +12,7 @@ let
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    # ⚠ The pin may LEAD plan-settings.nix but must never LAG it: `deny_unknown_fields`
+    # The pin may LEAD plan-settings.nix but must never LAG it: `deny_unknown_fields`
     # makes a binary older than its settings refuse to start. New capability here first.
     rev = "08e7da0408982974f2f6408732602d2992ede51f";
   };

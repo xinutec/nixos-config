@@ -2,7 +2,7 @@
 # `From::Isis` and `Root::BackupStaging`; this says where those are, so the plan stays
 # pure. See xinutec-infra/plan/runner/src/settings.rs.
 #
-# ⚠ NO CHECK IDS HERE, ONLY PATHS TO THEM: a healthchecks id is a bearer capability
+# NO CHECK IDS HERE, ONLY PATHS TO THEM: a healthchecks id is a bearer capability
 # and THIS REPO IS PUBLIC. `monitor.check_files` names them by path, decrypted by
 # agenix and read at ping time. An empty `checks` is not a permissive default —
 # `Monitor::url_for` refuses a name it holds neither way, and one held both ways.
@@ -29,7 +29,7 @@ let
       # plan names the wrong `rel`". Here that is a dedicated scratch directory
       # and nothing else.
       #
-      # ⚠ It is NOT the drill directory. That version was written and dev-lint
+      # It is NOT the drill directory. That version was written and dev-lint
       # refused it (`nix-root-exec-mutable-etc`), correctly: it would have put the
       # scripts that perform the deletion inside the blast radius of the root
       # authorising it, and the waiver `drill.dir` carries is for exercising the
@@ -60,7 +60,7 @@ let
         # this removes it, because whenever the backup finishes, the check
         # proceeds.
         #
-        # ⚠ Two hours is a CEILING ON WAITING, not a target, and the runner adds
+        # Two hours is a CEILING ON WAITING, not a target, and the runner adds
         # it to the effect's own timeout rather than spending it out of it. Were
         # it spent, a long wait plus a half-hour check would be killed at two
         # hours — and a timeout does not name its cause, where `repository is

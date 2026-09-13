@@ -34,7 +34,7 @@ in
   services.planFleetwatch.plans = [ "firewall" ];
 
   # UEFI, not the BIOS boot base-configuration assumes for the OVH machines.
-  # ⚠ CSM could not be disabled outright — the boot-option filter set to "UEFI only"
+  # CSM could not be disabled outright — the boot-option filter set to "UEFI only"
   # is what settles it. On any reinstall, check /sys/firmware/efi rather than the menu.
   boot.loader.grub.enable = lib.mkForce false;
   boot.loader.systemd-boot.enable = true;
@@ -46,12 +46,12 @@ in
 
   # Wifi only, via NetworkManager so the PSK stays out of this public repo. 5 GHz
   # preferred with 2.4 GHz behind it, because this box is a floor up and headless.
-  # ⚠ Both must be `wpa-psk`. The 2.4 GHz profile said `sae` (WPA3) against a WPA2 AP
+  # Both must be `wpa-psk`. The 2.4 GHz profile said `sae` (WPA3) against a WPA2 AP
   # for two days and could never have associated — and nmcli blames a missing network
   # while the journal says "association took too long". Trust the journal.
   networking.networkmanager.enable = true;
 
-  # ⚠ Both NetworkManager and base-configuration define this plainly, so evaluation
+  # Both NetworkManager and base-configuration define this plainly, so evaluation
   # fails outright rather than warning. mkForce settles it.
   networking.useDHCP = lib.mkForce false;
 
@@ -66,9 +66,9 @@ in
   # host has no reason to have.
   virtualisation.oci-containers.containers = lib.mkForce { };
 
-  # ⚠ Realtek, NOT geb's Intel: this controller does not filter duplicates, so shu
+  # Realtek, NOT geb's Intel: this controller does not filter duplicates, so shu
   # needs no flush and must not inherit geb's rounds by copy-paste.
-  # ⚠ NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX: two SuperSpeed sticks took it
+  # NOTHING WITH A USB 3 LINK MAY LIVE IN THIS BOX: two SuperSpeed sticks took it
   # from 6 of 7 sensors to 1, and it reads exactly like bad siting.
   # powerOnBoot because a soft-blocked adapter looks like sensors out of range.
   hardware.bluetooth = {
@@ -76,7 +76,7 @@ in
     powerOnBoot = true;
   };
 
-  # ⚠ shu is in home_receivers.py's RECEIVERS, so its silence IS a fault — correct and
+  # shu is in home_receivers.py's RECEIVERS, so its silence IS a fault — correct and
   # deliberate. A rebuild turns that row red, which is a true statement about the house.
   age.secrets."home-ingest-token" = {
     file = ../../agenix/home-ingest-token.age;
@@ -110,7 +110,7 @@ in
   # A second pusher for the IQAir Pro, so one Mac reboot is not an outage (#1409).
   # The Pro is on the home LAN and unreachable from isis, hence pushed not pulled.
   #
-  # ⚠ Two pushers are free HERE and would not be for Govee: an AirVisual reading is
+  # Two pushers are free HERE and would not be for Govee: an AirVisual reading is
   # the device's own measurement with its own timestamp, so both produce the same row
   # and `INSERT IGNORE` on (device, ts) keeps one. A Govee reading is a receiver's
   # capture and each ear's row is distinct.
