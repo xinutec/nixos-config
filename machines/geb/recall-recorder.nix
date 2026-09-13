@@ -83,7 +83,11 @@ in
     path = [ pkgs.ffmpeg ];
     serviceConfig = hardening // {
       User = "recall-recorder";
-      ExecStart = "${audiod}/bin/audiod capture --root ${root} --id geb --device ${micDevice} --producer alsa";
+      # ⚠ `--url` is for the HEARTBEAT, not for audio — that goes by upload.
+      # Without it geb reports nothing about itself and the devices list infers
+      # liveness from segments arriving, which cannot tell a paused recorder
+      # from one whose microphone is dead.
+      ExecStart = "${audiod}/bin/audiod capture --root ${root} --id geb --device ${micDevice} --producer alsa --url ${isisControl}";
       Restart = "always";
       RestartSec = "5s";
       # A recorder outranks whatever else the box does (recall #1330's lesson).
