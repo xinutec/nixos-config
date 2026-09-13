@@ -104,10 +104,31 @@ in  { name = "nixos-config"
               [ "mypy"
               , "--strict"
               , "machines/amun/vpn-nodes-push.py"
+              , "scripts/firewall_order.py"
               , "machines/odin/backup_preview.py"
               , "plan-fleetwatch-push.py"
               ]
         , timeout_s = 600
+        }
+      , {-  The one-way chain's ORDER, which nothing else could see.
+
+            `base-configuration.nix` renders the chain as shell, so its two
+            load-bearing orderings were held up by comments: ESTABLISHED before
+            the DROP (or the chain eats the replies to our own traffic and kills
+            the tunnel in the legitimate direction — the Mac shipped exactly that
+            on 2026-06-10), and ICMPv6 before the v6 DROP (a neighbour
+            advertisement carries the sender's GLOBAL address, so fe80::/10 does
+            not cover it, and losing Packet Too Big makes transfers HANG).
+
+            Evaluation only, like the row above, so it runs on the Mac. Proved by
+            ablation rather than assumed: moving the ESTABLISHED accept below the
+            DROP in base-configuration.nix makes this report geb, naming the line
+            numbers.
+        -}
+        G.Check::{
+        , name = "the one-way firewall chain holds its order"
+        , argv = inNixShell [ "python3", "scripts/firewall_order.py" ]
+        , timeout_s = 1800
         }
       , G.Check::{
         , name = "pytest (operational Python)"
@@ -118,6 +139,7 @@ in  { name = "nixos-config"
               , "pytest"
               , "-q"
               , "machines"
+              , "scripts/test_firewall_order.py"
               , "test_plan_fleetwatch_push.py"
               ]
         , timeout_s = 600

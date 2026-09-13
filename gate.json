@@ -62,6 +62,7 @@
         "mypy",
         "--strict",
         "machines/amun/vpn-nodes-push.py",
+        "scripts/firewall_order.py",
         "machines/odin/backup_preview.py",
         "plan-fleetwatch-push.py"
       ],
@@ -78,11 +79,28 @@
         "path:./nix",
         "--no-warn-dirty",
         "--command",
+        "python3",
+        "scripts/firewall_order.py"
+      ],
+      "artifacts": [],
+      "cwd": ".",
+      "env": {},
+      "name": "the one-way firewall chain holds its order",
+      "timeout_s": 1800
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "path:./nix",
+        "--no-warn-dirty",
+        "--command",
         "python",
         "-m",
         "pytest",
         "-q",
         "machines",
+        "scripts/test_firewall_order.py",
         "test_plan_fleetwatch_push.py"
       ],
       "artifacts": [],

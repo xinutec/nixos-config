@@ -140,15 +140,12 @@ let
   '';
 
   oneWayRules6 = ''
-    # ⚠ Created on every host so `ip6tables -S` ANSWERS everywhere; a chain in one
-    # table and not the other makes the whole firewall fact unreadable.
+    # ⚠ Created on every host. Asserted by scripts/firewall_order.py.
   '' + oneWayTeardown6 + ''
     ip6tables -w -N ${oneWayChain}
   '' + lib.optionalString selfOneWay (''
     ip6tables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-    # ⚠ ICMPv6 BEFORE the DROP, or IPv6 stops working: a neighbour advertisement
-    # carries the sender's GLOBAL address so fe80::/10 below does not cover it,
-    # and losing Packet Too Big makes large transfers HANG rather than fail.
+    # ⚠ Before the DROP. Order asserted by scripts/firewall_order.py.
     ip6tables -w -A ${oneWayChain} -p ipv6-icmp -j ACCEPT
     # Link-local: router advertisements, DHCPv6, mDNS.
     ip6tables -w -A ${oneWayChain} -s fe80::/10 -j ACCEPT
@@ -163,8 +160,7 @@ let
   '' + oneWayTeardown + ''
     iptables -w -N ${oneWayChain}
   '' + lib.optionalString selfOneWay (''
-    # ⚠ ESTABLISHED FIRST, or this drops the replies to our own outbound traffic
-    # and kills the VPN in the legitimate direction too. Do not reorder.
+    # ⚠ First. Order asserted by scripts/firewall_order.py.
     iptables -w -A ${oneWayChain} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   '' + lib.concatMapStrings (peer: ''
     # ${peer} may initiate toward this host.
