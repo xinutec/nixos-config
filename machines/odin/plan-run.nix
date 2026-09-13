@@ -30,8 +30,7 @@ let
     # the same source through its own channel nixpkgs.
     nativeCheckInputs = [ pkgs.rsync pkgs.procps ];
 
-    # ⚠ Keep TRUE. While false, the machine that runs the backups installed a plan-run
-    # that had run zero tests.
+    # Held true by dev-lint's nix-rust-package-docheck-false.
     doCheck = true;
   };
 in

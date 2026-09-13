@@ -38,40 +38,18 @@ let
   # GC root this module points at. To bump:
   #   sudo nix --extra-experimental-features 'nix-command flakes' \
   #     build github:xinutec/recall/<rev>#audiod --out-link /opt/audiod
-  # (First pinned at recall a647025, 2026-09-05 — the rev that carries the
-  # ALSA producer and the pause mirror. It was c05a380f until recall's history
-  # was rewritten that evening to drop 462 MB of committed cargo build output;
-  # the pre-rewrite SHA no longer resolves. Declarative flake eval is the
-  # tidy-up, not tonight's blocker.)
+  # ⚠ Read the symlink for the live revision; it is `2adcafa` as of 2026-09-13.
+  # The pin moves out of band, so this line cannot fail when they disagree.
   audiod = "/opt/audiod";
 
   # By CARD NAME, not index — the mic changed indexes across a reboot and an
   # index recorded -inf from an empty jack while looking healthy (see
   # recall-mic.nix, which learnt this first).
   #
-  # ⚠ **`N32` WAS A CONFERENCE SPEAKERPHONE AND IS GONE (#1526).** A NewPie 32
-  # (USB 2757:4010) held this slot until 2026-09-13. It did not merely sound
-  # poor: its firmware ran AEC and noise suppression that could not be turned
-  # off from any host, on any OS or transport, and it GATED TO DIGITAL ZERO
-  # between words. Measured in an empty room at full gain: 93.59% of samples
-  # were exactly 0. That is unusable for an archive — and worse than unusable
-  # for the room stream, because a gated source reads as QUIET and therefore
-  # WINS a level-based rank.
-  #
-  # The replacement is a MUSIC-BOOST USB Microphone (USB 1b3f:0004), a plain
-  # USB-audio-class capsule: one capture endpoint, S16_LE mono, 44100/48000.
-  # Its only processing is host-controllable — `Mic Capture Volume` (0-30,
-  # -12..+33 dB) and an `Auto Gain Control` switch that is OFF. Same
-  # measurement, 15 s of room tone, 2026-09-13:
-  #
-  #     exact-zero samples   0.02%   (NewPie: 93.59%)
-  #     longest zero run     0.7 ms  (a noise floor crossing zero, not a gate)
-  #     noise floor          -45.3 dBFS RMS, continuous
-  #
-  # ⚠ If this card is ever swapped again, RE-RUN THAT MEASUREMENT before
-  # trusting it. A gating microphone looks healthy by every other signal: the
-  # device enumerates, ffmpeg opens it, segments arrive, and the levels look
-  # flatteringly low.
+  # ⚠ On any mic swap, measure the exact-zero sample fraction before trusting it.
+  # A gating microphone passes every other check: it enumerates, ffmpeg opens it,
+  # segments arrive, and the levels look flatteringly low. The last one gated to
+  # digital zero between words (#1526).
   micDevice = "hw:CARD=Microphone,DEV=0";
 
   root = "/var/lib/recall";
