@@ -60,8 +60,7 @@
       intermittent = true; # laptop — powered off when not in use
     };
 
-    # Windows desktop PC. Retired 2026-06-21 (be31bb0), back 2026-09-13.
-    # NOT its old .6 — that has been shu's since 2026-09-04.
+    # Windows desktop PC.
     horus = {
       name = "horus";
       vpn = "10.100.0.16";
@@ -74,7 +73,7 @@
       name = "bes";
       vpn = "10.100.0.9";
       publicKey = "2DCtNHc987vQ4Kxnt1fSpC6+NMlj4R7UTl1tp8tZtQQ=";
-      intermittent = true; # general-purpose Pi again — powered on when it's wanted
+      intermittent = true; # general-purpose Pi — powered on when it's wanted
     };
 
     # Android phones. These are always-on: a gap is a fault to act on, not a
@@ -92,8 +91,7 @@
       # Exception: its gaps are flights and the metro, which are not actionable.
       intermittent = true;
     };
-    # OnePlus 6T, a recall recorder. Re-keyed 2026-09-08 — the LineageOS wipe
-    # destroyed the old private key, which existed nowhere else.
+    # OnePlus 6T, a recall recorder.
     oneplus6t = {
       name = "oneplus6t";
       vpn = "10.100.0.8";
@@ -167,8 +165,8 @@
       name = "dasha";
       vpn = "10.100.0.14";
       publicKey = "FyeFKOIM9xGZbUcjcTLpsI/zL7r5aoj4MIsPkb164To=";
-      # Has barely connected since 2026-08-18. Always-on would be a permanent
-      # red nobody can act on — retire it or fix it, do not let it alert.
+      # Barely connects. Always-on would be a permanent red nobody can act on —
+      # retire it or fix it, do not let it alert.
       intermittent = true;
     };
 

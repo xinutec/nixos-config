@@ -19,11 +19,10 @@ in {
   # no effects, deliberately.
   #
   # `integrity` is here because the weekly check's only other signal is a
-  # dead-man's switch: on 2026-08-16 it died on restic's lock and nobody knew
-  # for a week. The switch answers that now, but it answers LATE and only ever
-  # about the last run. This reads the stamp hourly, so the age of the last
-  # verification is a number somebody can look at rather than an alarm somebody
-  # waits for. It costs 12 ms — two stamp reads, no restic, no ssh.
+  # dead-man's switch, which answers LATE and only ever about the last run. This
+  # reads the stamp hourly, so the age of the last verification is a number
+  # somebody can look at rather than an alarm somebody waits for. It costs two
+  # stamp reads — no restic, no ssh.
   #
   # `drill` needs its two hosts named, which is why it is a record and not a
   # bare string: the plan was written to be driven from the Mac, so every effect

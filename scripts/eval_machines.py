@@ -28,7 +28,7 @@ happens to have.
 
 Every machine is evaluated even after one fails, and the failures are named at
 the end: a gate that stops at the first reports one machine when three are
-broken. Was the `for machine in machines/*/` loop in scripts/verify.sh.
+broken.
 """
 
 from __future__ import annotations

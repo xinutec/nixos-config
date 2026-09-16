@@ -39,7 +39,7 @@ in
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Installed on 26.05, 2026-08-10. The fleet-wide 21.11 in base-configuration
+  # Installed on 26.05. The fleet-wide 21.11 in base-configuration
   # is amun's install version; stateVersion is not "which NixOS is this", it
   # pins the stateful defaults a machine was BUILT with, and claiming 21.11 on
   # a disk formatted in 2026 asserts a migration history it does not have.
@@ -87,10 +87,9 @@ in
     powerOnBoot = true;
   };
 
-  # The house's third Govee receiver, after the Mac and the pixel5 phone. It is
-  # the only one of the three that is always on, on mains, and doing nothing
-  # else — which is the point: measured 2026-08-09 the Mac hears nothing from
-  # the up-floor sensors, so the phone was the sole receiver for three rooms.
+  # A Govee receiver, and the one that is always on, on mains, and doing nothing
+  # else — which is the point: the Mac hears nothing from the up-floor sensors,
+  # so without a fixed receiver up there a phone is the sole ear for three rooms.
   #
   # Ingest token, decrypted at activation with geb's own host key. The pusher
   # reads this exact path; there is no fallback, because a receiver that quietly

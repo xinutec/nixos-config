@@ -1,9 +1,7 @@
 # fleetwatch picade internal-health producer, on isis.
 #
-# MOVED FROM AMUN 2026-08-11, with the rest of the picade fleet. amun cannot
-# build plan-run (rustc 1.86 against the 1.88 let-chains need) and is held on
-# 25.05 until it is reinstalled, so the fleet moved to isis instead of waiting —
-# which is also the reinstall plan's direction. vpn-nodes.nix stayed behind
+# On isis and not amun because amun cannot build plan-run (rustc 1.86 against the
+# 1.88 let-chains need) while it is held on 25.05. vpn-nodes.nix stays on amun
 # deliberately: it reads `wg show` on the WireGuard HUB, which only amun is.
 #
 # Sibling to that module. It reports whether each picade is *reachable* over
@@ -20,23 +18,16 @@
 # at runtime, so we invoke it with a plain python3 plus ssh/rsync on PATH rather
 # than its nix-shell wrapper (which would need to evaluate on every timer tick).
 # HOME=/root so ssh finds root's keys/known_hosts — root@isis reaches every
-# cabinet over WG with the shared fleet key (verified 2026-08-11 against
-# picade0-2, the three that are up), which is what `picade health` relies on.
+# cabinet over WG with the shared fleet key, which is what `picade health` relies
+# on.
 #
-# INGEST TOKEN: THIS IS THE ONE THING THE MOVE COULD NOT CARRY.
-# fleetwatch derives `source` from the token, so a producer can only ever write
-# as its mapped source — that is the whole guarantee the token design has. On
-# amun this reused the existing /var/lib/fleetwatch/token and wrote as
-# `amun/picade-health`; isis has no such token, and reusing amun's would make
-# isis write as amun, which is a lie the design exists to prevent.
-#
-# So isis needs its own `isis:<token>` pair in FLEETWATCH_TOKENS, and the source
-# becomes `isis/picade-health`. Historical `amun/picade-health` data keeps the
-# old name and stops being added to; nothing rewrites it.
-#
-# Until /var/lib/fleetwatch/token exists here the run fails visibly in the
-# journal and fleetwatch simply shows no picade-health data yet — which is the
-# honest state while the token is being minted, not a silent gap.
+# INGEST TOKEN, AND IT IS PER HOST. fleetwatch derives `source` from the token, so
+# a producer can only ever write as its mapped source — that is the whole
+# guarantee the design has, and borrowing another host's token spends it. isis
+# needs its own `isis:<token>` pair in FLEETWATCH_TOKENS at
+# /var/lib/fleetwatch/token; until that file exists the run fails visibly in the
+# journal and fleetwatch shows no picade-health data, which is the honest state
+# rather than a silent gap.
 { config, pkgs, lib, planRun, ... }:
 
 let
@@ -56,11 +47,8 @@ in
     #
     # A UNIT'S `path` IS ITS WHOLE PATH. It does NOT include
     # /run/current-system/sw/bin, so a package being in systemPackages does not
-    # put it here. Measured 2026-08-11, an hour after health started reading
-    # the plan: this list held only openssh and rsync, the run finished in 8s
-    # instead of 62s, and the push went out with six drift checks warning that
-    # no reading arrived. The tool was installed on the machine and invisible to
-    # the unit that needs it.
+    # put it here — a tool installed on the machine is invisible to this unit,
+    # and the run finishes fast with every check reporting no reading.
     #
     # `planRun` is the DERIVATION this generation was built and tested with,
     # from plan-run.nix's `_module.args`, not the name `plan-run` resolved

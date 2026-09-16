@@ -38,8 +38,7 @@ let
     value = {
       user = "root";
       # root@isis already reaches every cabinet over WireGuard with the shared
-      # fleet key — verified 2026-08-11 against picade0-2, the three that are
-      # up. This is the same path `picade health` uses by hand.
+      # fleet key — the same path `picade health` uses by hand.
       address = "${name}.vpn";
     };
   };
@@ -67,7 +66,7 @@ let
     # runner resolves each name's model cluster through this map, which is why
     # both clusters are here even though the plan runs on isis. Addresses from
     # network.nix. amun is included so isis probes amun.xinutec.org and the apex
-    # at amun's public IP — the gap the 2026-09-01 fake-cert outage lived in.
+    # at amun's public IP, which nothing else covers.
     frontdoor = {
       table = "/etc/plan/frontdoor.json";
       clusters = {

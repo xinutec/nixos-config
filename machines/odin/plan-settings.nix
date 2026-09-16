@@ -29,12 +29,11 @@ let
       # plan names the wrong `rel`". Here that is a dedicated scratch directory
       # and nothing else.
       #
-      # It is NOT the drill directory. That version was written and dev-lint
-      # refused it (`nix-root-exec-mutable-etc`), correctly: it would have put the
-      # scripts that perform the deletion inside the blast radius of the root
-      # authorising it, and the waiver `drill.dir` carries is for exercising the
-      # CURRENT scripts — a claim data does not have. The scratch moved to
-      # /var/lib/drill instead (2aa6ebc), verified by a full drill run.
+      # NOT the drill directory, and dev-lint refuses that
+      # (`nix-root-exec-mutable-etc`) correctly: it would put the scripts that
+      # perform the deletion inside the blast radius of the root authorising it.
+      # The waiver `drill.dir` carries is for exercising the CURRENT scripts — a
+      # claim data does not have.
       #
       # Pairs with `rel = "volumes"`: ClearUnder refuses a `rel` naming the root,
       # since emptying the root is the one deletion a declared root would
@@ -54,11 +53,10 @@ let
         path = "/backup/restic";
         password_file = "/run/agenix/restic-password";
         # Wait for the lock rather than dying on it. restic's lock is EXCLUSIVE
-        # and this repository has a second writer — the nightly backup — which
-        # on 2026-08-16 was still holding it when the check started, so that
-        # week's verification never ran. A stagger only moves the collision;
-        # this removes it, because whenever the backup finishes, the check
-        # proceeds.
+        # and this repository has a second writer, the nightly backup; a check
+        # that starts while it runs would simply not verify that week. A stagger
+        # only moves the collision, where this removes it — whenever the backup
+        # finishes, the check proceeds.
         #
         # Two hours is a CEILING ON WAITING, not a target, and the runner adds
         # it to the effect's own timeout rather than spending it out of it. Were

@@ -14,8 +14,8 @@ let
     sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
   };
 
-  # A one-way node defends ITSELF. This was inverted until 2026-09-04, so the
-  # machines the threat model distrusts were the ones enforcing it.
+  # A one-way node defends ITSELF — never the machines the threat model
+  # distrusts, which is the wrong end to enforce from.
   selfOneWay = config.node.oneWay or false;
 
   # Created on EVERY host, jumped to only where `selfOneWay`: `iptables -S` on a
@@ -307,10 +307,10 @@ in {
   age.secrets."wireguard-${config.node.name}".file =
     ./agenix/wireguard-${config.node.name}.age;
 
-  # agenix WRITES AT ACTIVATION AND NEVER DELETES. The retired root-ssh-* entries
-  # left their files on disk, and a host RESTORED FROM AN OLDER BACKUP brings them
-  # back — both names are on OpenSSH's default identity list, so they would silently
-  # resume carrying root logins. fleet_health.py asserts their absence. See #1049.
+  # agenix WRITES AT ACTIVATION AND NEVER DELETES, so the retired root-ssh-* files
+  # stay on disk and a host RESTORED FROM AN OLDER BACKUP brings them back — both
+  # names are on OpenSSH's default identity list, so they would silently resume
+  # carrying root logins. fleet_health.py asserts their absence. See #1049.
 
   # The fleet's inter-host root key. `id_fleet`, deliberately NOT `id_ed25519` or
   # `id_rsa`: those are OpenSSH's default identity list and would be offered to

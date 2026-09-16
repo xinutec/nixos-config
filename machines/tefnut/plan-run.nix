@@ -5,20 +5,18 @@
 # unchanged. To bump: change `rev`, run xinutec-infra's `scripts/plan-pin.sh`,
 # rebuild.
 #
-# ┌─ WHY A HOME BOX RUNS THE RECONCILER AT ALL ────────────────────────────────┐
-# │ Added 2026-09-07 with tefnut itself (#1469), and for the reason #1403      │
-# │ established: the block that keeps the VPN out of the house lives on the    │
-# │ protected host's own INPUT chain. A one-way host without this runs that    │
-# │ control with NOTHING checking it — which is what tefnut did from its       │
-# │ install until now, and is the shape project_checks_go_quiet_not_red        │
-# │ exists for. Adding a one-way host means adding its judge in the same       │
-# │ breath, or the security model is asserted rather than verified.            │
-# │                                                                            │
-# │ THE POINT IS THE `firewall` PLAN AND NOTHING ELSE. This host is not a    │
-# │ Kubernetes node, has no backups of its own to drive and no cabinets to     │
-# │ push; adding plans here because they exist would be adding rows that       │
-# │ cannot be answered.                                                        │
-# └────────────────────────────────────────────────────────────────────────────┘
+# ┌─ WHY A HOME BOX RUNS THE RECONCILER AT ALL ──────────────────────────────────┐
+# │ The block that keeps the VPN out of the house lives on the protected host's  │
+# │ own INPUT chain (#1403), not on the servers. A one-way host without plan-run │
+# │ runs that control with NOTHING checking it, which is the shape               │
+# │ project_checks_go_quiet_not_red exists for — so adding a one-way host means  │
+# │ adding its judge in the same breath.                                         │
+# │                                                                              │
+# │ THE POINT IS THE `firewall` PLAN AND NOTHING ELSE. This host is not a        │
+# │ Kubernetes node, has no backups of its own to drive and no cabinets to       │
+# │ push; adding plans here because they exist would be adding rows that         │
+# │ cannot be answered.                                                          │
+# └──────────────────────────────────────────────────────────────────────────────┘
 
 { pkgs, ... }:
 
@@ -31,25 +29,15 @@ let
   #
   # A MISSING KEY FAILS LATE, NOT NOW. fetchGit only reaches the network for a
   # rev the store does not already hold, so every rebuild that KEEPS the pin
-  # succeeds and the first BUMP is what fails. Found on odin 2026-08-24.
+  # succeeds and the first BUMP is what fails.
   src = builtins.fetchGit {
     url = "git@github.com:xinutec/xinutec-infra.git";
     ref = "main";
-    # fbc135a — the judge gains ADDRESS FAMILIES. A runner older than this reads
-    # `ip6tables` never, and reads the v6 rules in declared-firewall.json as
-    # though they were IPv4 — measured on geb and shu 2026-09-05: nine declared
-    # against four owned, and the plan blocked. The declaration and the runner
-    # that understands it have to move together.
-    #
-    # BUMPED 2026-09-10 TO CARRY AN ETXTBSY FIX, and that is the reason rather
-    # than the features. This host builds plan-run with `doCheck`, so its rebuild
-    # runs the runner's test suite -- and `cargo_sweep`'s fixture raced itself:
-    # Linux refuses to exec a file open for writing anywhere, and a test forking
-    # while another had just written its fake `cargo` inherited the write
-    # descriptor. It FAILED an odin deploy that day, on a commit with nothing to
-    # do with cargo-sweep, reading exactly like "your change broke the tests"
-    # (#1508). Every host on the older pins carries that landmine into its next
-    # rebuild.
+    # FLOOR, NOT JUST A VERSION — never pin backwards. A runner older than
+    # fbc135a reads the v6 rules in declared-firewall.json as though they were
+    # IPv4 and blocks the plan; the declaration and the runner that understands
+    # it move together. Older still carries a `cargo_sweep` test race (#1508)
+    # that fails a `doCheck` rebuild on a commit with nothing to do with it.
     rev = "08e7da0408982974f2f6408732602d2992ede51f";
   };
 

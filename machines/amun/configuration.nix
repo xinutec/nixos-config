@@ -26,10 +26,8 @@ in {
     sqlite
   ];
 
-  # No machine-specific PUBLIC ports. Verified against live `ss` (2026-07):
-  #   2223 (toktok container SSH) → VPN-only; still binds 0.0.0.0 but the
-  #         firewall now blocks it publicly, reachable over WireGuard (trusted).
-  #   28192, 33445 → nothing was listening on either; dead leftover rules.
+  # No machine-specific PUBLIC ports. The toktok container's SSH still binds
+  # 0.0.0.0:2223, and the firewall is what keeps it to WireGuard.
   networking.firewall.allowedTCPPorts = [ ];
 
   # List services that you want to enable:

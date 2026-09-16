@@ -35,8 +35,8 @@ let
   };
 in
 {
-  # Must be in the closure: plan-run previously existed here only as hand-copied store
-  # paths with no GC root, and nix-collect-garbage had already eaten one.
+  # Must be in the closure, or nix-collect-garbage eats it: a store path with no GC
+  # root is not installed, however present it looks.
   environment.systemPackages = [ plan-run ];
 
   # So backups.nix names this derivation rather than a PATH lookup — the store path

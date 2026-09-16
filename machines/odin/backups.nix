@@ -46,10 +46,9 @@
     shell = "${pkgs.bash}/bin/bash";
     openssh.authorizedKeys.keys = [
       # `-wo`: write-only, so a compromised Mac can add to the archive but not read it.
-      # Deletions PROPAGATE (append-only was dropped 2026-08-14), so restic is the
-      # only history. Retention is FOUR lines — the keep-yearly below outlives the
-      # monthly ladder — and bounds how long a snapshot lives, not how far back one
-      # exists: the oldest holding transcripts is 2026-07-31, when this job began.
+      # Deletions PROPAGATE, so restic is the only history. Retention is FOUR lines
+      # — the keep-yearly below outlives the monthly ladder — and bounds how long a
+      # snapshot lives, not how far back one exists.
       # rsync not SFTP because projects/ is append-mostly JSONL, the largest ~480 MB.
       ''command="${pkgs.rrsync}/bin/rrsync -wo /var/backup-staging/mac",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFZb+BRn1YUxmseeNCEU+cD9CzvOGdgcZmk4zqYwTb7i mac-mini-claude-archive''
     ];
@@ -84,10 +83,9 @@
     initialize   = true;
     passwordFile = config.age.secrets."restic-password".path;
 
-    # Until 2026-08-12 this was `/var/backup-staging` alone, so the one host with no
-    # copy anywhere was the one holding everyone else's. /root, /home and
-    # /var/lib/private are odin's only state not in git. Docker, the Alloy WAL, /etc
-    # and the store are excluded deliberately.
+    # /root, /home and /var/lib/private are odin's only state not in git, and are
+    # here because the host holding everyone else's copy must have one too. Docker,
+    # the Alloy WAL, /etc and the store are excluded deliberately.
     # /backup is on the SAME filesystem as /, so `--one-file-system` does not fence
     # the repo out. NEVER add a path containing /backup/restic.
     paths = [
@@ -124,8 +122,8 @@
     # observe is the default and a missing flag would stage nothing and report success.
     #
     # A FAILED STAGE MUST NOT COST THE WHOLE FLEET ITS BACKUP. As a bare command it
-    # exited ExecStartPre and restic never ran, producing no snapshot of anything
-    # (2026-08-12). So the failure is recorded, the run continues, and ExecStartPost
+    # would exit ExecStartPre and restic would never run, leaving no snapshot of
+    # anything. So the failure is recorded, the run continues, and ExecStartPost
     # fails the unit instead.
     # The missing artifact is then STALE, not absent — the staging tree is kept, so
     # restic backs up the previous copy. Read the journal for `[plan] blocked:` before

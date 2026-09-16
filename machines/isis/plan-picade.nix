@@ -22,8 +22,7 @@
 
     # rsync and ssh are what the effects actually run; plan-run itself decides
     # nothing about the world it cannot read. A unit's `path` IS its whole PATH
-    # — /run/current-system/sw/bin is NOT on it — which picade-health.nix
-    # learned the expensive way on 2026-08-11.
+    # — /run/current-system/sw/bin is NOT on it. See picade-health.nix.
     path = [ pkgs.openssh pkgs.rsync ];
     environment.HOME = "/root";
 

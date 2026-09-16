@@ -1,12 +1,5 @@
-# grafana-alloy.nix — declarative config for Grafana Alloy via
-# services.alloy. Replaces grafana-agent.nix and the docker
-# `grafana` container in base-configuration.nix.
-#
-# Why: grafana-agent (static mode) was deprecated and reached EOL on
-# 2025-11-01. Alloy is the supported successor. Migration was done
-# by running `alloy convert --source-format=static` on the existing
-# grafana-agent.yaml and cleaning up the result for native (non-
-# docker) execution.
+# grafana-alloy.nix — declarative config for Grafana Alloy via services.alloy,
+# run natively rather than in docker.
 #
 # The Mimir password is an agenix secret (agenix/grafana-agent-password.age),
 # decrypted at activation to /run/agenix/grafana-agent-password. The

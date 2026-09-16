@@ -36,42 +36,16 @@ let
       wants = [ "network-online.target" ];
       # A UNIT'S `path` IS ITS WHOLE PATH — it does not include
       # /run/current-system/sw/bin, so a package being in systemPackages does
-      # NOT put it here. iptables is on this list because `plans::firewall`
-      # probes by running `iptables -S`, and a plan-run that cannot find it
-      # reports the chain as unreadable rather than failing loudly: the run
-      # would push "2 could not be read" forever and look like a shy host
-      # instead of a broken unit. (Measured on isis 2026-08-11 in the picade
-      # module, for the same reason and with the same symptom.)
+      # NOT put it here. EVERY ENTRY IS A TOOL SOME PLAN'S PROBE EXECUTES, and
+      # a missing one does not fail loudly — the probe answers `Unreadable` and
+      # the host pushes a verdict that established nothing, which reads as a shy
+      # host rather than a broken unit. iptables for `plans::firewall`, rsync and
+      # openssh for `plans::picade`, curl for `frontdoor`'s socket witnesses, k3s
+      # for `images`. A new plan means asking what its probes RUN.
       #
       # `planRun` is the DERIVATION this generation was built and tested with,
       # from plan-run.nix's `_module.args` — not the name `plan-run` resolved
       # against whatever generation is current when the timer fires.
-      #
-      # `rsync` and `openssh` ADDED 2026-08-28, and the paragraph above had
-      # already predicted the failure — it even names the picade module as where
-      # the same symptom was measured on 2026-08-11. `plans::picade` probes by
-      # running a dry-run rsync over ssh, so without these two it answers every
-      # cabinet `Unreadable`. Ablated on isis the day `picade` joined this list:
-      #
-      #   unit's PATH            6 ms   "0 picade goals hold, 20 could not be read"
-      #   + rsync + openssh   55429 ms   "12 picade goals hold, 8 could not be read"
-      #
-      # The 6 ms arm is the WORSE failure, because `picade: outcome` reads
-      # `pass` while the run established nothing — the exact shape of the
-      # six-day silence this entry was added to end (#1233), reproduced by the
-      # reporting of it. The duration is what gave it away: a real simulate
-      # takes 55 s because two cabinets time out.
-      # `curl` ADDED for the `frontdoor` plan (#1325): its socket witnesses
-      # probe `https://<name>/ --resolve` per name, so without curl on the
-      # unit's PATH every name answers `Unreadable` — the same shy-host failure
-      # the rsync/openssh note above describes, one plan over.
-      # `k3s` ADDED for the `images` plan (#1329), and it shipped without this:
-      # the probe runs `k3s crictl images -q`, root's login PATH has k3s and this
-      # unit's does not, so every hourly run since the plan landed answered
-      # `could not start k3s: No such file or directory` — a BLOCKED verdict, red
-      # on the board, for a day. Third entry on this line added for the same
-      # reason as the two above it, which is the tell that the shape recurs: a
-      # plan's probes must be able to reach their tools HERE, not in a shell.
       #
       # Conditional, because this module is odin's too and odin runs no k3s —
       # an unconditional `pkgs.k3s` would pull a large closure onto a 3 GB Atom
@@ -90,8 +64,7 @@ let
         # `--arg=VALUE`, with the equals sign, and NOT `--arg VALUE`. The
         # values here are themselves flags (`--host`, `--prod-host`), and
         # argparse refuses a separate value starting with `-` — it reads it as
-        # the next option. Shipped without the `=` first and the unit died on
-        # `--arg: expected one argument`.
+        # the next option.
         ExecStart = ''
           ${pkgs.python3}/bin/python3 ${./plan-fleetwatch-push.py} \
             --plan ${plan} \

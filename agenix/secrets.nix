@@ -35,13 +35,13 @@ in {
   # all (plan-fleetwatch.nix says so). They are here to be REPLICATED, not to be
   # consumed, and that is the whole point of the entry.
   #
-  # Until 2026-08-21 each existed in exactly two places, both in the house and
-  # both attached to the same Mac: the internal disk, and the recovery bundle on
-  # /Volumes/Backup. `geb.dhall` backs the directory up into /data/restic-mac on
-  # geb, which looks like a third copy and is not one — that repo is unlocked by
-  # geb-password, so the copy is inside the box it opens. Lose the Mac and that
-  # disk together and /data/restic-mac is unopenable: observe-data, recall,
-  # dicom-scan-download, the credential exports (#836).
+  # Their other copies are both in the house and both on the same Mac: the
+  # internal disk, and the recovery bundle on /Volumes/Backup. `geb.dhall` backs
+  # that directory up into /data/restic-mac on geb, which looks like a third copy
+  # and is not one — that repo is unlocked by geb-password, so the copy is inside
+  # the box it opens. Lose the Mac and that disk together and /data/restic-mac is
+  # unopenable: observe-data, recall, dicom-scan-download, the credential
+  # exports (#836).
   #
   # ODIN, NOT GEB, and the difference is the point. geb HOLDS
   # /data/restic-mac; encrypting its password to it would put the repository and
@@ -64,23 +64,13 @@ in {
   "wireguard-shu.age".publicKeys = [ shu admin ];
   "wireguard-tefnut.age".publicKeys = [ tefnut admin ];
 
-  # Root user's SSH private keys — one shared keypair of each type
-  # across all hosts, used for inter-host root SSH (backup rsyncs and
-  # the restore drill). Encrypted to every host plus the admin key.
-
-  # The fleet's OWN inter-host root key (#1049 step 1), generated 2026-08-22 for
-  # this purpose and nothing else.
-  #
-  # WHY A THIRD KEY RATHER THAN A RE-KEY OF THE TWO ABOVE. Their public halves
-  # are `pippijn@xinutec.org` — the same key Pippijn logs in with personally. So
-  # the private half of a PERSONAL identity sits in /root/.ssh on four hosts, two
-  # of them internet-facing: reading one host's disk yields the credential that
-  # is him. `fleet-root@xinutec` has no second job, appears in no personal key
-  # list, and can therefore be rotated, confined or revoked without asking what
-  # else it opens.
-  #
-  # The two above stay recipients until this one is verified on every edge; they
-  # go in the same change that stops deploying them.
+  # Inter-host root SSH (backup rsyncs and the restore drill), encrypted to every
+  # host plus the admin key. A key OF ITS OWN (#1049 step 1), never a re-key of
+  # `pippijn@xinutec.org`: that one is also the key Pippijn logs in with, so
+  # deploying it to /root/.ssh on four hosts, two internet-facing, makes reading
+  # any one disk yield the credential that is him. `fleet-root@xinutec` has no
+  # second job and can be rotated, confined or revoked without asking what else
+  # it opens.
   "root-ssh-fleet.age".publicKeys = allHosts ++ [ admin ];
 
   # healthchecks.io check IDs. A check ID is a bearer capability, not a
@@ -90,9 +80,8 @@ in {
   # when the backup and the restore drill go quiet, so a leaked ID turns
   # "tell me when this stops" into "this never stops".
   #
-  # They were literals in this repo — which is PUBLIC — from 2026-05-05
-  # (backup, drill) and 2026-05-13 (md), and a crawler that merely
-  # followed the URL would have reported a failed backup as successful.
+  # This repo is PUBLIC, so an ID written into it in the clear is one a crawler
+  # can follow — reporting a failed backup as successful.
   #
   # Only the ID is secret. The base URL stays spelled out in each module,
   # because where a host checks in is documentation, not a capability —
@@ -103,21 +92,16 @@ in {
   # precedent: amun's RAID heartbeat and odin's backup are unrelated, and
   # neither host has any use for the other's.
   # home.xinutec.org's ingest token — the bearer credential a sensor receiver
-  # POSTs readings with. The same value the Mac keeps in its Keychain and the
-  # phone app holds; geb is the third receiver and the first that can be given
-  # it declaratively. Only geb, because a token is a capability and the other
-  # three machines have no sensors to push.
-  # geb AND shu: the house's two always-on BLE receivers, each pushing under its
-  # own `source`. Not a fleet secret — the rented machines have no reason to
-  # hold an ingest token for a home dashboard.
+  # POSTs readings with, the same value the Mac's Keychain and the phone app hold.
+  # The house's always-on BLE receivers only, each pushing under its own `source`:
+  # a token is a capability, and the rented machines have no sensors to push.
   "home-ingest-token.age".publicKeys = [ geb shu tefnut admin ];
 
   # The IQAir AirVisual Pro's SMB share password, so shu can read the Pro's
   # current reading and push it — a second source for air quality, where today
   # `airvisual-push` runs on the Mac and nowhere else (#1409).
   #
-  # shu ONLY. The Pro is on the home LAN and shu already reaches it (445 open,
-  # 12ms) — the same argument that made shu the fourth Govee receiver: no new
+  # shu ONLY. The Pro is on the home LAN and shu already reaches it: no new
   # access, no new attack surface, one more credential held by one more machine
   # that is already inside the boundary.
   #
@@ -131,9 +115,6 @@ in {
   "hc-ping-md.age".publicKeys = [ amun admin ];
   "hc-ping-backup.age".publicKeys = [ odin admin ];
   "hc-ping-drill.age".publicKeys = [ odin admin ];
-  # The weekly `restic check` on odin's own repository. Third of odin's
-  # dead-man's switches and the last one to get an id — the check did not exist
-  # until 2026-08-16, which is what #52 was actually waiting on once the runner
-  # learned to read an id from a file.
+  # The weekly `restic check` on odin's own repository.
   "hc-ping-integrity.age".publicKeys = [ odin admin ];
 }

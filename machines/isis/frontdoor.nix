@@ -1,14 +1,9 @@
-# The host front door, rendered from the fleet model. Replaces ingress-nginx, which is
-# archived upstream: nginx here terminates TLS and proxies straight to Services (#1294).
-#
-# IMPORTING THIS IS THE CUTOVER, and it does not work alone. klipper's svclb holds
-# :80/:443 by CNI hostport DNAT with no `-d` restriction, so nginx binds both ports and
-# receives NOTHING until the ingress-nginx LoadBalancer Service is deleted in the same
-# change. Getting the order wrong looks like a dead server, not a misconfiguration.
+# The host front door, rendered from the fleet model: nginx terminates TLS and
+# proxies straight to Services (#1294).
 #
 # A GREEN BUILD IS NOT A PASSING `nginx -t` — nothing runs nginx against this config
-# until the service starts, and the first attempt took all 15 services down on two
-# errors that both built clean. Before switching, run the built nginx by hand:
+# until the service starts, and an error that builds clean takes every name down.
+# Before switching, run the built nginx by hand:
 #
 #     conf=$(grep -ho '/nix/store/[a-z0-9]*-nginx.conf' result/etc/systemd/system/nginx.service | head -1)
 #     nginx=$(grep -ho '/nix/store/[a-z0-9]*-nginx-[0-9.]*/bin/nginx' result/etc/systemd/system/nginx.service | head -1)
@@ -42,7 +37,7 @@ let
   # the safer exposure is the only reading that cannot accidentally publish something.
   vpnOnly = host: lib.any (e: e.exposure == "VpnOnly") (rulesFor host);
 
-  # THE POINT OF THE MIGRATION: a VpnOnly host listens on the tunnel address and
+  # THE POINT: a VpnOnly host listens on the tunnel address and
   # NOWHERE ELSE. A DNS record is not a boundary; a socket that never listens is.
   # No IPv6, and `net.nodes.isis.ipv6` is NOT evidence there is any — that field
   # records what OVH allocated, nothing assigns it, and nginx fails the WHOLE config
@@ -61,9 +56,6 @@ let
   # variables_hash_bucket_size: 64". Raising that knob would also work and is
   # the worse fix — it tunes a limit to accommodate names nothing needed.
   #
-  # Found 2026-09-01 by running `nginx -t` against the GENERATED config. The
-  # build does not run it, and this is the second config error in a row that a
-  # green `nixos-rebuild build` reported as fine.
   # The leading `$` is PART OF THIS STRING. In a Nix indented string `$${` is
   # an escape for a literal `${`, so writing `$${upstreamVar}` emits the text
   # `${upstreamVar}` rather than the variable reference — checked, not assumed.
@@ -108,15 +100,13 @@ let
       listenAddresses = listenFor host;
       forceSSL = true;
       useACMEHost = host;
-      # HSTS, restored (#1320) — ingress-nginx sent exactly this value on every
-      # name it served, and the cutover silently dropped it; measured 2026-09-02.
-      # Per SERVER, not at http scope: nginx `add_header` is per-block-OVERRIDE —
+      # HSTS (#1320), per SERVER and not at http scope: nginx `add_header` is per-block-OVERRIDE —
       # any block that adds its own headers discards every inherited one, so a
       # server-level header survives today's locations (they add none;
       # recommendedProxySettings is `proxy_set_header`, a different directive)
       # and an http-level one would be shadowed the day a location grows an
-      # `add_header`. `always` so error responses carry it too. VpnOnly names get
-      # it like everything else — ingress-nginx made no distinction either.
+      # `add_header`. `always` so error responses carry it too, and VpnOnly names
+      # get it like everything else.
       extraConfig = ''
         add_header Strict-Transport-Security "max-age=15724800; includeSubDomains" always;
       '';
@@ -131,16 +121,12 @@ let
   # precisely the moment :80 changes hands, so depending on :80 to issue the
   # certificates that :443 needs would make renewal fail exactly when it is
   # least recoverable.
-  # `irc-tls` HAS NO OTHER RENEWER, AND THAT WAS SILENT FOR TEN DAYS.
-  # inspircd does not read `/var/lib/acme`; it mounts the `irc-tls` Kubernetes
-  # Secret. Until #1294 a cert-manager Certificate filled that Secret, and the
-  # migration removed every Certificate on this cluster — so nothing renewed it
-  # and the served certificate was set to expire 2026-11-10 with no successor.
-  # The check that should have said so read a WARN, because a probe that cannot
-  # ask its question never gets to answer it (fixed, xinutec-infra 18935dc).
+  # `irc-tls` HAS NO OTHER RENEWER. inspircd does not read `/var/lib/acme`; it
+  # mounts the `irc-tls` Kubernetes Secret, and nothing else on this cluster
+  # fills it — so this `postRun` is the renewal, and its absence is silent.
   #
   # Why `postRun` and not a timer. A separate sync unit is one more thing
-  # that can stop quietly, which is the failure being repaired here. `postRun`
+  # that can stop quietly. `postRun`
   # is `ExecStartPost` of the acme unit itself: it runs as root (systemd `+`
   # prefix), in the certificate's own directory, and ONLY when a renewal
   # actually happened — the module guards it on the `renewed` marker. So the
@@ -173,7 +159,7 @@ let
       dnsProvider = "cloudflare";
       # NOT IN THIS REPOSITORY — nixos-config is public. The token exists as
       # the `cloudflare-api-token` Secret in cert-manager; this wants it as an
-      # environment file on the host, and provisioning it is a cutover step.
+      # environment file, provisioned on the host out of band.
       environmentFile = "/var/lib/secrets/acme-cloudflare.env";
       group = "nginx";
     } // lib.optionalAttrs (host == "irc.xinutec.net") {
@@ -186,9 +172,9 @@ let
   # file announces itself: a wrong upstream 502s, a missing htpasswd refuses to
   # start, a bad certificate shows in the browser. A VpnOnly host that also
   # listens on the public address serves perfectly — it is simply reachable by
-  # anyone who knows the name, which is exactly the state this migration exists
-  # to end (#1300). So it is an assertion rather than a comment, and it lives
-  # beside the thing it protects so it holds at cutover and not only in CI.
+  # anyone who knows the name, which is exactly the state this file exists to
+  # prevent (#1300). So it is an assertion rather than a comment, and it lives
+  # beside the thing it protects so it holds at build time and not only in CI.
   leaked = builtins.filter
     (h: vpnOnly h && lib.any (a: builtins.elem a publicAddrs) (listenFor h))
     hosts;

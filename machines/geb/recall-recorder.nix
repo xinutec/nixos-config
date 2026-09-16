@@ -1,17 +1,12 @@
 # geb as a store-and-forward recorder (recall's docs/architecture.md, stage C3).
 #
-# LIVE since 2026-09-05 — this is geb's recorder, imported by ./configuration.nix.
-# The cutover from ./recall-mic.nix (the streaming client) was a deliberate flip:
-# the two cannot run together — one ALSA capture device, one reader — so there was
-# no shadow period on this box; the flip was the change, made with someone around
-# to hear it fail. Verified 2026-09-06: recall-capture and recall-pause-mirror
-# active on geb, recall-mic inactive, and Isis holds 976 delivered geb segments.
+# geb's recorder, imported by ./configuration.nix. It and ./recall-mic.nix (the
+# streaming client) CANNOT run together — one ALSA capture device, one reader — so
+# swapping them is a flip with no shadow period, to be made with someone around to
+# hear it fail. recall-mic.nix is dead and no longer imported; it is kept until
+# this has survived real days, which is when a path dies in this repo.
 #
-# ./recall-mic.nix is therefore dead and no longer imported. It is kept for now
-# rather than deleted, because the replacement has run for a day and this repo's
-# rule is that a path dies once its replacement has survived real days.
-#
-# What changes, and why it is the better recorder:
+# Why this shape:
 #   - Audio is written to LOCAL segments first (60 s, capture-stamped) and
 #     delivered to recalld on Isis with sha-256 receipts the uploader verifies
 #     before anything counts as delivered. A network blip, a Mac outage, or a
@@ -38,13 +33,12 @@ let
   # GC root this module points at. To bump:
   #   sudo nix --extra-experimental-features 'nix-command flakes' \
   #     build github:xinutec/recall/<rev>#audiod --out-link /opt/audiod
-  # ⚠ Read the symlink for the live revision; it is `2adcafa` as of 2026-09-13.
-  # The pin moves out of band, so this line cannot fail when they disagree.
+  # ⚠ Read the symlink for the live revision. The pin moves out of band, so a
+  # revision written here could not fail when the two disagree.
   audiod = "/opt/audiod";
 
-  # By CARD NAME, not index — the mic changed indexes across a reboot and an
-  # index recorded -inf from an empty jack while looking healthy (see
-  # recall-mic.nix, which learnt this first).
+  # By CARD NAME, not index — indexes move across a reboot, and one that lands on
+  # an empty jack records -inf while looking healthy.
   #
   # ⚠ On any mic swap, measure the exact-zero sample fraction before trusting it.
   # A gating microphone passes every other check: it enumerates, ffmpeg opens it,

@@ -26,14 +26,14 @@ in {
     sqlite
   ];
 
-  # No machine-specific public ports; the old 2223/28192 rules listened on nothing.
+  # No machine-specific public ports.
   networking.firewall.allowedTCPPorts = [ ];
 
   # KEEP THE IMAGE HOARD DOWN (#1311, #1329). This host boots from a spinning
-  # disk and containerd's startup scales with image count: 1912 images took 174s
-  # and read as a k3s deadlock for two days; 39 take 36s. Nothing prunes it and
-  # `:latest` adds one per rebuild, so check `k3s crictl images -q | wc -l` before
-  # suspecting anything cleverer. If you must restart k3s, give it ~2 minutes, then
+  # disk and containerd's startup scales with image count — a few thousand images
+  # take minutes and read as a k3s deadlock. Nothing prunes it and `:latest` adds
+  # one per rebuild, so check `k3s crictl images -q | wc -l` before suspecting
+  # anything cleverer. If you must restart k3s, give it ~2 minutes, then
   # `kubectl delete pod` signal/messages — a reused emptyDir crash-loops them.
   services.k3s = {
     enable = true;
@@ -47,9 +47,9 @@ in {
   # ciphertext. `clientspecified` keeps the listener off the public interface.
   services.openssh.settings.GatewayPorts = "clientspecified";
 
-  # Reap a vanished client or its listener wedges the port for every redial —
-  # the ISP changed the Mac's address once and the console was a black hole for
-  # two hours. Matches console-tunnel.sh's own timings on the Mac side.
+  # Reap a vanished client or its listener wedges the port for every redial, and
+  # the console is a black hole until it clears — an ISP address change is enough
+  # to cause it. Matches console-tunnel.sh's own timings on the Mac side.
   services.openssh.settings.ClientAliveInterval = 30;
   services.openssh.settings.ClientAliveCountMax = 3;
 
