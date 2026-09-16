@@ -1,20 +1,18 @@
 # The host front door, rendered from the fleet model: nginx terminates TLS and
 # proxies straight to Services (#1294).
 #
-# A GREEN BUILD IS NOT A PASSING `nginx -t` — nothing runs nginx against this config
-# until the service starts, and an error that builds clean takes every name down.
-# Before switching, run the built nginx by hand:
+# ⚠ A green build is NOT a passing `nginx -t`, and an error that builds clean takes
+# every name down. Before switching, run the built nginx by hand:
 #
 #     conf=$(grep -ho '/nix/store/[a-z0-9]*-nginx.conf' result/etc/systemd/system/nginx.service | head -1)
 #     nginx=$(grep -ho '/nix/store/[a-z0-9]*-nginx-[0-9.]*/bin/nginx' result/etc/systemd/system/nginx.service | head -1)
 #     "$nginx" -t -c "$conf"
 #
-# ../../frontdoor.json IS A COPY of kubes/dhall/frontdoor.json, because isis builds
-# from its own checkout. `plan-run frontdoor-check` is what stops it going stale.
+# ../../frontdoor.json is a COPY of kubes/dhall/frontdoor.json; `plan-run
+# frontdoor-check` stops it going stale.
 #
-# Upstreams are NAMES resolved per request, which is why every proxy_pass goes
-# through a variable: nginx resolves a literal upstream once at startup and caches it
-# for ever, so a recreated Service would leave the door pointing at nothing.
+# ⚠ Every proxy_pass goes through a variable because nginx resolves a literal
+# upstream once at startup and caches it for ever.
 { config, lib, pkgs, ... }:
 
 let
@@ -33,40 +31,32 @@ let
 
   rulesFor = host: builtins.filter (e: e.host == host) mine;
 
-  # VpnOnly if ANY rule is: `server_name` is per host, not per location, so taking
-  # the safer exposure is the only reading that cannot accidentally publish something.
+  # VpnOnly if ANY rule is: `server_name` is per host, not per location.
   vpnOnly = host: lib.any (e: e.exposure == "VpnOnly") (rulesFor host);
 
-  # THE POINT: a VpnOnly host listens on the tunnel address and
-  # NOWHERE ELSE. A DNS record is not a boundary; a socket that never listens is.
-  # No IPv6, and `net.nodes.isis.ipv6` is NOT evidence there is any — that field
-  # records what OVH allocated, nothing assigns it, and nginx fails the WHOLE config
-  # on an address the host does not hold.
+  # A VpnOnly host listens on the tunnel address and NOWHERE else — a DNS record
+  # is not a boundary, a socket that never listens is.
+  #
+  # ⚠ No IPv6: `net.nodes.isis.ipv6` records what OVH allocated, nothing assigns
+  # it, and nginx fails the WHOLE config on an address the host does not hold.
   listenFor = host:
     if vpnOnly host
     then [ net.nodes.isis.vpn ]
     else [ net.nodes.isis.ipv4 net.nodes.isis.vpn ];
 
-  # ONE VARIABLE NAME, REUSED IN EVERY LOCATION — NOT ONE PER ROUTE.
-  # Locations are mutually exclusive within a request, so `$fd_upstream` holds
-  # whichever route matched and there is nothing to collide with. Naming them
-  # per route instead produced 15 variables with names like
-  # `upstream_isis_xinutec_org_share_share_cc58ab5c727c4a25`, and nginx refused
-  # the whole config: "could not build variables_hash, you should increase
-  # variables_hash_bucket_size: 64". Raising that knob would also work and is
-  # the worse fix — it tunes a limit to accommodate names nothing needed.
+  # ONE name reused in every location, not one per route: locations are mutually
+  # exclusive within a request, and a name per route overflows nginx's
+  # `variables_hash_bucket_size`.
   #
-  # The leading `$` is PART OF THIS STRING. In a Nix indented string `$${` is
-  # an escape for a literal `${`, so writing `$${upstreamVar}` emits the text
-  # `${upstreamVar}` rather than the variable reference — checked, not assumed.
+  # ⚠ The leading `$` is part of this string. `$${` in a Nix indented string
+  # escapes a literal `${`.
   upstreamVar = "$fd_upstream";
 
   locationFor = e:
     if (e.redirectTo or null) != null
     then {
-      # A redirect proxies nothing. `return` rather than `proxy_pass`, and no
-      # $request_uri appended: the apex sends visitors to the site's front page,
-      # not to the same path on another host.
+      # `return`, not `proxy_pass`, and no $request_uri: the apex sends visitors
+      # to the front page, not to the same path on another host.
       return = "301 https://${e.redirectTo or ""}";
     }
     else {
@@ -100,13 +90,9 @@ let
       listenAddresses = listenFor host;
       forceSSL = true;
       useACMEHost = host;
-      # HSTS (#1320), per SERVER and not at http scope: nginx `add_header` is per-block-OVERRIDE —
-      # any block that adds its own headers discards every inherited one, so a
-      # server-level header survives today's locations (they add none;
-      # recommendedProxySettings is `proxy_set_header`, a different directive)
-      # and an http-level one would be shadowed the day a location grows an
-      # `add_header`. `always` so error responses carry it too, and VpnOnly names
-      # get it like everything else.
+      # HSTS (#1320), per SERVER: nginx `add_header` is a per-block OVERRIDE, so
+      # an http-scope header is discarded the day any location adds one of its
+      # own. `always` so error responses carry it too.
       extraConfig = ''
         add_header Strict-Transport-Security "max-age=15724800; includeSubDomains" always;
       '';
@@ -115,36 +101,21 @@ let
     };
   };
 
-  # DNS-01 FOR EVERY NAME, INCLUDING THE PUBLIC ONES. VpnOnly names have
-  # no choice — HTTP-01 cannot reach a name that resolves inside the tunnel. The
-  # public ones could use HTTP-01, and deliberately do not: the cutover is
-  # precisely the moment :80 changes hands, so depending on :80 to issue the
-  # certificates that :443 needs would make renewal fail exactly when it is
-  # least recoverable.
-  # `irc-tls` HAS NO OTHER RENEWER. inspircd does not read `/var/lib/acme`; it
-  # mounts the `irc-tls` Kubernetes Secret, and nothing else on this cluster
-  # fills it — so this `postRun` is the renewal, and its absence is silent.
+  # DNS-01 for every name. VpnOnly names have no choice, and the public ones are
+  # deliberately the same: depending on :80 to issue the certificates :443 needs
+  # would break renewal exactly when :80 changes hands.
   #
-  # Why `postRun` and not a timer. A separate sync unit is one more thing
-  # that can stop quietly. `postRun`
-  # is `ExecStartPost` of the acme unit itself: it runs as root (systemd `+`
-  # prefix), in the certificate's own directory, and ONLY when a renewal
-  # actually happened — the module guards it on the `renewed` marker. So the
-  # copy cannot drift from the renewal: either both happen or the acme unit
-  # fails where systemd can see it.
+  # ⚠ `irc-tls` has NO other renewer — inspircd mounts the Kubernetes Secret and
+  # does not read /var/lib/acme, so this `postRun` IS the renewal and its absence
+  # is silent. `postRun` rather than a timer because it is `ExecStartPost` of the
+  # acme unit: same run, same directory, and only when a renewal happened.
   #
-  # Why not mount the host certificate directly and drop the Secret, which
-  # would leave exactly one copy of the key: it needs a per-certificate group
-  # (the pod is uid/gid 39, these files are `acme:nginx` 0640, and granting
-  # `nginx` would hand the IRC server read access to EVERY certificate here,
-  # including the vault's), a `hostPath` volume the model has no constructor
-  # for, and a `gnutls.conf` repoint in a repository that auto-deploys in five
-  # minutes. All of that ends in a pod rollout, and every rollout is a visible
-  # reconnect for everyone on the server. This is the same end state without
-  # disconnecting anybody.
+  # Not a hostPath mount of the certificate instead: granting the pod's group
+  # read access would hand the IRC server EVERY certificate here, the vault's
+  # included, and the repoint would cost a rollout — a visible reconnect for
+  # everyone on the server.
   #
-  # `kubectl apply` rather than `create`: it must update an existing Secret, and
-  # it must be idempotent because a renewal can be retried.
+  # `apply`, not `create`: it updates an existing Secret and a renewal can retry.
   ircdSecretSync = ''
     ${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml \
       -n ircd create secret tls irc-tls \
@@ -157,9 +128,8 @@ let
     name = host;
     value = {
       dnsProvider = "cloudflare";
-      # NOT IN THIS REPOSITORY — nixos-config is public. The token exists as
-      # the `cloudflare-api-token` Secret in cert-manager; this wants it as an
-      # environment file, provisioned on the host out of band.
+      # ⚠ Not in this repository — nixos-config is public. Provisioned on the
+      # host out of band; the value is cert-manager's `cloudflare-api-token`.
       environmentFile = "/var/lib/secrets/acme-cloudflare.env";
       group = "nginx";
     } // lib.optionalAttrs (host == "irc.xinutec.net") {
@@ -168,13 +138,9 @@ let
   };
   publicAddrs = [ net.nodes.isis.ipv4 net.nodes.isis.ipv6 ];
 
-  # THE ONE MISTAKE HERE THAT WOULD BE SILENT. Every other error in this
-  # file announces itself: a wrong upstream 502s, a missing htpasswd refuses to
-  # start, a bad certificate shows in the browser. A VpnOnly host that also
-  # listens on the public address serves perfectly — it is simply reachable by
-  # anyone who knows the name, which is exactly the state this file exists to
-  # prevent (#1300). So it is an assertion rather than a comment, and it lives
-  # beside the thing it protects so it holds at build time and not only in CI.
+  # The one mistake here that would be SILENT: a VpnOnly host also listening on
+  # the public address serves perfectly, it is just reachable by anyone who knows
+  # the name (#1300). Hence an assertion rather than a comment.
   leaked = builtins.filter
     (h: vpnOnly h && lib.any (a: builtins.elem a publicAddrs) (listenFor h))
     hosts;
@@ -189,9 +155,8 @@ assert lib.assertMsg (leaked == [ ])
     recommendedGzipSettings = true;
     recommendedOptimisation = true;
 
-    # `valid=5s` MATCHES CoreDNS's TTL rather than overriding it. `ipv6=off`
-    # because Services are v4-only here and nginx treats a failed AAAA as a
-    # resolution failure.
+    # `valid=5s` matches CoreDNS's TTL. `ipv6=off` because Services are v4-only
+    # and nginx treats a failed AAAA as a resolution failure.
     appendHttpConfig = ''
       resolver ${coreDnsIP} valid=5s ipv6=off;
     '';
@@ -205,18 +170,12 @@ assert lib.assertMsg (leaked == [ ])
     certs = builtins.listToAttrs (map certFor hosts);
   };
 
-  # **THE htpasswd FILES ARE PROVISIONED OUT OF BAND, BUT THEIR PERMISSIONS
-  # ARE NOT.** The content comes from git-crypt'd Kubernetes Secrets and cannot
-  # live in this repository, so a human or a script puts it here. Ownership is a
-  # different question and belongs in the model: `nginx` workers read
-  # `auth_basic_user_file` at request time, and the files land `root:root 0640`
-  # from whatever wrote them — unreadable by nginx, and the `nginx` group does
-  # not even exist until this module is imported. Declaring it means activation
-  # fixes it rather than somebody remembering to.
+  # The htpasswd files are provisioned out of band; their PERMISSIONS are not.
+  # nginx workers read them at request time and they land `root:root 0640` from
+  # whatever wrote them, unreadable by nginx.
   #
-  # `z` rather than `f`: adjust an existing file's mode and owner, never create
-  # or truncate one. A `f` here would silently replace a provisioned credential
-  # with an empty file, and empty htpasswd means every request is refused.
+  # ⚠ `z`, never `f`: `f` would replace a provisioned credential with an empty
+  # file, and an empty htpasswd refuses every request.
   systemd.tmpfiles.rules = [
     "d ${basicAuthDir} 0750 root nginx -"
     "z ${basicAuthDir}/web-basic-auth.htpasswd 0640 root nginx -"

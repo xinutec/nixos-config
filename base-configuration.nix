@@ -34,14 +34,15 @@ let
   # ── The rules this repository declares, AS DATA ───────────────────────────
   #
   # Rendered to /etc/plan/declared-firewall.json so the declared side can be READ;
-  # rules otherwise exist only as shell evaluation. #727 is what that cost.
+  # otherwise these rules exist only as shell evaluation (#727).
   #
-  # Spelled in `iptables -S` OUTPUT form, copied from live output, not composed:
-  # iptables re-renders canonically (`-d X` becomes `-d X/32`, ctstate reorders).
-  # A second rendering of the same values, deliberately NOT a generator for the
-  # first. A drifting declaration is the thing being detected.
-  # Every rule carries its family, or a v4 reading satisfies a v6 declaration.
-  # Scope is OUR rules only, not what the firewall module, Docker or k3s inject.
+  # ⚠ Spelled in `iptables -S` OUTPUT form, copied from live output rather than
+  # composed — iptables re-renders canonically (`-d X` becomes `-d X/32`, ctstate
+  # reorders). A second rendering on purpose: drift between the two is the thing
+  # being detected.
+  #
+  # ⚠ Every rule carries its family, or a v4 reading satisfies a v6 declaration.
+  # Scope is OUR rules only, not the firewall module's, Docker's or k3s's.
   withFamily = f: rules: map (r: r // { family = f; }) rules;
 
   declaredFirewall = withFamily "inet" declaredFirewall4
@@ -325,15 +326,14 @@ in {
   # Root's ssh must NAME the fleet key, since id_fleet is off the default list.
   # `localuser`, not `user`: `Match user` means the REMOTE username.
   #
-  # Naming an IdentityFile REPLACES root's default list rather than adding to it.
-  # That broke the one root ssh consumer outside the fleet; /etc/nixos uses the
-  # HTTPS remote now, which needs no credential for a public repo.
+  # ⚠ Naming an IdentityFile REPLACES root's default list rather than adding to it,
+  # so every other root ssh consumer must be reachable without one. /etc/nixos uses
+  # the HTTPS remote for that reason.
   #
-  # The private xinutec-infra fetch in machines/{odin,isis}/plan-run.nix still
-  # needs a key, and its failure is LATENT: fetchGit only hits the network for a rev
-  # the store lacks, so every rebuild succeeds until the first pin BUMP. Each host
-  # has its own read-only deploy key, generated in place and never in agenix; list
-  # them with `gh repo deploy-key list --repo xinutec/xinutec-infra`.
+  # The private xinutec-infra fetch in machines/{odin,isis}/plan-run.nix needs its
+  # own key, and its failure is LATENT: fetchGit only hits the network for a rev the
+  # store lacks, so rebuilds succeed until the first pin BUMP. Per-host read-only
+  # deploy keys, never in agenix: `gh repo deploy-key list --repo xinutec/xinutec-infra`.
   #
   # Order asserted by scripts/ssh_config_order.py.
   programs.ssh.extraConfig = ''

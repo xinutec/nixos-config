@@ -1,25 +1,18 @@
 # Report a `plan-run` plan's verdict to fleetwatch, one timer per plan.
 #
-# A push, not a failing unit: fleetwatch does not collect systemd state, so a unit
-# going red is a red nobody sees.
+# A push, not a failing unit: fleetwatch does not collect systemd state.
 #
-# A list entry is the WIRING, not the work. `drill` and `deploy` take required
-# arguments, so an entry may be `{ name; args; }`. `backup --simulate` predicts a step
-# per artifact every run — that is what the plan DOES, not drift — so it would report
-# warn for ever (#978, still open). `offsite` runs on the Mac, which has no module.
+# Absent on purpose: `backup --simulate` predicts a step per artifact every run,
+# so it would warn for ever (#978); `offsite` runs on the Mac, which has no module.
 #
-# The ingest token is PER MACHINE: fleetwatch derives `source` from the bearer
-# token, which is the guarantee the design has. Each host needs its own pair in
-# FLEETWATCH_TOKENS and the token at /var/lib/fleetwatch/token, 0600.
+# ⚠ The ingest token is PER MACHINE — fleetwatch derives `source` from it. Each
+# host needs its own pair in FLEETWATCH_TOKENS and the token at
+# /var/lib/fleetwatch/token, 0600.
 { config, pkgs, lib, planRun, ... }:
 
 let
   cfg = config.services.planFleetwatch;
 
-  # A list entry is either a bare name or `{ name; args; }`. Both forms rather
-  # than only the record because fourteen of the fifteen call sites have no
-  # arguments, and making every one of them write `{ name = "firewall"; args =
-  # []; }` would be paying for `drill` everywhere.
   normalise = entry:
     if builtins.isString entry then { name = entry; args = [ ]; }
     else { inherit (entry) name; args = entry.args or [ ]; };
@@ -29,42 +22,29 @@ let
     name = "fleetwatch-plan-${plan}";
     value = {
       description = "Push the `${plan}` plan's verdict to fleetwatch";
-      # Ordering only, no `requires`: if the network is down the push fails and
-      # that failure is the honest signal, as in vpn-nodes.nix. The PLAN still
-      # runs and still reads the host, which is the part that matters.
+      # Ordering only, no `requires`: a push that fails because the network is
+      # down is the honest signal, and the plan still reads the host.
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      # A UNIT'S `path` IS ITS WHOLE PATH — it does not include
-      # /run/current-system/sw/bin, so a package being in systemPackages does
-      # NOT put it here. EVERY ENTRY IS A TOOL SOME PLAN'S PROBE EXECUTES, and
-      # a missing one does not fail loudly — the probe answers `Unreadable` and
-      # the host pushes a verdict that established nothing, which reads as a shy
-      # host rather than a broken unit. iptables for `plans::firewall`, rsync and
-      # openssh for `plans::picade`, curl for `frontdoor`'s socket witnesses, k3s
-      # for `images`. A new plan means asking what its probes RUN.
+      # ⚠ A unit's `path` does NOT include /run/current-system/sw/bin, so
+      # systemPackages does not put a tool here. Every entry is one some plan's
+      # probe EXECUTES, and a missing one fails quietly: the probe answers
+      # `Unreadable` and the host pushes a verdict that established nothing. A
+      # new plan means asking what its probes run.
       #
-      # `planRun` is the DERIVATION this generation was built and tested with,
-      # from plan-run.nix's `_module.args` — not the name `plan-run` resolved
-      # against whatever generation is current when the timer fires.
+      # `planRun` is the derivation this generation was built with, not the name
+      # resolved against whatever generation is current when the timer fires.
       #
-      # Conditional, because this module is odin's too and odin runs no k3s —
-      # an unconditional `pkgs.k3s` would pull a large closure onto a 3 GB Atom
-      # to satisfy a plan it does not run.
+      # k3s conditionally: odin runs none, and would pay the closure for it.
       path = [ pkgs.iptables pkgs.rsync pkgs.openssh pkgs.curl planRun ]
         ++ lib.optional config.services.k3s.enable config.services.k3s.package;
       serviceConfig = {
         Type = "oneshot";
-        # Root: `iptables -S` needs CAP_NET_ADMIN, and the plan is read-only by
-        # construction (`plans::firewall` has no effects at all), so this is a
-        # privileged READ and never a privileged write.
-        # `--arg` is repeated rather than joined: `escapeShellArg` per element
-        # keeps a value with a space intact, where one flat string would be
-        # re-split by the shell this ExecStart is.
+        # Root because `iptables -S` needs CAP_NET_ADMIN; the plan has no effects.
         #
-        # `--arg=VALUE`, with the equals sign, and NOT `--arg VALUE`. The
-        # values here are themselves flags (`--host`, `--prod-host`), and
-        # argparse refuses a separate value starting with `-` — it reads it as
-        # the next option.
+        # ⚠ `--arg=VALUE` with the equals sign: the values are themselves flags
+        # (`--host`), and argparse reads a separate `-…` value as the next option.
+        # Repeated rather than joined so `escapeShellArg` keeps spaces intact.
         ExecStart = ''
           ${pkgs.python3}/bin/python3 ${./plan-fleetwatch-push.py} \
             --plan ${plan} \
@@ -88,12 +68,10 @@ let
       description = "Run the `${plan}` fleetwatch push hourly";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        # Off the common phases: isis already runs picade-health at *:0/15 and
-        # the picade plan at *:07, and a host with one CPU worth caring about
-        # should not start three jobs on the same second.
+        # Off the common phases: isis also runs picade-health at *:0/15 and the
+        # picade plan at *:07.
         OnCalendar = cfg.onCalendar;
-        # A machine that was asleep at :23 still reports, rather than waiting an
-        # hour to say anything about a firewall that may have drifted meanwhile.
+        # A host asleep at :23 still reports rather than waiting an hour.
         Persistent = true;
         RandomizedDelaySec = 60;
       };
@@ -113,14 +91,11 @@ in
             type = lib.types.listOf lib.types.str;
             default = [ ];
             description = ''
-              Arguments the plan REQUIRES and the collector cannot guess.
-              `drill` needs `--host` and `--prod-host`; without them it exits 3
-              and reports a red every hour for ever.
+              Arguments the plan REQUIRES and the collector cannot guess, like
+              `drill`'s `--host` and `--prod-host`.
 
-              Not a place for `--apply`. The push script always passes
-              `--simulate`, and `plan-run` refuses the two together rather than
-              resolving them by precedence, so the read-only property is the
-              runner's guarantee and not this module's promise.
+              ⚠ Not `--apply`: the push always passes `--simulate` and
+              `plan-run` refuses the two together.
             '';
           };
         };
@@ -128,9 +103,8 @@ in
       default = [ ];
       example = [ "firewall" { name = "drill"; args = [ "--host" "odin" ]; } ];
       description = ''
-        Plans to run read-only and report. Each gets its own service and timer,
-        and its own fleetwatch collector name (`plan-<name>`), so one plan going
-        noisy can be muted without silencing the others.
+        Plans to run read-only and report. Each gets its own service, timer and
+        collector name (`plan-<name>`), so one can be muted alone.
 
         An entry is a bare name, or `{ name; args; }` when the plan takes
         arguments.
@@ -153,10 +127,9 @@ in
       type = lib.types.int;
       default = 3600;
       description = ''
-        Declared cadence, sent with the report so fleetwatch can decide when
-        this producer has gone silent. Keep it in step with `onCalendar`: a
-        value shorter than the real schedule makes a healthy producer look
-        overdue, and one longer hides a producer that has actually stopped.
+        Declared cadence, sent with the report so fleetwatch can tell when this
+        producer has gone silent. ⚠ Keep in step with `onCalendar`: too short
+        makes a healthy producer look overdue, too long hides a stopped one.
       '';
     };
 
