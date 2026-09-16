@@ -1,31 +1,19 @@
 # geb as a recall microphone.
 #
-# The house's recorders are the Mac's USB mic and a set of phones. This makes geb a
-# fourth kind: a mains-powered box that never leaves the room and never sleeps, so it
-# is the only recorder that cannot be forgotten in a coat pocket or run flat.
+# Speaks the phones' protocol (recall's docs/devices.md): one shared ingest port, a
+# one-line handshake announcing the source id, then raw PCM. The recorder host
+# auto-registers the source, so this file is the whole deployment.
 #
-# It speaks the phones' protocol (recall's docs/devices.md): one shared ingest port,
-# a one-line handshake announcing the source id, then raw PCM. The recorder host
-# auto-registers the source, so nothing is provisioned on the far side — this file is
-# the whole deployment.
-#
-# What geb does NOT need, being a Linux box: an app, or a person to restart it.
-#
-# What it DOES need, against first instinct, is the same hourly heartbeat the phones
-# send. "A dead unit is a failed systemd service the fleet already watches" is true
-# of the rented machines and false of this one: fleet_health's failed-unit check
-# covers amun, isis and odin and leaves geb out on purpose, because a wifi box on the
-# home LAN is unreachable often enough that failing on it would cry wolf. Without a
-# beat, this recorder dying would be seen by nobody — and recall's mic collector
-# grades every tcp_pcm source, so a silent one reads as a dead app for ever.
+# ⚠ It sends the phones' hourly HEARTBEAT, which a Linux box looks like it should not
+# need. fleet_health's failed-unit check covers amun, isis and odin and leaves geb
+# out, because a wifi box on the home LAN is unreachable often enough to cry wolf —
+# so without a beat, this recorder dying is seen by nobody.
 
 { config, pkgs, lib, ... }:
 
 let
-  # recall is a PUBLIC repository, so unlike xinutec-infra — which geb clones to
-  # /opt precisely because this repo cannot hold the credentials to fetch it — it
-  # can be fetched at evaluation time and pinned here, which is both declarative
-  # and reproducible.
+  # recall is PUBLIC, so it can be fetched at eval time and pinned here — unlike
+  # xinutec-infra, which geb clones to /opt.
   #
   # To bump: change rev, then refresh the hash with
   #   nix-prefetch-url --unpack https://github.com/xinutec/recall/archive/<rev>.tar.gz
@@ -35,23 +23,18 @@ let
     sha256 = "1zgsll43pnbqsk60i4l5wf26ay1clllcqvypkqkaqimczd7kwxh9";
   };
 
-  # `recall.mic` and the `recall.wire` constants it shares with the server import
-  # nothing outside the standard library, on purpose — so this runs on a plain
-  # interpreter and geb never needs recall's store, web or ML dependencies.
-  # `python3 -m recall` would pull all three in and fail here.
+  # ⚠ `recall.mic` and `recall.wire` import nothing outside the standard library, so
+  # this runs on a plain interpreter. `python3 -m recall` would pull in recall's
+  # store, web and ML dependencies and fail here.
   micPython = pkgs.python3;
 
-  # By CARD NAME, not `hw:1,0`. This is not a precaution, it is a report: the USB
-  # mic was card 1 all morning, geb rebooted, and it came back as card 0 with the
-  # motherboard's analog input at 1. Measured immediately after, `hw:1,0` captured
-  # -inf — digital silence from a jack with nothing in it — while the name below
-  # captured the room at -52.8 dB. An index would have recorded nothing, looking
-  # exactly like a quiet house. The name comes from the device (/proc/asound/*/id).
+  # ⚠ By CARD NAME, not `hw:1,0`: indexes swap across a reboot, and an index that
+  # lands on the motherboard's empty jack records -inf — digital silence that looks
+  # exactly like a quiet house. The name comes from /proc/asound/*/id.
   micDevice = "hw:CARD=N32,DEV=0";
 
-  # The recorder host, BY NAME: the router registers DHCP hostnames, so this
-  # survives a lease change where a pinned address would not (the same reasoning
-  # the ssh config gives for reaching geb itself). The client re-resolves on every
+  # The recorder host BY NAME: the router registers DHCP hostnames, so this survives
+  # a lease change. The client re-resolves on every
   # reconnect, so a name that is briefly NXDOMAIN costs a retry, not the service.
   recorderHost = "mac-mini";
 in

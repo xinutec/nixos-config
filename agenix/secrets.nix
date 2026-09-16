@@ -8,12 +8,12 @@ let
   isis = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFXU6IYZCUEdYeu4I83e8kp9haP7DhajHWXuajwxWVCB";
   odin = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
 
-  # A NixOS host, so it needs every secret base-configuration declares unconditionally,
-  # not just its own WireGuard key.
+  # A NixOS host, so it needs every secret base-configuration declares
+  # unconditionally, not just its own WireGuard key.
   geb = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHknQkqhrNDTXrL0o6omTOb/1LZNF4/IWbMrGgpgKzPZ";
 
-  # The box that gets REBUILT, so its host key changes deliberately and repeatedly.
-  # Re-keying is part of that cycle, not an incident.
+  # REBUILT on purpose, so its host key changes repeatedly. Re-keying is part of
+  # that cycle, not an incident.
   shu = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGE069LNzN0xeKpgYwzWR9ABi4SIDf/CjwFQZ0WT/WP6";
 
   # Same class as geb and shu.
@@ -21,42 +21,24 @@ let
 
   allHosts = [ amun isis odin geb shu tefnut ];
 in {
-  # Grafana Cloud / Mimir push password — every host runs the alloy
-  # metrics agent, so every host needs it.
+  # Grafana Cloud / Mimir push — every host runs the alloy metrics agent.
   "grafana-agent-password.age".publicKeys = allHosts ++ [ admin ];
 
-  # restic backup repo password — odin is the only backup host. The
-  # admin key can still decrypt it, so a reinstalled odin can be
-  # re-onboarded without losing access to the repo.
+  # odin is the only backup host. The admin key can still decrypt, so a reinstalled
+  # odin can be re-onboarded without losing the repo.
   "restic-password.age".publicKeys = [ odin admin ];
 
-  # The Mac's two restic passwords. NOTHING IN THIS REPOSITORY READS THEM —
-  # `offsite` and the geb backups run on the Mac, which has no NixOS module at
-  # all (plan-fleetwatch.nix says so). They are here to be REPLICATED, not to be
-  # consumed, and that is the whole point of the entry.
+  # The Mac's two restic passwords. NOTHING HERE READS THEM — the jobs run on the
+  # Mac, which has no NixOS module. They are here to be REPLICATED.
   #
-  # Their other copies are both in the house and both on the same Mac: the
-  # internal disk, and the recovery bundle on /Volumes/Backup. `geb.dhall` backs
-  # that directory up into /data/restic-mac on geb, which looks like a third copy
-  # and is not one — that repo is unlocked by geb-password, so the copy is inside
-  # the box it opens. Lose the Mac and that disk together and /data/restic-mac is
-  # unopenable: observe-data, recall, dicom-scan-download, the credential
-  # exports (#836).
-  #
-  # ODIN, NOT GEB, and the difference is the point. geb HOLDS
-  # /data/restic-mac; encrypting its password to it would put the repository and
-  # the key to it on one machine. odin holds neither, and is in-datacenter — so
-  # this is also the copy that survives the house. Same rule as
-  # restic-password.age above, for the same reason.
-  #
-  # The admin key decrypts both, as everywhere here — but it lives in those same
-  # two in-house places, so it is odin that makes this a real third copy.
+  # ⚠ ODIN, NOT GEB. geb holds /data/restic-mac, so encrypting its password to geb
+  # would put the repository and its key on one machine. Their only other copies
+  # are the Mac's disk and the recovery bundle beside it, both in the house — odin
+  # is what makes this a third copy that survives the house (#836).
   "geb-restic-password.age".publicKeys = [ odin admin ];
   "offsite-restic-password.age".publicKeys = [ odin admin ];
 
-  # WireGuard private keys — one per host. The VPN is hub-and-spoke,
-  # so a host only ever needs its own key; each is encrypted just to
-  # that host plus the admin key.
+  # Hub-and-spoke, so a host only ever needs its own key.
   "wireguard-amun.age".publicKeys = [ amun admin ];
   "wireguard-isis.age".publicKeys = [ isis admin ];
   "wireguard-odin.age".publicKeys = [ odin admin ];
@@ -64,52 +46,29 @@ in {
   "wireguard-shu.age".publicKeys = [ shu admin ];
   "wireguard-tefnut.age".publicKeys = [ tefnut admin ];
 
-  # Inter-host root SSH (backup rsyncs and the restore drill), encrypted to every
-  # host plus the admin key. A key OF ITS OWN (#1049 step 1), never a re-key of
-  # `pippijn@xinutec.org`: that one is also the key Pippijn logs in with, so
-  # deploying it to /root/.ssh on four hosts, two internet-facing, makes reading
-  # any one disk yield the credential that is him. `fleet-root@xinutec` has no
-  # second job and can be rotated, confined or revoked without asking what else
-  # it opens.
+  # Inter-host root SSH: backup rsyncs and the restore drill.
+  # ⚠ A key of its own (#1049), never a re-key of `pippijn@xinutec.org` — that one
+  # is also the key Pippijn logs in with, so reading any one host's /root/.ssh
+  # would yield the credential that is him.
   "root-ssh-fleet.age".publicKeys = allHosts ++ [ admin ];
 
-  # healthchecks.io check IDs. A check ID is a bearer capability, not a
-  # name: anyone holding one can GET it to mark the check UP, which
-  # SILENCES the dead-man's switch, or GET /fail to raise a false alarm.
-  # It reveals nothing, but these three checks are exactly what notices
-  # when the backup and the restore drill go quiet, so a leaked ID turns
-  # "tell me when this stops" into "this never stops".
+  # healthchecks.io check IDs, each a bearer capability: anyone holding one can GET
+  # it to mark the check UP, which SILENCES the dead-man's switch. ⚠ This repo is
+  # PUBLIC, so an ID in the clear is one a crawler can follow.
   #
-  # This repo is PUBLIC, so an ID written into it in the clear is one a crawler
-  # can follow — reporting a failed backup as successful.
-  #
-  # Only the ID is secret. The base URL stays spelled out in each module,
-  # because where a host checks in is documentation, not a capability —
-  # the same split plan/settings.json already makes between
-  # `monitor.base_url` and the per-plan check name.
-  #
-  # One file per check rather than one shared file, on the wireguard
-  # precedent: amun's RAID heartbeat and odin's backup are unrelated, and
-  # neither host has any use for the other's.
-  # home.xinutec.org's ingest token — the bearer credential a sensor receiver
-  # POSTs readings with, the same value the Mac's Keychain and the phone app hold.
-  # The house's always-on BLE receivers only, each pushing under its own `source`:
-  # a token is a capability, and the rented machines have no sensors to push.
+  # Only the ID is secret — the base URL stays spelled out in each module. One file
+  # per check, so no host holds another's.
+
+  # home.xinutec.org's ingest token, the same value the Mac's Keychain and the phone
+  # app hold. The house's always-on BLE receivers only: a token is a capability and
+  # the rented machines have no sensors to push.
   "home-ingest-token.age".publicKeys = [ geb shu tefnut admin ];
 
-  # The IQAir AirVisual Pro's SMB share password, so shu can read the Pro's
-  # current reading and push it — a second source for air quality, where today
-  # `airvisual-push` runs on the Mac and nowhere else (#1409).
+  # The IQAir AirVisual Pro's SMB password, so shu can read and push it (#1409).
+  # shu ONLY: it already reaches the Pro on the home LAN, so no new access.
   #
-  # shu ONLY. The Pro is on the home LAN and shu already reaches it: no new
-  # access, no new attack surface, one more credential held by one more machine
-  # that is already inside the boundary.
-  #
-  # The Mac does NOT read this. It keeps the same value in its Keychain
-  # (`airvisual-pro-smb`), which is where `airvisual.py` looks when no password
-  # file is named. Two stores for one secret is worth knowing: rotating the
-  # Pro's SMB password means changing BOTH, and the Mac's copy is not in any
-  # repo.
+  # ⚠ The Mac keeps the same value in its Keychain (`airvisual-pro-smb`), which is
+  # not in any repo. Rotating the Pro's password means changing BOTH.
   "airvisual-smb-password.age".publicKeys = [ shu admin ];
 
   "hc-ping-md.age".publicKeys = [ amun admin ];
