@@ -1,20 +1,15 @@
-# shu — the second house box, and the one the fleet is ALLOWED TO LOSE. Same shape as
-# geb (home LAN, no public address, wifi, one-way peer admitting only the Mac), but it
-# is REBUILT ON PURPOSE, because that is the only restore drill worth anything.
-# Everything lax here — intermittent, no /data, no job anyone feels — follows from that.
-#
-# Everything below undoes a base-configuration assumption that suits the three rented
-# machines and not a house box. geb needed each of these too.
+# shu — the second house box, and the one the fleet is ALLOWED TO LOSE: same shape as
+# geb, but REBUILT ON PURPOSE, which is the only restore drill worth anything.
+# Everything lax here — intermittent, no /data, no job anyone feels — follows.
 
 { config, pkgs, lib, ... }:
 
 let
-  # bleak pulls in dbus-fast for the shared reader's adapter power-cycle. shu does not
-  # need that flush (see hardware.bluetooth below) but runs the shared reader anyway —
-  # a second code path to save a minute of radio in a ten-minute slot is not worth it.
+  # bleak pulls in dbus-fast for the shared reader's adapter power-cycle, which shu
+  # does not need (see hardware.bluetooth below) — but a second code path to save a
+  # minute of radio in a ten-minute slot is not worth it.
   goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
-  # Speaks the SMB protocol over TCP rather than mounting a share, which is what makes
-  # the AirVisual reader portable here at all: no cifs, no mount, no root namespaces.
+  # SMB over TCP rather than a mount: no cifs, no mount, no root namespaces.
   airvisualPython = pkgs.python3.withPackages (ps: with ps; [ smbprotocol ]);
 
   # shu's checkout of xinutec-infra. That repo is private and this one is public, so

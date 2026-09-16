@@ -1,20 +1,16 @@
 # geb — the house's own NixOS box: storage, one-way peer, home LAN, no public address,
-# on wifi. Most of what follows undoes a base-configuration assumption that suits the
-# three rented machines and not a house box.
-#
-# Its distinguishing job is the microphone for recall (./recall-recorder.nix) — which
-# is why the wifi link is worth caring about: it is the path the audio crosses.
+# on wifi. Its distinguishing job is the microphone for recall
+# (./recall-recorder.nix), so the wifi link is the path the audio crosses.
 
 { config, pkgs, lib, ... }:
 
 let
-  # The Govee pusher's runtime. bleak pulls in dbus-fast, which is what the
-  # reader uses to power-cycle the adapter between scan rounds.
+  # bleak pulls in dbus-fast, which the reader uses to power-cycle the adapter
+  # between scan rounds.
   goveePython = pkgs.python3.withPackages (ps: with ps; [ bleak ]);
 
-  # geb's checkout of xinutec-infra, where the pusher and the shared modules
-  # live. That repository is private and this one is public, so the code cannot
-  # be fetched at evaluation time — every other machine's `nixos-rebuild` would
+  # geb's checkout of xinutec-infra. That repo is private and this one is public, so
+  # it cannot be fetched at eval time — every other machine's `nixos-rebuild` would
   # then need credentials it has no reason to hold.
   infra = "/opt/xinutec-infra";
 in
@@ -31,57 +27,47 @@ in
   # this nothing would check it. A row this host cannot answer is worse than no row.
   services.planFleetwatch.plans = [ "firewall" ];
 
-  # UEFI, not BIOS. base-configuration sets `boot.loader.grub.device =
-  # "/dev/sda"` for the OVH machines. This box shipped with Windows 11, which
-  # cannot be installed on anything but UEFI, so it is UEFI with certainty —
-  # confirmed at install by /sys/firmware/efi being present.
+  # UEFI, not the BIOS grub base-configuration sets for the OVH machines.
   boot.loader.grub.enable = lib.mkForce false;
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Installed on 26.05. The fleet-wide 21.11 in base-configuration
-  # is amun's install version; stateVersion is not "which NixOS is this", it
-  # pins the stateful defaults a machine was BUILT with, and claiming 21.11 on
-  # a disk formatted in 2026 asserts a migration history it does not have.
+  # Installed on 26.05. It pins the stateful defaults this machine was BUILT with,
+  # so it is not base-configuration's 21.11, which is amun's install version.
   system.stateVersion = lib.mkForce "26.05";
 
   # Wifi only, via NetworkManager so the PSK stays out of this public repo.
   networking.networkmanager.enable = true;
 
-  # Both NetworkManager and base-configuration define this, and both do it as
-  # plain definitions, so the module system cannot pick one and evaluation
-  # fails outright rather than warning. mkForce settles it in NetworkManager's
-  # favour, which is what "NM owns the link" means.
+  # ⚠ NetworkManager and base-configuration both define this as a plain definition,
+  # so evaluation FAILS rather than warning. mkForce gives it to NetworkManager.
   networking.useDHCP = lib.mkForce false;
 
-  # iwlwifi needs redistributable firmware. Without it the adapter is simply
-  # not present and the connection profile has nothing to bind to — a headless
-  # box with no cable and no wifi is one you carry back to a monitor.
+  # iwlwifi needs redistributable firmware; without it the adapter is not present
+  # at all, and this box has no cable.
   hardware.enableRedistributableFirmware = true;
 
-  # Let NetworkManager write resolv.conf from DHCP. base-configuration points
-  # every host at kube-dns (10.43.0.10) and OVH's resolver: the first is a
-  # cluster service IP that is not routed over WireGuard, so it is a dead first
-  # query on every lookup, and the second is only near the rented machines.
+  # NetworkManager writes resolv.conf from DHCP. base-configuration's kube-dns
+  # (10.43.0.10) is not routed over WireGuard — a dead first query on every lookup —
+  # and its OVH resolver is only near the rented machines.
   networking.nameservers = lib.mkForce [ ];
 
-  # Not a build node. base-configuration runs a buildfarm worker on every host,
-  # mounting ~/.config/buildfarm/${config.node.name}.yml — a file geb has no
-  # reason to have, so the container would restart-loop indefinitely.
+  # Not a build node: base-configuration's buildfarm worker mounts
+  # ~/.config/buildfarm/${config.node.name}.yml, which geb has no reason to have, so
+  # the container would restart-loop.
   virtualisation.oci-containers.containers = lib.mkForce { };
 
-  # The 6 TB WD Elements, here rather than in the generated hardware-configuration.nix,
-  # which a regeneration would drop. By UUID because sd* names follow enumeration order.
-  # `nofail`: geb is headless, and without it an absent or slow USB disk stops the
-  # boot in emergency mode on a machine that cannot show you why.
+  # The 6 TB WD Elements. Here rather than in hardware-configuration.nix, which a
+  # regeneration would drop; by UUID because sd* names follow enumeration order.
+  # ⚠ `nofail`: without it an absent or slow USB disk stops the boot in emergency
+  # mode, on a headless machine.
   fileSystems."/data" =
     { device = "/dev/disk/by-uuid/2099398b-e6b1-4f31-9096-54a51edda1b3";
       fsType = "ext4";
       options = [ "nofail" "x-systemd.device-timeout=30" ];
     };
 
-  # powerOnBoot because a soft-blocked adapter reads exactly like sensors out of range,
-  # and this box is headless.
+  # powerOnBoot: a soft-blocked adapter reads exactly like sensors out of range.
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;

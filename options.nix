@@ -1,4 +1,3 @@
-# Options.
 { lib, ... }:
 
 with lib;
@@ -12,10 +11,8 @@ let
         description = "The node hostname part before '.xinutec.org' (required).";
       };
 
-      # Null for a node that has no public address of its own — geb sits behind
-      # the house router, and only the VPN hub is ever dialled by name. The one
-      # reader that matters is the WireGuard endpoint in base-configuration.nix,
-      # and it reads the MASTER's ipv4, which is always set.
+      # Safe to leave null: the WireGuard endpoint in base-configuration.nix is the
+      # only reader that matters, and it takes the MASTER's ipv4.
       ipv4 = mkOption {
         type = types.nullOr types.str;
         default = null;

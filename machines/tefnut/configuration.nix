@@ -1,8 +1,5 @@
-# tefnut — the third house box. geb's actual hardware twin (same board, BIOS, CPU
-# and wifi chip), so geb's answers transfer here; shu's do not, it only looked alike.
-#
-# Everything below undoes a base-configuration assumption that suits the three rented
-# machines and not a house box. geb and shu needed each of these too.
+# tefnut — the third house box. geb's hardware twin (same board, BIOS, CPU and wifi
+# chip), so geb's answers transfer here; shu's do not, it only looks alike.
 
 { config, pkgs, lib, ... }:
 

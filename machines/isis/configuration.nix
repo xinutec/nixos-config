@@ -19,8 +19,8 @@ in {
   services.planFleetwatch.plans = [ "firewall" "picade" "frontdoor" "images" ];
 
   environment.systemPackages = with pkgs; [
-    kubectl # to manage kubernetes
-    kubernetes-helm # to install kubernetes packages (helm charts)
+    kubectl
+    kubernetes-helm
     # Needed in the closure, not fetched at backup time: odin's backup-prepare.sh
     # runs sqlite3 here, and nix-shell -p pulled 101.6 MiB of stdenv mid-backup.
     sqlite

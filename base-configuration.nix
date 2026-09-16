@@ -385,7 +385,6 @@ in {
     in pkgs.lib.mkMerge [ networkConfig peerConfig ];
   };
 
-  # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
   users = {

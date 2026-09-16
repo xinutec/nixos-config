@@ -11,18 +11,13 @@ in {
   # reach the cabinets — which isis does equally well over the same tunnel.
   imports = [ ../../base-configuration.nix ./md-healthcheck.nix ./vpn-nodes.nix ];
 
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
   environment.systemPackages = with pkgs; [
-    kubectl # to manage kubernetes
-    kubernetes-helm # to install kubernetes packages (helm charts)
-    # Needed in the closure, not fetched at backup time: odin's staging runs sqlite3
-    # here, and nix-shell -p would make the backup depend on the binary cache.
-    # odin's nightly staging ssh's in and runs `sqlite3 ... ".backup"` to take a
-    # consistent snapshot of nocodb's DB. It must be present in the system closure:
-    # fetching it at backup time (nix-shell -p) makes the backup depend on working
-    # internet and an up binary cache — the conditions least likely to hold when you
-    # need the backup to have run — and nix GC re-evicts it, so it never settles.
+    kubectl
+    kubernetes-helm
+    # ⚠ In the closure, not fetched at backup time: odin's nightly staging ssh's in
+    # and runs `sqlite3 ... ".backup"` on nocodb's DB. `nix-shell -p` would make the
+    # backup depend on the binary cache — least likely to be reachable when you need
+    # the backup to have run — and nix GC re-evicts it, so it never settles.
     sqlite
   ];
 
@@ -30,7 +25,6 @@ in {
   # 0.0.0.0:2223, and the firewall is what keeps it to WireGuard.
   networking.firewall.allowedTCPPorts = [ ];
 
-  # List services that you want to enable:
   services.k3s = {
     enable = true;
     # Channel default, like isis. So a channel bump IS a Kubernetes upgrade: 25.05
