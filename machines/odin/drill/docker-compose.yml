@@ -8,9 +8,9 @@
 #   ssh -L 8443:127.0.0.1:8443 odin.xinutec.org
 #   open http://127.0.0.1:8443/
 #
-# Image tags match prod exactly (verified 2026-04-13 against isis'
-# nextcloud namespace) so a successful drill proves the images can
-# open the restored data.
+# Image tags match prod exactly, so a successful drill proves the
+# images prod runs can open the restored data. Bump prod and bump
+# these in the same change, or the drill stops testing prod.
 
 name: nc-drill
 
