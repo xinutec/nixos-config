@@ -398,7 +398,6 @@ in {
         isNormalUser = true;
         shell = pkgs.zsh;
         home = "/home/pippijn";
-        # dev-lint: allow-pii — the account's own GECOS full name, by definition.
         description = "Pippijn van Steenhoven";
         extraGroups = [ "docker" "wheel" ];
         openssh.authorizedKeys.keys = sshKeys.pippijn;
