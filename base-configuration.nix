@@ -244,6 +244,18 @@ in {
     useDHCP = true;
 #   dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
 
+    # ⚠ A container's veth is the runtime's to configure, not the host DHCP
+    # client's. Without this, every pod start has dhcpcd claim the new veth,
+    # give it an IPv4LL address and add a 169.254.0.0/16 route, then tear it all
+    # down seconds later — routing-table churn at exactly the moment a pod is
+    # pulling its image. Measured on isis 2026-09-21: 715 such events in six
+    # hours, four per `*/15` cronjob firing.
+    #
+    # Fleet-wide rather than on the k3s hosts, because docker makes the same
+    # interfaces — odin's buildfarm containers included — and a host with none
+    # is unaffected by a rule that names them.
+    dhcpcd.denyInterfaces = [ "veth*" "cni*" "flannel*" "docker*" "br-*" ];
+
     extraHosts = lib.concatStrings(
       lib.lists.unique(
         lib.lists.naturalSort(
