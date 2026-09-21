@@ -192,13 +192,18 @@
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
   };
 
-  # Weekly fast restore drill, Sunday 12:00 UTC: seed from staging → compose up → occ
+  # Fast restore drill, daily at 12:00 UTC: seed from staging → compose up → occ
   # integrity checks → teardown (scripts in machines/odin/drill/). Staggered after the
   # 02:30 backup and 06:00 check so the three never overlap on odin's single HDD.
+  #
+  # ⚠ Daily, though a restore is wanted weekly: the plan holds its restore goals for
+  # six days, so most days converge in minutes, and the 20-hour goals (dbload, mirror,
+  # archive) get a daily chance. A weekly timer cannot enforce a six-day budget — one
+  # off-cycle run leaves the next fire inside the window and skips the week.
   systemd.timers.drill-weekly = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun 12:00";
+      OnCalendar = "12:00";
       Persistent = true;
     };
   };
