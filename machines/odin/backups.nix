@@ -157,14 +157,19 @@
     };
   };
 
-  # Weekly integrity check, reading 5% of the repo. 06:00 is slack, not the
-  # mechanism — `retry_lock_s` in plan-settings.nix is what makes this wait on
-  # restic's exclusive lock. ⚠ The healthchecks schedule must match or it alarms
-  # early.
+  # Integrity check, reading 5% of the repo. 06:00 is slack, not the mechanism —
+  # `retry_lock_s` in plan-settings.nix is what makes this wait on restic's
+  # exclusive lock.
+  #
+  # ⚠ Daily, though the check is weekly: the plan holds `cluster-integrity` for six
+  # days, and a weekly timer cannot enforce a six-day budget — one off-cycle run
+  # leaves the next fire inside the window and skips the week. ⚠ The healthchecks
+  # check must stay a PERIOD (7d, 6h grace), not a weekday: daily sampling lets the
+  # run-day drift, and a cron schedule there would alarm on the drift.
   systemd.timers.restic-check-cluster = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "Sun 06:00";
+      OnCalendar = "06:00";
       Persistent = true;
     };
   };
@@ -176,8 +181,6 @@
       User = "root";
     };
     # The check-in is a goal, so a run that stops happening stops pinging.
-    # ⚠ 6 days against a 7-day timer: at exactly 7 a Sunday run judges itself
-    # satisfied and skips, silently, for ever.
     script = ''
       ${planRun}/bin/plan-run integrity \
         --settings /etc/plan/settings.json --apply
