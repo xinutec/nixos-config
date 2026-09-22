@@ -128,9 +128,7 @@ let
     name = host;
     value = {
       dnsProvider = "cloudflare";
-      # ⚠ Not in this repository — nixos-config is public. Provisioned on the
-      # host out of band; this file is the token's only copy on the fleet.
-      environmentFile = "/var/lib/secrets/acme-cloudflare.env";
+      environmentFile = config.age.secrets."acme-cloudflare".path;
       group = "nginx";
     } // lib.optionalAttrs (host == "irc.xinutec.net") {
       postRun = ircdSecretSync;
@@ -163,6 +161,9 @@ assert lib.assertMsg (leaked == [ ])
 
     virtualHosts = builtins.listToAttrs (map vhostFor hosts);
   };
+
+  # `CLOUDFLARE_DNS_API_TOKEN=…`, scoped Zone:DNS:Edit.
+  age.secrets."acme-cloudflare".file = ../../agenix/acme-cloudflare.age;
 
   security.acme = {
     acceptTerms = true;

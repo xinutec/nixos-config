@@ -71,6 +71,9 @@ in {
   # not in any repo. Rotating the Pro's password means changing BOTH.
   "airvisual-smb-password.age".publicKeys = [ shu admin ];
 
+  # isis's DNS-01 token for every certificate its host nginx serves.
+  "acme-cloudflare.age".publicKeys = [ isis admin ];
+
   "hc-ping-md.age".publicKeys = [ amun admin ];
   "hc-ping-backup.age".publicKeys = [ odin admin ];
   "hc-ping-drill.age".publicKeys = [ odin admin ];
