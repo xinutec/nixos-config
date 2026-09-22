@@ -129,7 +129,7 @@ let
     value = {
       dnsProvider = "cloudflare";
       # ⚠ Not in this repository — nixos-config is public. Provisioned on the
-      # host out of band; the value is cert-manager's `cloudflare-api-token`.
+      # host out of band; this file is the token's only copy on the fleet.
       environmentFile = "/var/lib/secrets/acme-cloudflare.env";
       group = "nginx";
     } // lib.optionalAttrs (host == "irc.xinutec.net") {
