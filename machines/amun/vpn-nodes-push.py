@@ -43,6 +43,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 SCHEMA = 1
 COLLECTOR = "vpn-nodes"
@@ -205,7 +206,7 @@ def main() -> int:
         return 0
 
     try:
-        token = open(args.token_file).read().strip()
+        token = Path(args.token_file).read_text(encoding="utf-8").strip()
     except OSError as e:
         print(f"no ingest token ({e}); place it at {args.token_file} (0600). "
               "See machines/amun/vpn-nodes.nix.", file=sys.stderr)

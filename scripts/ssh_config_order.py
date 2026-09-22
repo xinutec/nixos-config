@@ -117,8 +117,8 @@ def _render(machine: str) -> str:
         # host — a pass that meant the check had not looked. Caught by ablation.
         rendered = json.loads(r.stdout)
         if not isinstance(rendered, str):
-            raise RuntimeError(f"{machine}: ssh config evaluated to {type(rendered).__name__}, "
-                               f"not a string")
+            raise TypeError(f"{machine}: ssh config evaluated to {type(rendered).__name__}, "
+                            f"not a string")
         return rendered
 
 

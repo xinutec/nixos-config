@@ -44,6 +44,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 SCHEMA = 1
 DEFAULT_URL = "https://fleetwatch.xinutec.org/api/reports"
@@ -95,6 +96,7 @@ def run_plan(
         capture_output=True,
         text=True,
         timeout=600,
+        check=False,  # the exit code is part of the report, read below
     )
     try:
         obj = json.loads(proc.stdout.strip() or "null")
@@ -327,7 +329,7 @@ def main() -> int:
         return 0
 
     try:
-        token = open(args.token_file, encoding="utf-8").read().strip()
+        token = Path(args.token_file).read_text(encoding="utf-8").strip()
     except OSError as e:
         print(f"no ingest token ({e}); see plan-fleetwatch.nix", file=sys.stderr)
         return 1
