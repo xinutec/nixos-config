@@ -12,7 +12,7 @@
 # files, where that is a no-op; the sixth is `/etc/sudoers.d`, so an hourly apply
 # removes anything there that canonical does not have. Intended, and the one thing
 # here that can destroy something a human put on a cabinet.
-{ config, pkgs, lib, planRun, ... }:
+{ config, pkgs, lib, planRun, planSchedule, ... }:
 
 {
   systemd.services.plan-picade-apply = {
@@ -52,16 +52,12 @@
   systemd.timers.plan-picade-apply = {
     description = "Converge the picade fleet hourly";
     wantedBy = [ "timers.target" ];
-    timerConfig = {
-      # HOURLY, and at :07 deliberately. picade-health runs on the *:0/15 grid,
-      # so anything on that grid would have two rsyncs walking the same 150,000
-      # files at the same moment. :07 is clear of :00/:15/:30/:45.
-      #
-      # Hourly rather than every fifteen minutes because of what this closes: an
-      # mtime that changes when someone stops playing. Four times an hour would
-      # cost four times the traffic to notice the same thing later the same
-      # hour.
-      OnCalendar = "*:07";
+    # Hourly, off picade-health's quarter-hour grid; the calendar is in
+    # xinutec-infra's schedule table. Hourly rather than every fifteen minutes
+    # because of what this closes: an mtime that changes when someone stops
+    # playing. Four times an hour would cost four times the traffic to notice
+    # the same thing later the same hour.
+    timerConfig = planSchedule.timerFor "plan-picade-apply" // {
       # A cabinet that drifted while isis was down is still drifted when it
       # comes back, so catching up is the correct behaviour rather than waiting
       # out the hour.

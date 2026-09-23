@@ -1,7 +1,7 @@
 # Restic backup for the fleet. Runs on odin, stages Nextcloud and Mailu state, and
 # takes one snapshot per run. See ~/Code/xinutec-infra/backups.md.
 
-{ config, pkgs, planRun, ... }:
+{ config, pkgs, planRun, planSchedule, ... }:
 
 {
   # restic for ad-hoc inspection; sqlite for drill-nocodb.sh, which reads the
@@ -91,10 +91,8 @@
       "/var/lib/private"
     ];
 
-    timerConfig = {
-      OnCalendar         = "02:30";
-      RandomizedDelaySec = "15m";
-      Persistent         = true;
+    timerConfig = planSchedule.timerFor "restic-backups-cluster" // {
+      Persistent = true;
     };
 
     pruneOpts = [
@@ -157,19 +155,14 @@
     };
   };
 
-  # Integrity check, reading 5% of the repo. 06:00 is slack, not the mechanism —
-  # `retry_lock_s` in plan-settings.nix is what makes this wait on restic's
-  # exclusive lock.
-  #
-  # ⚠ Daily, though the check is weekly: the plan holds `cluster-integrity` for six
-  # days, and a weekly timer cannot enforce a six-day budget — one off-cycle run
-  # leaves the next fire inside the window and skips the week. ⚠ The healthchecks
-  # check must stay a PERIOD (7d, 6h grace), not a weekday: daily sampling lets the
-  # run-day drift, and a cron schedule there would alarm on the drift.
+  # Integrity check, reading 5% of the repo. `retry_lock_s` in plan-settings.nix
+  # makes it wait on restic's exclusive lock. Daily, though the check is weekly:
+  # the calendar is in xinutec-infra's schedule table, held there against the
+  # plan's windows and the healthchecks budget. That check must stay a PERIOD,
+  # not a weekday: daily sampling lets the run-day drift.
   systemd.timers.restic-check-cluster = {
     wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "06:00";
+    timerConfig = planSchedule.timerFor "restic-check-cluster" // {
       Persistent = true;
     };
   };
@@ -195,18 +188,14 @@
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
   };
 
-  # Fast restore drill, daily at 12:00 UTC: seed from staging → compose up → occ
-  # integrity checks → teardown (scripts in machines/odin/drill/). Staggered after the
-  # 02:30 backup and 06:00 check so the three never overlap on odin's single HDD.
-  #
-  # ⚠ Daily, though a restore is wanted weekly: the plan holds its restore goals for
-  # six days, so most days converge in minutes, and the 20-hour goals (dbload, mirror,
-  # archive) get a daily chance. A weekly timer cannot enforce a six-day budget — one
-  # off-cycle run leaves the next fire inside the window and skips the week.
+  # Restore drill: seed from staging → compose up → occ integrity checks →
+  # teardown (scripts in machines/odin/drill/). Daily, though a restore is wanted
+  # weekly: most days converge in minutes, and the 20-hour goals (dbload, mirror,
+  # archive) get a daily chance. The schedule table staggers it after the backup
+  # and the integrity check so the three never overlap on odin's single HDD.
   systemd.timers.drill-weekly = {
     wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "12:00";
+    timerConfig = planSchedule.timerFor "drill-weekly" // {
       Persistent = true;
     };
   };

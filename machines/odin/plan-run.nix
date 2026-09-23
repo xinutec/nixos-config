@@ -4,7 +4,7 @@
 # unrelated reasons, and a floating ref would silently swap the reconciler too.
 # To bump: change `rev`, run xinutec-infra's scripts/plan-pin.sh, rebuild.
 
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   # Private repo; odin's root key is already authorised. The fetch is at EVAL time,
@@ -14,7 +14,7 @@ let
     ref = "main";
     # The pin may LEAD plan-settings.nix but must never LAG it: `deny_unknown_fields`
     # makes a binary older than its settings refuse to start. New capability here first.
-    rev = "9d678380e1245852a522ee8e84f4cd30134433f2";
+    rev = "88dc93d393f1c4e756470fc8fed4c52045936b45";
   };
 
   # NEEDS rustc >= 1.88 for let-chains. odin's channel has 1.95, so this is slack —
@@ -42,4 +42,10 @@ in
   # So backups.nix names this derivation rather than a PATH lookup — the store path
   # pins staging to the generation it was tested with.
   _module.args.planRun = plan-run;
+
+  # This host's plan timers, from the same revision as the binary above.
+  _module.args.planSchedule = import ../../plan-schedule.nix {
+    inherit lib src;
+    host = config.node.name;
+  };
 }

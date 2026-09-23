@@ -7,7 +7,7 @@
 # for let-chains and amun is held on 25.05 with 1.86 until its reinstall. The failure
 # there is a bare E0658 that names the feature, not the toolchain.
 
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   # Private repo; isis's root key is authorised. Fetched at EVAL time, so it must also
@@ -18,7 +18,7 @@ let
     # This host's frontdoor.json and the runner are two sides of one comparison and
     # must be bumped together — an older runner ignores new fields via serde and will
     # report healthy on evidence that cannot show it.
-    rev = "9d678380e1245852a522ee8e84f4cd30134433f2";
+    rev = "88dc93d393f1c4e756470fc8fed4c52045936b45";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
@@ -41,4 +41,10 @@ in
 
   # So picade-health.nix names this derivation rather than resolving PATH at run time.
   _module.args.planRun = plan-run;
+
+  # This host's plan timers, from the same revision as the binary above.
+  _module.args.planSchedule = import ../../plan-schedule.nix {
+    inherit lib src;
+    host = config.node.name;
+  };
 }
