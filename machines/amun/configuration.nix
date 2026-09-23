@@ -9,7 +9,12 @@ in {
   # vpn-nodes stays here and picade-health does not: the first reads `wg show`
   # on the WireGuard HUB, which only amun is, while the second only needs to
   # reach the cabinets — which isis does equally well over the same tunnel.
-  imports = [ ../../base-configuration.nix ./md-healthcheck.nix ./vpn-nodes.nix ];
+  imports = [
+    ../../base-configuration.nix
+    ./md-healthcheck.nix
+    ./vpn-nodes.nix
+    ../../k3s-dns.nix
+  ];
 
   environment.systemPackages = with pkgs; [
     kubectl
@@ -40,14 +45,12 @@ in {
     # only one minor at a time. Before bumping this machine off 25.05, pin the package
     # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
-    # `--secrets-encryption` is deliberately absent (#1295): an empty key list was
-    # written to the encryption config, so putting the flag back crash-loops k3s on
-    # the next restart, not at some later reboot. The suppression below IS the fix —
-    # do not resolve the lint by re-adding the flag. fleet_health's
-    # classify_k3s_startup goes red if it returns while the key list is empty.
-    # ast-grep-ignore: nix-k3s-no-secrets-encryption
+    # ⚠ Activating this needs k3s STOPPED first and two steps by hand (#1295): the
+    # datastore's bootstrap row holds an encryption config with an empty key list,
+    # and k3s restores it over anything on disk. With the row and both
+    # `cred/encryption-*.json` gone, k3s writes a fresh key and saves a new row.
     extraFlags =
-      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0";
+      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption ${config.xinutec.k3sDns.flag}";
   };
 
   services.nfs.server = {
