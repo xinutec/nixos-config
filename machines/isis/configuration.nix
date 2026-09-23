@@ -12,6 +12,7 @@ in {
     # Importing this is the CUTOVER (#1294), and it does not work alone: nginx
     # receives nothing until the ingress-nginx LoadBalancer Service is deleted.
     ./frontdoor.nix
+    ../../k3s-dns.nix
   ];
 
   # All observe-only. `picade` is here because its absence hid six days of broken
@@ -39,17 +40,8 @@ in {
     enable = true;
     role = "server";
     extraFlags =
-      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption --resolv-conf=/etc/k3s-resolv.conf";
+      "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption ${config.xinutec.k3sDns.flag}";
   };
-
-  # CoreDNS's upstreams (#1621). The node's own list names CoreDNS first, so
-  # inheriting it made CoreDNS forward to itself, and its one real upstream,
-  # OVH, answers SERVFAIL for `auth.docker.io` A at :00 and :30 — which CoreDNS
-  # caches and image pulls report as "no such host".
-  environment.etc."k3s-resolv.conf".text = ''
-    nameserver 1.1.1.1
-    nameserver 8.8.8.8
-  '';
 
   # The agent console's way in: the Mac dials out and asks sshd to listen on this
   # host's VPN address. TLS terminates at the Mac, so this host carries only
