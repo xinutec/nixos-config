@@ -155,11 +155,9 @@
     };
   };
 
-  # Integrity check, reading 5% of the repo. `retry_lock_s` in plan-settings.nix
-  # makes it wait on restic's exclusive lock. Daily, though the check is weekly:
-  # the calendar is in xinutec-infra's schedule table, held there against the
-  # plan's windows and the healthchecks budget. That check must stay a PERIOD,
-  # not a weekday: daily sampling lets the run-day drift.
+  # Integrity check, reading 5% of the repo; `retry_lock_s` in plan-settings.nix
+  # waits on restic's lock. Daily sampling of a weekly check lets the run-day
+  # drift, so its healthchecks check is a period, not a weekday.
   systemd.timers.restic-check-cluster = {
     wantedBy = [ "timers.target" ];
     timerConfig = planSchedule.timerFor "restic-check-cluster" // {
@@ -189,10 +187,8 @@
   };
 
   # Restore drill: seed from staging → compose up → occ integrity checks →
-  # teardown (scripts in machines/odin/drill/). Daily, though a restore is wanted
-  # weekly: most days converge in minutes, and the 20-hour goals (dbload, mirror,
-  # archive) get a daily chance. The schedule table staggers it after the backup
-  # and the integrity check so the three never overlap on odin's single HDD.
+  # teardown (machines/odin/drill/). Daily, though a restore is wanted weekly:
+  # most days converge in minutes, and the 20-hour goals get a daily chance.
   systemd.timers.drill-weekly = {
     wantedBy = [ "timers.target" ];
     timerConfig = planSchedule.timerFor "drill-weekly" // {

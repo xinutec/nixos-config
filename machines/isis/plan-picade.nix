@@ -52,11 +52,6 @@
   systemd.timers.plan-picade-apply = {
     description = "Converge the picade fleet hourly";
     wantedBy = [ "timers.target" ];
-    # Hourly, off picade-health's quarter-hour grid; the calendar is in
-    # xinutec-infra's schedule table. Hourly rather than every fifteen minutes
-    # because of what this closes: an mtime that changes when someone stops
-    # playing. Four times an hour would cost four times the traffic to notice
-    # the same thing later the same hour.
     timerConfig = planSchedule.timerFor "plan-picade-apply" // {
       # A cabinet that drifted while isis was down is still drifted when it
       # comes back, so catching up is the correct behaviour rather than waiting

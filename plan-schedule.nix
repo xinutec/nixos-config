@@ -1,12 +1,6 @@
-# A host's plan timers, read from xinutec-infra's plan/tables/schedule.json in
-# the revision this host pins plan-run at. The table is where each timer's
-# calendar is held against the windows of the plan it applies and the monitor
-# that watches it (xinutec-infra plan/core/tests/schedule.rs), so a timer here
-# cannot sample a plan from a different commit than its binary.
-#
-# `timerFor unit` fails evaluation when the table has no row for this host and
-# unit: a timer that applies a plan and is not in the table is the case the
-# table exists to rule out.
+# A host's plan timers, from xinutec-infra's plan/tables/schedule.json at the
+# revision this host pins plan-run at, where each is tested against its plan's
+# windows and its monitor. A unit with no row fails evaluation.
 { lib, src, host }:
 
 let
