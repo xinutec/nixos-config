@@ -38,7 +38,7 @@ let
     # IPv4 and blocks the plan; the declaration and the runner that understands
     # it move together. Older still carries a `cargo_sweep` test race (#1508)
     # that fails a `doCheck` rebuild on a commit with nothing to do with it.
-    rev = "039484eb45f07d82d72cc736353b3da6fc7680c2";
+    rev = "2ce37b945ec23950b81dd586c338ef9a067ea9f1";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
