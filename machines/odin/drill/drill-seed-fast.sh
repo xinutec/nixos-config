@@ -213,8 +213,8 @@ $CONFIG = array(
   // The restored redis.config.php reads REDIS_HOST_PASSWORD from env,
   // which is unset in the drill compose. An empty AUTH to a no-password
   // redis causes "ERR Client sent AUTH, but no password is set".
-  // Explicitly setting password to '' here with memcache config
-  // prevents redis.config.php from being consulted.
+  // This 'redis' array has no password key and replaces the restored
+  // one, so no AUTH is sent.
   'memcache.distributed' => '\OC\Memcache\Redis',
   'memcache.locking' => '\OC\Memcache\Redis',
   'redis' => array(
