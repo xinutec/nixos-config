@@ -3,10 +3,10 @@
 # so that `./drill-smoke.sh up` starts Nextcloud against real data.
 #
 # This is the SLOW variant (~4 hours on odin) that exercises the full
-# restic restore path. For weekly-cadence drills use drill-seed-fast.sh
-# which copies from /var/backup-staging/ directly (~15 min).
+# restic restore path. The routine drill uses drill-seed-fast.sh, which
+# overlays /var/backup-staging/ read-only instead of restoring.
 #
-# See README.md for context. Run on odin.
+# See xinutec-infra's drill/README.md for context. Run on odin.
 #
 #   ./drill-seed.sh                 # use 'latest' snapshot
 #   ./drill-seed.sh <snapshot-id>   # use a specific snapshot

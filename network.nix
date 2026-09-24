@@ -108,8 +108,8 @@
       intermittent = false;
     };
 
-    # ONE-WAY: it may dial the VPN, nothing on the VPN may dial it. The firewall
-    # rules come from `oneWay` in base-configuration.nix, plus pf on the Mac.
+    # ONE-WAY: it may dial the VPN, nothing on the VPN may dial it. Not a NixOS
+    # node, so no rule is generated for it: pf on the Mac enforces it.
     mac-mini = {
       name = "mac-mini";
       vpn = "10.100.0.11";

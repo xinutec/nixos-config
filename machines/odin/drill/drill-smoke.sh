@@ -8,7 +8,7 @@
 # Stage 2: run `./drill-seed.sh <snapshot>` first to populate
 # the scratch, then `./drill-smoke.sh up` on the seeded volumes.
 #
-# See README.md for design.
+# See xinutec-infra's drill/README.md for design.
 
 set -euo pipefail
 

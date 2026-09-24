@@ -53,8 +53,9 @@ let
           initiate toward it. Enforced by firewall rules in
           base-configuration.nix, generated for every node carrying this flag —
           so marking a node here is what creates the rules, and there is no
-          second place to remember. The node is expected to enforce the same
-          locally (mac-mini does it with pf); this side is defence in depth.
+          second place to remember. The rules sit on the node itself, so a node
+          not built from this repository enforces it with its own firewall
+          (mac-mini does it with pf).
 
           For an exception, name it in `reachableFrom`.
         '';
@@ -74,9 +75,9 @@ let
           granted. Only meaningful on a node with `oneWay`, since a node the VPN
           may already reach has nothing to except.
 
-          It admits FORWARDed traffic only. The OUTPUT rule stays, so the hub
-          itself still may not dial the node — being the machine that forwards
-          somebody else's connection is not a reason to open your own.
+          Each name becomes an accept for that peer's VPN address in the node's
+          own INPUT chain, ahead of the DROP. IPv4 only: VPN peers have no v6
+          address.
         '';
       };
 

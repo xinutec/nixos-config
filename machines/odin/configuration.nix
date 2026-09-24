@@ -24,12 +24,12 @@ in {
   # bare string: the plan was written to be driven from the Mac, so every effect
   # goes over ssh even when it is odin talking to odin.
   #
-  # Unlike `integrity`, this one is EXPECTED to go amber, and that is the
-  # point: the drill's freshness window is six days against a seven-day timer,
-  # so it reads pass for six and amber on the seventh — amber exactly when the
-  # drill is due. Do not "fix" that by widening the window; the window being
-  # shorter than the period is what stops a run judging itself satisfied and
-  # skipping for ever.
+  # This one is EXPECTED to go amber, and that is the point: it reads amber
+  # whenever a drill goal is due, and the daily 12:00 run clears it. The cheap
+  # checks' 20-hour window lapses each morning before the run; the restore's
+  # five-day window lapses every sixth day. Do not "fix" that by widening a
+  # window: the window is the drill's schedule, and one the timer does not
+  # outrun lets a run judge itself satisfied and skip.
   #
   # `backup-report` is NOT `backup`, and the distinction is #978. Reading the
   # staging plan itself asks "what would a run do?", whose answer for a plan that
@@ -49,7 +49,7 @@ in {
   # program on every plan-run pin bump. amun is the same architecture with 8
   # cores and 31 GB, so it does the compiling and odin substitutes the result:
   # a bump costs a minute instead of a slow quarter-hour of a CPU that also owes
-  # the 02:30 backup and the Sunday 12:00 drill.
+  # the 02:30 backup and the daily 12:00 drill.
   #
   # `root@amun` is already reachable from odin's root key, and amun has root in
   # its `trusted-users`, which is what a remote builder requires. Nothing about
