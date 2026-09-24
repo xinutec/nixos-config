@@ -14,13 +14,13 @@ let
     sha256 = "01dhrghwa7zw93cybvx4gnrskqk97b004nfxgsys0736823956la";
   };
 
-  # A one-way node defends ITSELF — never the machines the threat model
-  # distrusts, which is the wrong end to enforce from.
+  # A one-way node enforces its own rule; the machines it distrusts are the
+  # wrong end to enforce from.
   selfOneWay = config.node.oneWay or false;
 
-  # Created on EVERY host, jumped to only where `selfOneWay`: `iptables -S` on a
-  # missing chain errors, and the firewall plan reads that as Unreadable rather
-  # than as "declares nothing" — the one distinction that fact exists to keep.
+  # Created on every host, jumped to only where `selfOneWay`: `iptables -S` on a
+  # missing chain errors, which the firewall plan reads as Unreadable rather than
+  # as "declares nothing".
   oneWayChain = "xinutec-oneway";
 
   # `throw`, not a silent skip: a misspelled name would generate no rule at all,
@@ -31,24 +31,26 @@ let
     )).vpn;
 
 
-  # ── The rules this repository declares, AS DATA ───────────────────────────
+  # ── The rules this repository declares, as data ───────────────────────────
   #
-  # Rendered to /etc/plan/declared-firewall.json so the declared side can be READ;
-  # otherwise these rules exist only as shell evaluation (#727).
+  # Rendered to /etc/plan/declared-firewall.json so the declared side can be read,
+  # not only evaluated as shell (#727).
   #
-  # ⚠ Spelled in `iptables -S` OUTPUT form, copied from live output rather than
-  # composed — iptables re-renders canonically (`-d X` becomes `-d X/32`, ctstate
-  # reorders). A second rendering on purpose: drift between the two is the thing
-  # being detected.
+  # Spelled in `iptables -S` output form, copied from live output, because
+  # iptables re-renders canonically (`-d X` becomes `-d X/32`, ctstate reorders).
+  # It is a second rendering on purpose: drift between the two is what the plan
+  # detects.
   #
-  # ⚠ Every rule carries its family, or a v4 reading satisfies a v6 declaration.
-  # Scope is OUR rules only, not the firewall module's, Docker's or k3s's.
+  # Every rule carries its family, or a v4 reading would satisfy a v6
+  # declaration. Scope is our rules only, not the firewall module's, Docker's or
+  # k3s's.
   withFamily = f: rules: map (r: r // { family = f; }) rules;
 
   declaredFirewall = withFamily "inet" declaredFirewall4
     ++ withFamily "inet6" declaredFirewall6;
 
-  # ...only on a one-way node; the chain is empty and unreferenced elsewhere.
+  # The v6 rules exist only on a one-way node; elsewhere the chain is empty and
+  # unreferenced.
   declaredFirewall6 = lib.optionals selfOneWay [
     {
       chain = "INPUT";
@@ -130,7 +132,7 @@ let
 
   # ── The same property, one address family over ────────────────────────────
   #
-  # The VPN is IPv4-only, so this half is about the INTERNET: at home the boxes
+  # The VPN is IPv4-only, so this half is about the internet: at home the boxes
   # hold globally routable v6 addresses with no NAT in front of them.
   # No `reachableFrom` admits here — those name VPN peers, which have no v6
   # address, so such a rule could never match.
@@ -244,16 +246,11 @@ in {
     useDHCP = true;
 #   dhcpcd.extraConfig = "static ip6_address=${config.node.ipv6}";
 
-    # ⚠ A container's veth is the runtime's to configure, not the host DHCP
-    # client's. Without this, every pod start has dhcpcd claim the new veth,
-    # give it an IPv4LL address and add a 169.254.0.0/16 route, then tear it all
-    # down seconds later — routing-table churn at exactly the moment a pod is
-    # pulling its image. Measured on isis 2026-09-21: 715 such events in six
-    # hours, four per `*/15` cronjob firing.
-    #
-    # Fleet-wide rather than on the k3s hosts, because docker makes the same
-    # interfaces — odin's buildfarm containers included — and a host with none
-    # is unaffected by a rule that names them.
+    # Container interfaces are the runtime's to configure. Otherwise dhcpcd
+    # claims every new veth, gives it an IPv4LL address and a 169.254.0.0/16
+    # route, then tears it down seconds later: routing-table churn on every pod
+    # start. Fleet-wide because docker creates the same interfaces, and a host
+    # with none is unaffected.
     dhcpcd.denyInterfaces = [ "veth*" "cni*" "flannel*" "docker*" "br-*" ];
 
     extraHosts = lib.concatStrings(
@@ -283,10 +280,10 @@ in {
     firewall = {
       enable = true;
 
-      # PUBLIC EXPOSURE POLICY: closed by default, explicit list to open — but this
-      # governs ONLY host daemons. Docker/k8s published ports DNAT in the nat table
-      # BEFORE this chain and bypass it, so deleting an entry here does not close such
-      # a service; bind its publish to the VPN address or use ingress instead.
+      # Public exposure policy: closed by default, explicit list to open. This
+      # governs only host daemons. Docker/k8s published ports DNAT in the nat table
+      # before this chain and bypass it, so deleting an entry here does not close
+      # such a service; bind its publish to the VPN address or use ingress instead.
       # SSH is opened by services.openssh; kubelet 10250 is absent on purpose, since
       # both k8s nodes advertise their WireGuard address as InternalIP.
       allowedTCPPorts = [ net.vpnPort ];
@@ -320,14 +317,14 @@ in {
   age.secrets."wireguard-${config.node.name}".file =
     ./agenix/wireguard-${config.node.name}.age;
 
-  # agenix WRITES AT ACTIVATION AND NEVER DELETES, so the retired root-ssh-* files
-  # stay on disk and a host RESTORED FROM AN OLDER BACKUP brings them back — both
-  # names are on OpenSSH's default identity list, so they would silently resume
-  # carrying root logins. fleet_health.py asserts their absence. See #1049.
+  # agenix never deletes what it wrote, so the retired root keys (id_ed25519,
+  # id_rsa) stay on disk, and a host restored from an older backup brings them
+  # back. Both are on OpenSSH's default identity list and would silently resume
+  # carrying root logins; fleet_health.py asserts their absence (#1049).
 
-  # The fleet's inter-host root key. `id_fleet`, deliberately NOT `id_ed25519` or
-  # `id_rsa`: those are OpenSSH's default identity list and would be offered to
-  # everything. A name outside that list is used where NAMED and nowhere else.
+  # The fleet's inter-host root key. Named `id_fleet`, not `id_ed25519` or
+  # `id_rsa`, which are on OpenSSH's default identity list and would be offered
+  # to every host; a name outside the list is used only where named.
   age.secrets."root-ssh-fleet" = {
     file = ./agenix/root-ssh-fleet.age;
     path = "/root/.ssh/id_fleet";
@@ -335,16 +332,16 @@ in {
     symlink = false;
   };
 
-  # Root's ssh must NAME the fleet key, since id_fleet is off the default list.
-  # `localuser`, not `user`: `Match user` means the REMOTE username.
+  # Root's ssh must name the fleet key, since id_fleet is off the default list.
+  # `localuser`, not `user`: `Match user` means the remote username.
   #
-  # ⚠ Naming an IdentityFile REPLACES root's default list rather than adding to it,
-  # so every other root ssh consumer must be reachable without one. /etc/nixos uses
-  # the HTTPS remote for that reason.
+  # Naming an IdentityFile replaces root's default list rather than adding to it,
+  # so every other root ssh consumer must work without one; /etc/nixos uses the
+  # HTTPS remote for that reason.
   #
-  # The private xinutec-infra fetch in machines/{odin,isis}/plan-run.nix needs its
-  # own key, and its failure is LATENT: fetchGit only hits the network for a rev the
-  # store lacks, so rebuilds succeed until the first pin BUMP. Per-host read-only
+  # The private xinutec-infra fetch in machines/*/plan-run.nix needs its own key,
+  # and a missing one fails late: fetchGit only hits the network for a rev the
+  # store lacks, so rebuilds succeed until the next pin bump. Per-host read-only
   # deploy keys, never in agenix: `gh repo deploy-key list --repo xinutec/xinutec-infra`.
   #
   # Order asserted by scripts/ssh_config_order.py.
@@ -417,8 +414,8 @@ in {
     };
   };
 
-  # Every server's home dir is a clone of xinutec/pippijn, and they silently drift.
-  # FAST-FORWARD ONLY — local commits or a conflict log and skip, never merge or
+  # Every server's home dir is a clone of xinutec/pippijn; keep it current.
+  # Fast-forward only: local commits or a conflict log and skip, never merge or
   # force. `merge --ff-only` rather than `pull`, so a host-local pull.rebase cannot
   # turn this into a rebase that aborts on the dirty rclone.conf.
   systemd.services.home-autosync = {
@@ -459,7 +456,7 @@ in {
     timerConfig = {
       OnCalendar = "hourly";
       Persistent = true;
-      # Stagger the three hosts so they don't all hit GitHub at :00.
+      # Stagger the hosts so they don't all hit GitHub at :00.
       RandomizedDelaySec = "5m";
     };
   };

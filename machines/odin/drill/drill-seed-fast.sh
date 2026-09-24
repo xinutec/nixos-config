@@ -1,35 +1,22 @@
 #!/usr/bin/env bash
-# FAST drill seed: populate /var/lib/drill/volumes/ directly from
-# /var/backup-staging/isis/nextcloud/ without going through
-# `restic restore`, at the cost of NOT exercising the restic pipeline
-# itself.
+# Fast drill seed: populate /var/lib/drill/volumes/ from
+# /var/backup-staging/isis/nextcloud/ without `restic restore`, so it does not
+# exercise the restic pipeline. The full drill (drill-seed.sh, via
+# `drill-run.sh --full`) restores from restic and is the run that proves the
+# backup; this one is for the routine drill and for iteration.
 #
-# The nextcloud tree is not COPIED, it is OVERLAID: staging is the
-# read-only lower layer and the scratch's .nc-upper takes every write. The
-# copy it replaces was `rsync -aH` over 560G, and it was the whole cost
-# of this drill — 4h28m of a 5h15m run on 2026-09-07, which is what put
-# the run into `RunDrill`'s ceiling and killed it a minute short of a
-# restore that was otherwise sound. It was also pure waste: the fast
-# drill BOOTS the staging mirror, so copying it proved only that 560G
-# can be duplicated, which nothing needs to know. The full drill
-# (drill-seed.sh) still restores from restic, and that is the run that
-# proves the backup.
+# The nextcloud tree is overlaid, not copied: staging is the read-only lower
+# layer and the scratch's .nc-upper takes every write. Copying ~560G took most
+# of the drill's time budget and proved nothing the fast drill needs.
 #
-# ⚠ The lower layer is the LIVE isis mirror — the tree restic backs up.
-# Three things protect it, and all three were probed on odin before this
-# landed. Do not remove any of them:
-#   1. overlayfs never writes to a lower layer, so the drill's own writes
-#      (including modifying a file that exists in staging) cannot reach it;
-#   2. `drill-smoke.sh teardown` unmounts before deleting and REFUSES to delete
-#      at all if the unmount fails. It is now the ONLY thing in the drill that
-#      deletes the scratch, and it runs once, at the END of a run;
-#   3. both wipes pass `--one-file-system`, so a mount that survives (2)
-#      is skipped rather than deleted through.
-#
-# Use this for weekly-cadence drills and for iteration. Run the full
-# drill (drill-seed.sh) monthly to exercise the restic restore path.
-#
-# See README.md § "Drill cadence and tiering" for rationale.
+# The lower layer is the live isis mirror that restic backs up. Three things
+# protect it; keep all three:
+#   1. overlayfs never writes to a lower layer, even when the drill modifies a
+#      file that exists in staging;
+#   2. `drill-smoke.sh teardown`, the only deletion of the scratch, unmounts
+#      first and refuses to delete if the overlay is still mounted;
+#   3. both scratch wipes (teardown's `rm` and the plan's ClearUnder) refuse to
+#      cross a filesystem boundary, so a surviving mount is not deleted through.
 
 set -euo pipefail
 
@@ -48,12 +35,10 @@ echo "=== drill-seed-fast starting $(date -u +%FT%TZ) ==="
 
 readonly SRC=/var/backup-staging/isis/nextcloud
 
-# ⚠ NOT under $DRILL_DIR. The scratch used to live beside these scripts, inside
-# the /etc/nixos checkout — which put a 560G tree in a git working copy and made
-# a DELETABLE root contain the scripts doing the deleting. dev-lint refused a
-# `DrillScratch` root pointing there (nix-root-exec-mutable-etc) and was right:
-# the waiver `drill.dir` carries exists because a drill must exercise the CURRENT
-# scripts, and data has no such claim. See #1487.
+# Not under $DRILL_DIR: that is the /etc/nixos checkout, and the scratch must
+# not put a 560G deletable tree in a git working copy around the scripts that
+# delete it. The `drill.dir` waiver (nix-root-exec-mutable-etc) covers scripts,
+# which must be current, not data. See #1487.
 readonly SCRATCH=/var/lib/drill/volumes
 readonly NC_MNT="$SCRATCH/nextcloud"
 readonly NC_UPPER="$SCRATCH/.nc-upper"
@@ -66,21 +51,12 @@ log() { printf '[drill-seed-fast] %s\n' "$*"; }
 unmount_nextcloud() {
   mountpoint -q "$NC_MNT" || return 0
   umount "$NC_MNT" 2>/dev/null && return 0
-  # A container still holding the tree is the ordinary reason. Stop the stack
-  # and try once more.
-  #
-  # ⚠ `stop`, NEVER `teardown`. The latter deletes, and calling it from here
-  # would run a deletion over a tree we have just established is STILL MOUNTED
-  # over the isis mirror. `stop` exists so this has something safe to call —
-  # it was an inline `docker compose down` before the verbs were split.
+  # A container still holding the tree is the usual reason: stop the stack and
+  # retry. `stop`, never `teardown`, which deletes, and the tree is still
+  # mounted over the isis mirror here.
   ./drill-smoke.sh stop >/dev/null 2>&1 || true
   umount "$NC_MNT" 2>/dev/null || return 1
 }
-
-# ⚠ NO safe_rm HERE ANY MORE. This script had a deletion helper with an
-# allowlist and --one-file-system; it is gone because the deletion is gone. The
-# plan clears the scratch (Effect::ClearUnder) and the end-of-run teardown in
-# drill-smoke.sh holds the only `rm` left in the drill.
 
 # --- sanity checks ---
 for cmd in docker zstd mount umount mountpoint systemctl; do
@@ -99,12 +75,8 @@ fi
 # --- cleanup trap ---
 cleanup() {
   local rc=$?
-  # ⚠ READ THE LOGS BEFORE REMOVING IT. This container used to run with `--rm`,
-  # which meant a container that failed to start deleted itself — and took with
-  # it the only record of why. The `docker logs` in the readiness timeout below
-  # then printed `No such container`, which reads as a missing container rather
-  # than as the diagnostic being destroyed. Cost a whole weekly drill on
-  # 2026-09-06 with nothing to show for it (#1471).
+  # Read the container's state and logs before removing it: they are the only
+  # record of why it failed (#1471).
   if docker inspect drill-seed-db >/dev/null 2>&1; then
     if [ $rc -ne 0 ]; then
       log "drill-seed-db state: $(docker inspect \
@@ -124,16 +96,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. stop whatever is running, and REQUIRE an empty scratch
+# 1. stop whatever is running, and require an empty scratch
 #
-# ⚠ THIS SCRIPT NO LONGER DELETES ANYTHING. Emptying the scratch is
-# `Effect::ClearUnder`, issued by the drill plan before the restore (#1487):
-# a declared root, a `rel` that cannot name the root, and a walk that refuses
-# to cross a filesystem boundary rather than an `rm` that recurses through one.
-#
-# So this refuses instead of clearing. `plan-run drill --apply` is the path that
-# clears — a manual `./drill-run.sh` against a dirty scratch is a run that would
-# seed on top of a previous one, and saying so beats deleting 560G on a guess.
+# This script deletes nothing. The drill plan empties the scratch before the
+# restore (Effect::ClearUnder, #1487), so a manual ./drill-run.sh against a
+# dirty scratch refuses rather than seeding on top of a previous run.
 log "stop previous drill stack"
 ./drill-smoke.sh stop >/dev/null 2>&1 || true
 unmount_nextcloud || true
@@ -153,16 +120,11 @@ if [ -n "$(find "$SCRATCH" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ];
 fi
 mkdir -p "$SCRATCH"/{mysql,redis,nextcloud} "$NC_UPPER" "$NC_WORK"
 
-# 2. nextcloud file tree — overlay, not copy. Seconds, not hours.
-# The mirror job REWRITES $SRC, and a lower layer must not change while it is
-# mounted. Refuse rather than mount over a tree being rewritten underneath us.
-#
-# This closes the window at mount time, not for the whole run: the mirror could
-# still start while the overlay is up. Two things make that acceptable rather
-# than fixed — the schedules do not meet (mirror daily ~02:38, drill Sundays
-# 12:00), and dropping the copy takes the drill's hold on staging from over
-# five hours to well under one. Closing it properly means teaching the backup
-# plan to refuse while a drill overlay is mounted, which is a plan change.
+# 2. nextcloud file tree: overlay, not copy.
+# The backup rewrites $SRC, and a lower layer must not change while mounted, so
+# refuse to mount while it runs. This covers mount time only; for the rest of a
+# run under drill-weekly.service, `Conflicts=` stops the drill when the backup
+# starts and ExecStopPost unmounts the overlay (backups.nix).
 if systemctl is-active --quiet restic-backups-cluster.service; then
   echo "restic-backups-cluster is running: it rewrites $SRC, which this drill" >&2
   echo "mounts as a read-only overlay lower layer. Wait for it and re-run." >&2
@@ -180,20 +142,18 @@ cp "$SRC/redis.rdb" "$SCRATCH/redis/dump.rdb"
 chown 999:999 "$SCRATCH/redis/dump.rdb" 2>/dev/null || true
 
 # 4. mariadb: initialize + load dump
-# Root password for the throwaway drill-seed-db — a local container torn down
-# (--rm) at the end and never exposed off-host, so this is a constant, not a secret.
+# Root password for the throwaway drill-seed-db, a local container removed by
+# the cleanup trap and never exposed off-host: a constant, not a secret.
 DRILL_DB_PW=drill-root-pw
-# Read the image from docker-compose.yml rather than repeating it here. That file
-# is what drill-run.sh's preflight compares against production, so a literal in
-# this script is invisible to the guard: production went to mariadb:12.3 and this
-# stayed on 11.8, and every load then died with `ERROR 1805 ... mysql.proc ...
-# Expected 21, found 22` after a 4-hour restore.
+# Read the image from docker-compose.yml, which drill-run.sh's preflight compares
+# against production; a literal here would escape that check and drift (a
+# version mismatch fails the load with `ERROR 1805 ... mysql.proc`).
 db_image=$(grep 'image:.*mariadb:' "$DRILL_DIR/docker-compose.yml" | awk '{print $2}')
 [ -n "$db_image" ] || { echo "BUG: no mariadb image in docker-compose.yml" >&2; exit 99; }
 readonly db_image
 log "start temporary drill-seed-db ($db_image)"
 docker rm -f drill-seed-db >/dev/null 2>&1 || true
-# NO `--rm`: the cleanup trap removes it, AFTER reading its logs. See #1471.
+# No `--rm`: the cleanup trap removes it after reading its logs (#1471).
 docker run -d \
   --name drill-seed-db \
   -e MYSQL_ROOT_PASSWORD=$DRILL_DB_PW \
@@ -202,10 +162,8 @@ docker run -d \
   "$db_image" \
   >/dev/null
 
-# 120 iterations x 2s = FOUR MINUTES, not two. Measured on odin 2026-09-06 with
-# the box idle, this container is ready in ~38s, so the budget is generous —
-# which is why a timeout here should be read as "something is wrong", not as
-# "needs longer".
+# Four minutes. An idle odin has this container ready in well under one, so a
+# timeout means something is wrong, not that it needs longer.
 readonly DB_WAIT_ROUNDS=120
 readonly DB_WAIT_SLEEP=2
 log "waiting for drill-seed-db to accept authenticated connections (up to $((DB_WAIT_ROUNDS * DB_WAIT_SLEEP))s)..."
@@ -214,10 +172,8 @@ for i in $(seq 1 "$DB_WAIT_ROUNDS"); do
     log "ready after $((i * DB_WAIT_SLEEP))s"
     break
   fi
-  # ⚠ A CONTAINER THAT EXITED IS NOT A SLOW ONE. Without this the loop waits out
-  # the full four minutes on a container that died in the first ten seconds, and
-  # then reports "did not become ready" — which sends the reader looking for a
-  # timeout when what happened was a crash.
+  # A container that exited is a crash, not a slow start: report it now rather
+  # than as a timeout four minutes later.
   if [ "$(docker inspect -f '{{.State.Running}}' drill-seed-db 2>/dev/null)" != "true" ]; then
     echo "drill-seed-db EXITED after $((i * DB_WAIT_SLEEP))s — it crashed, it did not run slow" >&2
     exit 1
@@ -271,9 +227,8 @@ chown 33:33 "$SCRATCH/nextcloud/config/zz-drill.config.php"
 
 log "done"
 printf '[drill-seed-fast] %s sizes:\n' "$SCRATCH"
-# ⚠ NOT "$SCRATCH"/* — the nextcloud entry is an overlay over 560G of
-# staging, and du would walk all of it to report a number that is not this
-# drill's disk cost. What this drill actually occupies is the upper layer.
+# Not "$SCRATCH"/*: the nextcloud entry is an overlay over staging, and du would
+# walk all of it. The drill's own disk cost is the upper layer.
 du -sh "$SCRATCH/mysql" "$SCRATCH/redis" "$NC_UPPER" | sed 's/^/  /'
 printf '  (nextcloud is an overlay over %s/server-data — not counted, not copied)\n' "$SRC"
 echo
