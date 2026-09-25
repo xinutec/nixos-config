@@ -157,7 +157,7 @@ def post(url: str, token: str, report: dict[str, object]) -> int:
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            print(f"pushed {len(report['checks'])} check(s): HTTP {resp.status}")  # type: ignore[arg-type]
+            print(f"pushed {len(report['checks'])} check(s): HTTP {resp.status}")  # type: ignore[arg-type]  # a response that reached here has a status
             return 0
     except urllib.error.HTTPError as e:
         print(f"push failed: HTTP {e.code} {e.read()[:200]!r}", file=sys.stderr)
