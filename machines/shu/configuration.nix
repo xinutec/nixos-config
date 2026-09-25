@@ -98,6 +98,15 @@ in
         ${pkgs.bash}/bin/bash -c 'test -d ${infra} || ${pkgs.git}/bin/git clone git@github.com:xinutec/xinutec-infra.git ${infra}'
       '';
       ExecStart = "${goveePython}/bin/python3 ${infra}/shu/govee-push.py";
+      # 75 is govee.AdapterWedged: bluetoothd stopped powering the adapter under
+      # the scan's power-cycles, and only a restart clears it.
+      ExecStopPost = pkgs.writeShellScript "govee-bluetooth-recover" ''
+        [ "$EXIT_STATUS" != 75 ] && exit 0
+        echo "bluetoothd wedged: restarting bluetooth.service" >&2
+        # --no-block: this unit Requires= bluetooth, so waiting on the restart
+        # from inside its own stop would wait on itself.
+        ${pkgs.systemd}/bin/systemctl restart --no-block bluetooth.service
+      '';
       User = "root";
     };
   };
