@@ -26,7 +26,7 @@ fixed path. The NixOS modules reference those paths.
 | File | Recipients | Consumed by |
 |---|---|---|
 | `grafana-agent-password.age` | all hosts + admin | alloy → Grafana/Mimir, `grafana-alloy.nix` |
-| `restic-password.age` | odin + admin | restic backup / check / drill, `machines/odin/backups.nix` |
+| `restic-password.age` | odin + admin | restic backup / check / drill, `machines/odin/backups.nix`; also the one key to the Mac's three repositories, so this is their off-site copy too |
 | `wireguard-<host>.age` | that host + admin | the host's `wg0` private key, `base-configuration.nix` |
 | `root-ssh-fleet.age` | all hosts + admin | `/root/.ssh/id_fleet`, inter-host root SSH |
 | `home-ingest-token.age` | geb + admin | the Govee pusher's bearer token, `machines/geb/configuration.nix` |
@@ -35,21 +35,20 @@ fixed path. The NixOS modules reference those paths.
 | `hc-ping-backup.age` | odin + admin | backup check ID, `machines/odin/backups.nix` |
 | `hc-ping-drill.age` | odin + admin | restore-drill check ID, `machines/odin/drill/drill-run.sh` |
 | `hc-ping-integrity.age` | odin + admin | integrity check ID, `machines/odin/backups.nix` → `plan-settings.nix` |
-| `geb-restic-password.age` | odin + admin | **nothing on any host — ESCROW, see below** |
-| `offsite-restic-password.age` | odin + admin | **nothing on any host — ESCROW, see below** |
 
-### The two escrowed restic passwords consume nothing ON PURPOSE
+### The two escrowed Mac restic passwords are GONE
 
-`geb-restic-password` and `offsite-restic-password` are **not deployed to any
-host** and will not appear in `/run/agenix`. They are the Mac's, and the Mac is
-where they are used; these copies exist so the passwords survive the house.
+`geb-restic-password` and `offsite-restic-password` were the off-site copies of
+the passwords to the Mac's repositories (geb's `/data/restic-mac`, and the
+off-site repository with its geb mirror `/data/restic-fleet`). Since 2026-08-18
+each of those repositories also had a `restic-password` key, which odin already
+holds, so the old keys were a second way in with nothing left to protect.
 
-⚠ **A secret consuming nothing is exactly what the retired `root-ssh-*` pair
-looked like, and these are the opposite — do not "tidy" them away.** The
-distinction is in `secrets.nix`: their live copies sit in two in-house places,
-and so does the admin key, so it is **odin holding a copy — in a datacenter, not
-in the house — that makes this a real third copy** rather than a second one in
-the same building.
+**Removed 2026-09-26**, keys first: `restic key remove` in all three
+repositories, after checking that `restic-password` opens each and that odin's
+copy has the same hash. The old passwords are now rejected by every repository,
+and the `.age` files and the Mac's password files were deleted after that.
+Deleting only the escrow would have left two working keys with no off-site copy.
 
 ### The two `root-ssh-{ed25519,rsa}` secrets are GONE
 

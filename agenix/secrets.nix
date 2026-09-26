@@ -26,17 +26,11 @@ in {
 
   # odin is the only backup host. The admin key can still decrypt, so a reinstalled
   # odin can be re-onboarded without losing the repo.
-  "restic-password.age".publicKeys = [ odin admin ];
-
-  # The Mac's two restic passwords. NOTHING HERE READS THEM — the jobs run on the
-  # Mac, which has no NixOS module. They are here to be REPLICATED.
   #
-  # ⚠ ODIN, NOT GEB. geb holds /data/restic-mac, so encrypting its password to geb
-  # would put the repository and its key on one machine. Their only other copies
-  # are the Mac's disk and the recovery bundle beside it, both in the house — odin
-  # is what makes this a third copy that survives the house (#836).
-  "geb-restic-password.age".publicKeys = [ odin admin ];
-  "offsite-restic-password.age".publicKeys = [ odin admin ];
+  # ⚠ Also the only key to the Mac's repositories on geb and the Backup volume, so
+  # odin's copy is what lets them survive the house. Encrypt it to odin, never geb:
+  # geb holds /data/restic-mac and would then hold the repository and its key.
+  "restic-password.age".publicKeys = [ odin admin ];
 
   # Hub-and-spoke, so a host only ever needs its own key.
   "wireguard-amun.age".publicKeys = [ amun admin ];
