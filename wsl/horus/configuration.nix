@@ -50,6 +50,7 @@ in
 
   environment.systemPackages = [
     pkgs.git
+    pkgs.rsync # horus-run --repo copies repositories in from the Mac
     pkgs.uv
     (pkgs.writeShellScriptBin "nvidia-smi" ''exec /usr/lib/wsl/lib/nvidia-smi "$@"'')
   ];
