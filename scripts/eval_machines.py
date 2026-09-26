@@ -29,10 +29,17 @@ happens to have.
 Every machine is evaluated even after one fails, and the failures are named at
 the end: a gate that stops at the first reports one machine when three are
 broken.
+
+WSL hosts (`wsl/<name>/configuration.nix`) are evaluated too, but as they stand:
+they do not build on base-configuration.nix — no WireGuard of their own, no
+agenix, no fleet root keys — so there is nothing to stage. They are checked
+against the nixpkgs they run (`NIXPKGS_WSL`, pinned in the devshell next to
+`<nixos-wsl>`), not the unstable one above.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -55,6 +62,10 @@ def machines() -> list[str]:
     return sorted(p.name for p in (ROOT / "machines").iterdir() if p.is_dir())
 
 
+def wsl_hosts() -> list[str]:
+    return sorted(p.name for p in (ROOT / "wsl").iterdir() if p.is_dir())
+
+
 def stage(work: Path, machine: str) -> None:
     """Put the two per-host files a checkout lacks where the modules expect them."""
     dist = (ROOT / "configuration.nix.dist").read_text()
@@ -66,15 +77,17 @@ def stage(work: Path, machine: str) -> None:
     )
 
 
-def evaluate(work: Path) -> subprocess.CompletedProcess[str]:
+def evaluate(configuration: Path, nixpkgs: str | None = None) -> subprocess.CompletedProcess[str]:
+    pin = ["-I", f"nixpkgs={nixpkgs}"] if nixpkgs else []
     return subprocess.run(
         [
             "nix-instantiate",
+            *pin,
             "<nixpkgs/nixos>",
             "-A",
             "system",
             "-I",
-            f"nixos-config={work / 'configuration.nix'}",
+            f"nixos-config={configuration}",
             "--argstr",
             "system",
             SYSTEM,
@@ -83,6 +96,18 @@ def evaluate(work: Path) -> subprocess.CompletedProcess[str]:
         text=True,
         check=False,
     )
+
+
+def report(name: str, result: subprocess.CompletedProcess[str]) -> bool:
+    if result.returncode == 0:
+        found = STORE_PATH.search(result.stdout)
+        print(f"  ok   {name:<6} {found.group(0) if found else ''}")
+        return True
+    print(f"  FAIL {name:<6} does not evaluate")
+    errors = [line for line in result.stderr.splitlines() if "error:" in line]
+    for line in errors[:5]:
+        print(f"         {line}")
+    return False
 
 
 def main() -> int:
@@ -96,18 +121,12 @@ def main() -> int:
 
         for machine in machines():
             stage(work, machine)
-            result = evaluate(work)
-            if result.returncode == 0:
-                found = STORE_PATH.search(result.stdout)
-                print(f"  ok   {machine:<6} {found.group(0) if found else ''}")
-            else:
+            if not report(machine, evaluate(work / "configuration.nix")):
                 broken.append(machine)
-                print(f"  FAIL {machine:<6} does not evaluate")
-                errors = [
-                    line for line in result.stderr.splitlines() if "error:" in line
-                ]
-                for line in errors[:5]:
-                    print(f"         {line}")
+        for host in wsl_hosts():
+            wsl = work / "wsl" / host / "configuration.nix"
+            if not report(host, evaluate(wsl, os.environ["NIXPKGS_WSL"])):
+                broken.append(host)
 
     if broken:
         print(f"machines that do not evaluate: {', '.join(broken)}", file=sys.stderr)

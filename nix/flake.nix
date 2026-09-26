@@ -26,9 +26,18 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # The WSL hosts under wsl/ are evaluated against the pair they actually run:
+    # NixOS-WSL's release branch sets options that unstable has since removed, so
+    # checking it against the nixpkgs above would fail on a combination no host
+    # has. Source only for NixOS-WSL: the eval needs its module path, not outputs.
+    nixpkgs-wsl.url = "github:NixOS/nixpkgs/nixos-26.05";
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/release-26.05";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, flake-utils }:
+  outputs = { self, nixpkgs, home-manager, nixpkgs-wsl, nixos-wsl, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -47,7 +56,8 @@
           # rather than passed as `-I` flags by the gate, so a manual eval from an
           # interactive `nix develop` shell resolves exactly what the gate does.
           shellHook = ''
-            export NIX_PATH="nixpkgs=${nixpkgs}:home-manager=${home-manager}"
+            export NIX_PATH="nixpkgs=${nixpkgs}:home-manager=${home-manager}:nixos-wsl=${nixos-wsl}"
+            export NIXPKGS_WSL="${nixpkgs-wsl}"
           '';
         };
       });
