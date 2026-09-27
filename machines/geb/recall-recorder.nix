@@ -47,8 +47,10 @@ let
   micDevice = "hw:CARD=Microphone,DEV=0";
 
   root = "/var/lib/recall";
-  isisIngest = "http://10.100.0.2:8001";
-  isisControl = "http://10.100.0.2:8000";
+  # recalld on Isis, a name its front door serves on the VPN only. HTTPS needs an
+  # audiod built with TLS (recall 2026-09-27 onward); an older pin cannot dial it.
+  isisIngest = "https://recall.xinutec.org";
+  isisControl = "https://recall.xinutec.org";
 
   hardening = {
     NoNewPrivileges = true;
