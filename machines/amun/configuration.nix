@@ -45,10 +45,10 @@ in {
     # only one minor at a time. Before bumping this machine off 25.05, pin the package
     # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
-    # ⚠ Activating this needs k3s STOPPED first and two steps by hand (#1295): the
-    # datastore's bootstrap row holds an encryption config with an empty key list,
-    # and k3s restores it over anything on disk. With the row and both
-    # `cred/encryption-*.json` gone, k3s writes a fresh key and saves a new row.
+    # `--secrets-encryption` has been on since 2026-09-28 (#1295). Its key lives only
+    # in `server/cred/encryption-config.json`: lose that file and every Secret is
+    # unreadable, which is how amun lost them all on 2026-08-31 (an empty key list,
+    # restored from the datastore's bootstrap row over the file on disk).
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption ${config.xinutec.k3sDns.flag}";
   };
