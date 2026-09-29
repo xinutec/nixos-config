@@ -2,7 +2,7 @@
 #
 # Sibling of machines/{odin,isis,geb,shu}/plan-run.nix, and everything odin's file says
 # about WHY the source is pinned by revision rather than following a ref applies
-# unchanged. To bump: change `rev`, run xinutec-infra's `scripts/plan-pin.sh`,
+# unchanged. To bump: change `rev`, run `xinutec-infra/scripts/plan-pin.sh`,
 # rebuild.
 #
 # ┌─ WHY A HOME BOX RUNS THE RECONCILER AT ALL ──────────────────────────────────┐
