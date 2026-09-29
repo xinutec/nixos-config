@@ -32,18 +32,15 @@ in {
 
   services.k3s = {
     enable = true;
-    # Channel default, like isis. So a channel bump IS a Kubernetes upgrade: 25.05
-    # ships 1.32 and 26.05 ships 1.35, and k3s supports one minor at a time. Before
-    # moving this host off 25.05, pin the package and step it, rebuilding each time.
     # No explicit package: take the channel default, like isis. On this machine's
-    # channel (25.05) that is 1.32.7+k3s1 — exactly what it already runs, so this is
-    # not an upgrade. It replaces a `k3s_1_32` pin that nixpkgs has since removed as
-    # upstream-EOL, which is the recurring cost of pinning a minor by name.
+    # channel (25.05) that is 1.32.7+k3s1. It replaces a `k3s_1_32` pin that
+    # nixpkgs has since removed as upstream-EOL, which is the recurring cost of
+    # pinning a minor by name.
     #
-    # The version now moves with the channel, so a channel bump IS a Kubernetes
-    # upgrade: 26.05 ships 1.35.6+k3s1, i.e. 1.32 → 1.35 in one step. k3s supports
-    # only one minor at a time. Before bumping this machine off 25.05, pin the package
-    # explicitly and step it (1.33 → 1.34 → 1.35), rebuilding at each step.
+    # So a channel bump IS a Kubernetes upgrade: 26.05 ships 1.35.6+k3s1, i.e.
+    # 1.32 → 1.35 in one step, and k3s supports only one minor at a time. Before
+    # moving this host off 25.05, pin the package explicitly and step it
+    # (1.33 → 1.34 → 1.35), rebuilding at each step.
     role = "server";
     # `--secrets-encryption` has been on since 2026-09-28 (#1295). Its key lives only
     # in `server/cred/encryption-config.json`: lose that file and every Secret is
