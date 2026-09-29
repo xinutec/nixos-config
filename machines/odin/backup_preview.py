@@ -28,11 +28,11 @@ Skipping a worktree skips both its files and its on-disk .git/.
 
 Examples:
   # Size report
-  ssh amun 'python3 - /home/pippijn/code/kubes/vps/toktok/workspace' < backup_preview.py
+  ssh amun 'python3 - ~/code/kubes/vps/toktok/workspace' < backup_preview.py
 
   # File list for rsync --files-from
   ssh amun 'python3 - --print0 --exclude tools/toktok-fuzzer \\
-              /home/pippijn/code/kubes/vps/toktok/workspace' < backup_preview.py \\
+              ~/code/kubes/vps/toktok/workspace' < backup_preview.py \\
     | rsync -av --from0 --files-from=- amun:.../workspace/ /local/staging/
 """
 

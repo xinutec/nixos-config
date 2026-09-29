@@ -1,4 +1,4 @@
-# horus's compute host: NixOS-WSL in the `claude` Windows account on Pippijn's
+# horus's compute host: NixOS-WSL in the `claude` Windows account on the user's
 # gaming PC (RTX 4090). The Mac's Claude sessions use it over ssh for GPU work;
 # design and setup are in xinutec-infra horus.md.
 #

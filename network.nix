@@ -99,7 +99,7 @@
       intermittent = false; # a gap here is lost audio
     };
 
-    # iPhone (Pippijn). Never leaves the house, so a gap is a real fault — see
+    # iPhone (the user). Never leaves the house, so a gap is a real fault — see
     # #1597, and do not silence it by flipping this back to intermittent.
     iphone = {
       name = "iphone";

@@ -42,8 +42,8 @@ in {
 
   # Inter-host root SSH: backup rsyncs and the restore drill.
   # ⚠ A key of its own (#1049), never a re-key of `pippijn@xinutec.org` — that one
-  # is also the key Pippijn logs in with, so reading any one host's /root/.ssh
-  # would yield the credential that is him.
+  # is also the key the user logs in with, so reading any one host's /root/.ssh
+  # would yield the credential that is them.
   "root-ssh-fleet.age".publicKeys = allHosts ++ [ admin ];
 
   # healthchecks.io check IDs, each a bearer capability: anyone holding one can GET

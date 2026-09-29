@@ -53,22 +53,22 @@ Deleting only the escrow would have left two working keys with no off-site copy.
 ### The two `root-ssh-{ed25519,rsa}` secrets are GONE
 
 They were `/root/.ssh/id_{ed25519,rsa}` on every host until 2026-08-22, and #1049
-is what they were. Their public halves were `pippijn@xinutec.org` — the key
-Pippijn logs in with — so the fleet authenticated to itself using a personal
+is what they were. Their public halves were the operator's personal key — the one
+the user logs in with — so the fleet authenticated to itself using a personal
 identity, and the private half of that identity sat on four machines, two of them
-internet-facing. Root on any host was root on every host, and on him.
+internet-facing. Root on any host was root on every host, and on them.
 
 `root-ssh-fleet.age` replaced them: generated for the job, in no personal key
 list, so it can be rotated or confined without asking what else it opens.
 
 **Undeployed 2026-08-22, and the `.age` files DELETED 2026-08-23.** An earlier
 version of this file argued for keeping them, on the reasoning that deletion
-could cost Pippijn's only copy of a key he still used personally. Two things
+could cost the user's only copy of a key they still used personally. Two things
 retired that argument:
 
-* **He did not use it.** `Accepted publickey for pippijn` with either
+* **They did not use it.** `Accepted publickey` for the login account with either
   fingerprint, over the 90 days to 2026-08-23: 0 on isis, 0 on amun, 0 on odin.
-  The keypair was retired from the `pippijn` list too, so it now opens nothing
+  The keypair was retired from the login account's list too, so it now opens nothing
   anywhere.
 * **Nothing is lost that was not already lost.** This repository is **public**,
   so the ciphertext is in the git history permanently — deleting the files buys
@@ -78,7 +78,7 @@ retired that argument:
 ⚠ **The exposure that mattered was not the file, it was the authorization.** The
 published ciphertext was decryptable by anyone holding one of the four host keys
 — i.e. by root on amun or isis, the internet-facing pair — and that key was still
-authorized on `github.com/pippijn`, which can push to this repository, which every
+authorized on the user's GitHub account, which can push to this repository, which every
 host rebuilds from. That GitHub key was removed the same day. What makes the
 published ciphertext worthless is that the keypair opens nothing, not that the
 files are gone.
@@ -141,7 +141,7 @@ key before it can activate this configuration.
    the machine's `hardware-configuration.nix`, copied to the repo ROOT
    because `base-configuration.nix` imports it relative to itself.
 
-   ⚠ **`boot` then reboot, not `switch`** — Pippijn's rule for every host
+   ⚠ **`boot` then reboot, not `switch`** — the user's rule for every host
    except amun, which cannot be rebooted freely. Keep the pre-existing
    `/etc/nixos` as `/etc/nixos.bootstrap`: if the fleet config will not
    activate, that is what the machine is still running and what it goes

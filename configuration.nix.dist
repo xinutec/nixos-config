@@ -6,5 +6,6 @@
   imports = [ machines/@HOST@/configuration.nix ];
   node = (import ./network.nix).nodes.@HOST@;
   # Set passwords for system users (mkpasswd -m sha-512).
+  # dev-lint: allow-pii the login account
   users.users.pippijn.hashedPassword = "@PASSWD@";
 }
