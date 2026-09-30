@@ -47,11 +47,6 @@ in
   # at all, and this box has no cable.
   hardware.enableRedistributableFirmware = true;
 
-  # NetworkManager writes resolv.conf from DHCP. base-configuration's kube-dns
-  # (10.43.0.10) is not routed over WireGuard — a dead first query on every lookup —
-  # and its OVH resolver is only near the rented machines.
-  networking.nameservers = lib.mkForce [ ];
-
   # Not a build node: base-configuration's buildfarm worker mounts
   # ~/.config/buildfarm/${config.node.name}.yml, which geb has no reason to have, so
   # the container would restart-loop.

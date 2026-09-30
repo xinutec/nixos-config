@@ -91,6 +91,18 @@ let
           always-on: down is a real fault and alerts. See machines/amun/vpn-nodes.nix.
         '';
       };
+
+      # Null only for peers with no NixOS config of ours (phones, laptops); every
+      # host built on base-configuration.nix must say, and it asserts so.
+      site = mkOption {
+        type = types.nullOr (types.enum [ "ovh" "home" ]);
+        default = null;
+        description = ''
+          Where the host lives, which decides the resolvers it can reach
+          (`sites` in network.nix). Declared, not inferred from a public IPv4:
+          a proxy is how kube-dns ended up first on hosts that cannot route it.
+        '';
+      };
     };
   };
 in {

@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, ... }:
 
 let net = import ../../network.nix;
 in {
@@ -9,13 +9,6 @@ in {
     ./plan-settings.nix
     ../../plan-fleetwatch.nix
   ];
-
-  # Not a k3s node: base-configuration's first nameserver, kube-dns (10.43.0.10),
-  # routes out of the default gateway here and never answers, so every lookup
-  # waited out a timeout before reaching OVH's. In containers that was 10 s a
-  # name, and the drill's MariaDB missed its entrypoint's 30 s startup window
-  # (2026-09-27). geb drops it for the same reason.
-  networking.nameservers = lib.mkForce [ "213.186.33.99" ];
 
   # #728, and odin is the machine that most needs it: it is the one nobody logs
   # into for weeks at a time. Read-only by construction — `plans::firewall` has

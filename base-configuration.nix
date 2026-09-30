@@ -262,10 +262,17 @@ in {
 
     # Resolve hostnames in domain.
     search = [ config.networking.domain ];
-    nameservers = [
-      "10.43.0.10" # kube-dns.kube-system.svc.cluster.local
-      "213.186.33.99" # cdns.ovh.net
-    ];
+    # Derived, not listed: kube-dns only where k3s runs, since off a node the
+    # cluster IP routes out of the default gateway and every lookup waits out its
+    # timeout first (odin's drill, 2026-09-27); then the site's own resolvers.
+    nameservers =
+      lib.optional config.services.k3s.enable
+        "10.43.0.10" # kube-dns.kube-system.svc.cluster.local
+      ++ net.sites.${
+        assert lib.assertMsg (config.node.site != null)
+          "network.nix: ${config.node.name} has no `site`, so its resolvers are unknown";
+        config.node.site
+      }.resolvers;
     hostName = config.node.name; # Define your hostname.
     domain = "xinutec.org";
 

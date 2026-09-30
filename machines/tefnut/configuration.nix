@@ -48,10 +48,6 @@ in
   # Without this the iwlwifi adapter does not exist, and there is no cable.
   hardware.enableRedistributableFirmware = true;
 
-  # base-configuration's kube-dns entry is a cluster IP not routed over WireGuard —
-  # a dead first query on every lookup. Let NetworkManager write resolv.conf.
-  networking.nameservers = lib.mkForce [ ];
-
   # Not a build node; the buildfarm worker would restart-loop on a config file this
   # host has no reason to have.
   virtualisation.oci-containers.containers = lib.mkForce { };

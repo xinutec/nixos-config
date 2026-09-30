@@ -10,6 +10,14 @@
   # must agree; see memview/docs/agent-console.md.
   consolePort = 8097;
 
+  # Where a host lives decides the resolver it can reach. cdns.ovh.net answers
+  # only inside OVH's network; a house box takes its resolver from the router's
+  # DHCP. A k3s node adds kube-dns in front (base-configuration.nix).
+  sites = {
+    ovh.resolvers = [ "213.186.33.99" ]; # cdns.ovh.net
+    home.resolvers = [ ];
+  };
+
   nodes = rec {
     # Star topology: every node peers with amun and nothing else.
     master = amun;
@@ -17,6 +25,7 @@
     # Kubernetes/NFS/Wireguard master.
     amun = {
       name = "amun";
+      site = "ovh";
       ipv4 = "94.23.247.133";
       ipv6 = "2001:41d0:2:7a85::1";
       vpn = "10.100.0.1";
@@ -27,6 +36,7 @@
     # Kubernetes node.
     isis = {
       name = "isis";
+      site = "ovh";
       ipv4 = "188.165.200.180";
       ipv6 = "2001:41d0:2:91b4::1";
       vpn = "10.100.0.2";
@@ -37,6 +47,7 @@
     # Backup machine. No Kubernetes, only storage.
     odin = {
       name = "odin";
+      site = "ovh";
       ipv4 = "5.196.65.240";
       ipv6 = "2001:41d0:a:f9f0::1";
       vpn = "10.100.0.3";
@@ -120,6 +131,7 @@
     # House NixOS box: storage, no Kubernetes, no public address — it dials out.
     geb = {
       name = "geb";
+      site = "home";
       vpn = "10.100.0.5";
       publicKey = "VCTpVsYEoDmifhS8WGBQ6ejdRNW3rJoTRvU8275iWW0=";
       # Wifi by decision, not for want of a cable: the link is stable and fast.
@@ -136,6 +148,7 @@
     # wiped and rebuilt, because that is the only restore drill worth anything.
     shu = {
       name = "shu";
+      site = "home";
       vpn = "10.100.0.6";
       publicKey = "Ls3RbTPsbp6uUtVBZyPgWFWdpv22iR6RCxul2QW5NnM=";
       # 5 GHz wifi, with a 2.4 GHz profile behind it. No cable wanted.
@@ -150,6 +163,7 @@
     # Third house box, geb's actual hardware twin, with NO JOB YET.
     tefnut = {
       name = "tefnut";
+      site = "home";
       vpn = "10.100.0.15";
       publicKey = "onPLb2wm036baPhMjHMG9Tz5CnH/Auw9ZOIsce1ibgU=";
       externalInterface = "wlp0s20f3";
