@@ -18,7 +18,7 @@ let
     # This host's frontdoor.json and the runner are two sides of one comparison and
     # must be bumped together — an older runner ignores new fields via serde and will
     # report healthy on evidence that cannot show it.
-    rev = "88dc93d393f1c4e756470fc8fed4c52045936b45";
+    rev = "b73931602f4c923e223ad8e85ba1455e9214153b";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
