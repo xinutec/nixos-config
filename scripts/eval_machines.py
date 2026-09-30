@@ -104,9 +104,13 @@ def report(name: str, result: subprocess.CompletedProcess[str]) -> bool:
         print(f"  ok   {name:<6} {found.group(0) if found else ''}")
         return True
     print(f"  FAIL {name:<6} does not evaluate")
-    errors = [line for line in result.stderr.splitlines() if "error:" in line]
-    for line in errors[:5]:
-        print(f"         {line}")
+    # From the LAST `error:` on, not only lines naming it: a failed assertion
+    # prints `error:` alone and its message below, so filtering on the word
+    # reported every assertion as a bare "error:".
+    lines = result.stderr.splitlines()
+    last = max((i for i, line in enumerate(lines) if "error:" in line), default=0)
+    for line in [line for line in lines[last:] if line.strip()][:8]:
+        print(f"         {line.strip()}")
     return False
 
 

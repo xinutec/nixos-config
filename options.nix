@@ -103,6 +103,19 @@ let
           a proxy is how kube-dns ended up first on hosts that cannot route it.
         '';
       };
+
+      # Set exactly on k3s nodes; base-configuration asserts that, and
+      # frontdoor.nix asserts it is "frontdoor" where it is imported.
+      edge = mkOption {
+        type = types.nullOr (types.enum [ "frontdoor" "ingress-nginx" ]);
+        default = null;
+        description = ''
+          How a k3s node's cluster is reached from outside: the host nginx front
+          door (isis, #1294) or ingress-nginx pods (amun). The kubes model reads
+          it from clusters.dhall, because a NetworkPolicy admitting the
+          ingress-nginx namespace selects nothing where the edge is host traffic.
+        '';
+      };
     };
   };
 in {

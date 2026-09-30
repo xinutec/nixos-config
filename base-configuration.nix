@@ -241,6 +241,16 @@ in {
     viAlias = true;
   };
 
+  # `edge` is the kubes model's view of a cluster (clusters.dhall); a host that
+  # runs k3s without one, or declares one without k3s, would render netpols for a
+  # cluster that is not there.
+  assertions = [
+    {
+      assertion = (config.node.edge != null) == config.services.k3s.enable;
+      message = "network.nix: ${config.node.name} runs k3s iff it declares an `edge`";
+    }
+  ];
+
   networking = {
     enableIPv6 = true;
     useDHCP = true;

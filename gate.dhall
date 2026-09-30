@@ -65,6 +65,15 @@ in  { name = "nixos-config"
         , argv = inNixShell [ "python3", "scripts/eval_machines.py" ]
         , timeout_s = 1800
         }
+      , {-  The kubes model reads each cluster's edge from a copy of
+            clusters.dhall, so a network.nix edit that is not re-rendered would
+            reach the model as the old fact (render_clusters.py).
+        -}
+        G.Check::{
+        , name = "clusters.dhall matches network.nix"
+        , argv = inNixShell [ "python3", "scripts/render_clusters.py", "--check" ]
+        , timeout_s = 300
+        }
       , {-  isis's front door is rendered from the fleet model and is NOT in any
             machine's `imports` yet — adding it IS the cutover (#1294). So the
             row above, which evaluates each machine's complete configuration,
@@ -108,6 +117,7 @@ in  { name = "nixos-config"
               , "scripts/ssh_config_order.py"
               , "machines/odin/backup_preview.py"
               , "plan-fleetwatch-push.py"
+              , "scripts/render_clusters.py"
               ]
         , timeout_s = 600
         }

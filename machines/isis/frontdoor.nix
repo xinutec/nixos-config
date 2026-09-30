@@ -146,6 +146,13 @@ in
 assert lib.assertMsg (leaked == [ ])
   "frontdoor: these VpnOnly hosts would listen on a public address: ${toString leaked}";
 {
+  assertions = [
+    {
+      assertion = config.node.edge == "frontdoor";
+      message = "frontdoor.nix is imported on ${config.node.name}, whose network.nix edge is not \"frontdoor\"";
+    }
+  ];
+
   services.nginx = {
     enable = true;
     recommendedProxySettings = true;

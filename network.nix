@@ -26,6 +26,7 @@
     amun = {
       name = "amun";
       site = "ovh";
+      edge = "ingress-nginx";
       ipv4 = "94.23.247.133";
       ipv6 = "2001:41d0:2:7a85::1";
       vpn = "10.100.0.1";
@@ -37,6 +38,7 @@
     isis = {
       name = "isis";
       site = "ovh";
+      edge = "frontdoor";
       ipv4 = "188.165.200.180";
       ipv6 = "2001:41d0:2:91b4::1";
       vpn = "10.100.0.2";
