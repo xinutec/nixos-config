@@ -75,7 +75,7 @@ let
     # the CURRENT scripts and compose file. Hence the waiver below, which
     # nix-root-exec-mutable-etc is right to demand of root units in general.
     drill = {
-      # ast-grep-ignore: nix-root-exec-mutable-etc
+      # ast-grep-ignore: DL-NIX-ROOT-EXEC-MUTABLE-ETC
       dir = "/etc/nixos/machines/odin/drill";
       namespace = "nextcloud";
     };

@@ -221,10 +221,10 @@ in {
       extraOptions = [
         # Bazel remote-execution worker: joins the internal buildfarm cluster
         # over host networking; it's a trusted CI worker, not a public service.
-        # ast-grep-ignore: nix-oci-host-namespace
+        # ast-grep-ignore: DL-NIX-OCI-HOST-NAMESPACE
         "--network=host"
         # Build actions execute from /tmp (compilers, test binaries).
-        # ast-grep-ignore: nix-oci-exec-suid-tmpfs
+        # ast-grep-ignore: DL-NIX-OCI-EXEC-SUID-TMPFS
         "--tmpfs=/tmp:exec"
       ];
       volumes = [
@@ -309,7 +309,7 @@ in {
       # Allow traffic to flow freely inside the VPN. docker0 is trusted so the
       # node-local containers can reach host services (metrics, DNS); the bridge
       # is not routable off-host.
-      # ast-grep-ignore: nix-docker0-trusted
+      # ast-grep-ignore: DL-NIX-DOCKER0-TRUSTED
       trustedInterfaces = config.networking.nat.internalInterfaces ++ [ "docker0" ];
 
       extraCommands = ''
