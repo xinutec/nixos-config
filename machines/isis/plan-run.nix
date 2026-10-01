@@ -18,7 +18,7 @@ let
     # This host's frontdoor.json and the runner are two sides of one comparison and
     # must be bumped together — an older runner ignores new fields via serde and will
     # report healthy on evidence that cannot show it.
-    rev = "b73931602f4c923e223ad8e85ba1455e9214153b";
+    rev = "b8eda09089d93e9e493c542a090094ef8c76ba99";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
@@ -28,9 +28,9 @@ let
     cargoLock.lockFile = src + "/plan/Cargo.lock";
 
     # `cargo_sweep.rs` shells out to `ps`, which the build sandbox lacks; rsync is for
-    # the mirror tests. Duplicated from xinutec-infra's flake because this host builds
+    # the mirror tests; git for `git_probes.rs`, which observes real repositories. Duplicated from xinutec-infra's flake because this host builds
     # the same source through its own channel nixpkgs.
-    nativeCheckInputs = [ pkgs.rsync pkgs.procps ];
+    nativeCheckInputs = [ pkgs.rsync pkgs.procps pkgs.git ];
 
     doCheck = true;
   };

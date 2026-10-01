@@ -38,7 +38,7 @@ let
     # IPv4 and blocks the plan; the declaration and the runner that understands
     # it move together. Older still carries a `cargo_sweep` test race (#1508)
     # that fails a `doCheck` rebuild on a commit with nothing to do with it.
-    rev = "b73931602f4c923e223ad8e85ba1455e9214153b";
+    rev = "b8eda09089d93e9e493c542a090094ef8c76ba99";
   };
 
   plan-run = pkgs.rustPlatform.buildRustPackage {
@@ -50,8 +50,8 @@ let
     # SECOND COPY OF xinutec-infra's flake.nix line, and it has to be: this
     # host builds the same source through its own channel nixpkgs, so the test
     # closure is assembled again here. `ps` for cargo_sweep's build probe,
-    # rsync for the mirror tests; the sandbox has neither on PATH.
-    nativeCheckInputs = [ pkgs.rsync pkgs.procps ];
+    # rsync for the mirror tests, git for git_probes; the sandbox has none on PATH.
+    nativeCheckInputs = [ pkgs.rsync pkgs.procps pkgs.git ];
 
     doCheck = true;
   };

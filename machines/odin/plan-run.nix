@@ -14,7 +14,7 @@ let
     ref = "main";
     # The pin may LEAD plan-settings.nix but must never LAG it: `deny_unknown_fields`
     # makes a binary older than its settings refuse to start. New capability here first.
-    rev = "b73931602f4c923e223ad8e85ba1455e9214153b";
+    rev = "b8eda09089d93e9e493c542a090094ef8c76ba99";
   };
 
   # NEEDS rustc >= 1.88 for let-chains. odin's channel has 1.95, so this is slack —
@@ -26,9 +26,9 @@ let
     cargoLock.lockFile = src + "/plan/Cargo.lock";
 
     # `cargo_sweep.rs` shells out to `ps`, which the build sandbox lacks; rsync is for
-    # the mirror tests. Duplicated from xinutec-infra's flake because this host builds
+    # the mirror tests; git for `git_probes.rs`, which observes real repositories. Duplicated from xinutec-infra's flake because this host builds
     # the same source through its own channel nixpkgs.
-    nativeCheckInputs = [ pkgs.rsync pkgs.procps ];
+    nativeCheckInputs = [ pkgs.rsync pkgs.procps pkgs.git ];
 
     # Held true by dev-lint's nix-rust-package-docheck-false.
     doCheck = true;
