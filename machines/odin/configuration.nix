@@ -76,7 +76,7 @@ in {
     buildfarm-redis = {
       image = "redis:alpine";
       # buildfarm's shared redis: host networking to serve the build cluster.
-      # ast-grep-ignore: DL-NIX-OCI-HOST-NAMESPACE
+      # dev-lint: allow-oci-host-namespace buildfarm's shared redis serving the build cluster over the VPN
       extraOptions = [ "--network=host" ];
     };
   };

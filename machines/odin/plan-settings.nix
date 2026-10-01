@@ -73,9 +73,9 @@ let
     #
     # The live /etc/nixos checkout and NOT a store path: the drill has to exercise
     # the CURRENT scripts and compose file. Hence the waiver below, which
-    # nix-root-exec-mutable-etc is right to demand of root units in general.
+    # DL-NIX-ROOT-EXEC-MUTABLE-ETC is right to demand of root units in general.
     drill = {
-      # ast-grep-ignore: DL-NIX-ROOT-EXEC-MUTABLE-ETC
+      # dev-lint: allow-root-exec-mutable-etc the drill must run the CURRENT scripts and compose file, not a store copy
       dir = "/etc/nixos/machines/odin/drill";
       namespace = "nextcloud";
     };

@@ -67,7 +67,7 @@ in {
       image = "toxchat/buildfarm-server";
       # Bazel buildfarm scheduler: host networking to serve the internal worker
       # cluster; trusted CI component, not a public service.
-      # ast-grep-ignore: DL-NIX-OCI-HOST-NAMESPACE
+      # dev-lint: allow-oci-host-namespace a trusted CI scheduler serving the worker cluster, not a public service
       extraOptions = [ "--network=host" ];
       volumes = [
         "${config.users.users.pippijn.home}/.config/buildfarm/server.yml:/app/build_buildfarm/config.minimal.yml"
@@ -85,14 +85,14 @@ in {
        "--memory=10g"
        # A VPN-only Nix build container: sandboxed builds need broad privileges and
        # setuid wrappers. --privileged is the current known-working set.
-       # ast-grep-ignore: DL-NIX-OCI-PRIVILEGED
+       # dev-lint: allow-oci-privileged a VPN-only Nix build container; sandboxed builds need the full set
        "--privileged"
        "--tmpfs=/run"
        # setuid build wrappers (nix-daemon) live here.
-       # ast-grep-ignore: DL-NIX-OCI-EXEC-SUID-TMPFS
+       # dev-lint: allow-oci-exec-suid-tmpfs the setuid build wrappers live here
        "--tmpfs=/run/wrappers:exec,suid"
        # build actions execute from /tmp.
-       # ast-grep-ignore: DL-NIX-OCI-EXEC-SUID-TMPFS
+       # dev-lint: allow-oci-exec-suid-tmpfs build actions execute from /tmp
        "--tmpfs=/tmp:exec"
      ];
      volumes = [
