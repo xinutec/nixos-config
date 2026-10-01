@@ -20,16 +20,15 @@ in {
   # somebody can look at rather than an alarm somebody waits for. It costs two
   # stamp reads — no restic, no ssh.
   #
-  # `drill` needs its two hosts named, which is why it is a record and not a
-  # bare string: the plan was written to be driven from the Mac, so every effect
-  # goes over ssh even when it is odin talking to odin.
+  # `drill-report` needs the drill's two hosts named, which is why it is a
+  # record and not a bare string: the plan was written to be driven from the
+  # Mac, so every probe goes over ssh even when it is odin talking to odin.
   #
-  # This one is EXPECTED to go amber, and that is the point: it reads amber
-  # whenever a drill goal is due, and the daily 12:00 run clears it. The cheap
-  # checks' 20-hour window lapses each morning before the run; the restore's
-  # five-day window lapses every sixth day. Do not "fix" that by widening a
-  # window: the window is the drill's schedule, and one the timer does not
-  # outrun lets a run judge itself satisfied and skip.
+  # `drill-report` is NOT `drill`, as `backup-report` below is not `backup`
+  # (#1860). `drill` holds its cheap checks to 20 hours so each daily run
+  # re-takes them, so read directly it went amber every morning before the
+  # 12:00 run. `drill-report` holds each step to the oldest the schedule
+  # allows, and has no remedies.
   #
   # `backup-report` is NOT `backup`, and the distinction is #978. Reading the
   # staging plan itself asks "what would a run do?", whose answer for a plan that
@@ -42,7 +41,7 @@ in {
     "firewall"
     "integrity"
     "backup-report"
-    { name = "drill"; args = [ "--host" "odin" "--prod-host" "isis" ]; }
+    { name = "drill-report"; args = [ "--host" "odin" "--prod-host" "isis" ]; }
   ];
 
   # odin is a 4-thread Atom N2800 with 3 GB of RAM, and it now builds a Rust
