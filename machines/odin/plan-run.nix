@@ -14,7 +14,7 @@ let
     ref = "main";
     # The pin may LEAD plan-settings.nix but must never LAG it: `deny_unknown_fields`
     # makes a binary older than its settings refuse to start. New capability here first.
-    rev = "6aab30ee7f96cc39beabd30882d934f89d62aef0";
+    rev = "525be4e2d8bdfa00cf2ef5a88a0804515437a65c";
   };
 
   # NEEDS rustc >= 1.88 for let-chains. odin's channel has 1.95, so this is slack —

@@ -14,7 +14,7 @@ in {
   # into for weeks at a time. Read-only by construction — `plans::firewall` has
   # no effects, deliberately.
   #
-  # `integrity` is here because the weekly check's only other signal is a
+  # `integrity-report` is here because the check's only other signal is a
   # dead-man's switch, which answers LATE and only ever about the last run. This
   # reads the stamp hourly, so the age of the last verification is a number
   # somebody can look at rather than an alarm somebody waits for. It costs two
@@ -24,11 +24,12 @@ in {
   # record and not a bare string: the plan was written to be driven from the
   # Mac, so every probe goes over ssh even when it is odin talking to odin.
   #
-  # `drill-report` is NOT `drill`, as `backup-report` below is not `backup`
-  # (#1860). `drill` holds its cheap checks to 20 hours so each daily run
-  # re-takes them, so read directly it went amber every morning before the
-  # 12:00 run. `drill-report` holds each step to the oldest the schedule
-  # allows, and has no remedies.
+  # `drill-report` and `integrity-report` are NOT `drill` and `integrity`, as
+  # `backup-report` below is not `backup` (#1860). Each plan holds its work to
+  # a window shorter than its timer allows, so each run re-does it: read
+  # directly, the drill went amber every morning before its 12:00 run and
+  # integrity every sixth day before its 06:00 one. The reports hold each step
+  # to the oldest the schedule allows, and have no remedies.
   #
   # `backup-report` is NOT `backup`, and the distinction is #978. Reading the
   # staging plan itself asks "what would a run do?", whose answer for a plan that
@@ -39,7 +40,7 @@ in {
   # remedy, so `--apply` could not stage anything either.
   services.planFleetwatch.plans = [
     "firewall"
-    "integrity"
+    "integrity-report"
     "backup-report"
     { name = "drill-report"; args = [ "--host" "odin" "--prod-host" "isis" ]; }
   ];
