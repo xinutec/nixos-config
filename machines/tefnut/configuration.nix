@@ -35,8 +35,14 @@ in
   # it here would assert a migration history this disk does not have.
   system.stateVersion = lib.mkForce "26.05";
 
-  # Wifi only, via NetworkManager so the PSK stays out of this public repo. Two
-  # profiles: 5 GHz at priority 10, 2.4 GHz behind it.
+  # Wifi only, via NetworkManager so the PSK stays out of this public repo. Three
+  # profiles: `Pippijn_5GHz-ch48` at priority 20, locked to the router's channel-48
+  # radio (80:69:1A:11:DA:C5); the unlocked 5 GHz profile at 10; 2.4 GHz behind it.
+  # The lock is because tefnut hears both 5 GHz radios at ~38% and flipped between
+  # them every half minute (322 times a day, 2026-10-02), long enough for an ssh to
+  # time out. Locking also stops background scanning; the unlocked profile is the
+  # fallback if that radio disappears. Channel 48 rather than 116: 116 is a radar
+  # channel the router may have to leave.
   # Both must be `wpa-psk`. shu's copied profile said `sae` (WPA3) and the 2.4 GHz
   # AP is WPA2, so association timed out every time.
   networking.networkmanager.enable = true;
