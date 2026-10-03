@@ -70,11 +70,14 @@ on_run() { ssh "${SSH_OPTS[@]}" "root@$RUNHOST" "$1"; }
 
 teardown() {
   on_run "docker rm -f $CONTAINER >/dev/null 2>&1 || true; rm -rf $RUNDIR" >/dev/null 2>&1 || true
+  rm -rf -- "$DEST"
 }
 # Tear down on ANY exit path, including the fail()s below: a failed drill that
 # left the container running would hold the port and make the NEXT run fail on
 # something unrelated to the actual defect — and would leave a copy of real data
-# sitting in /tmp on a production host.
+# sitting in /tmp on a production host. $DEST goes too: it is inside the drill's
+# scratch, and the drill report refuses while anything is left there
+# (`scratch-clear`), which it did after every nocodb drill from 2026-09-08 on.
 [ "$KEEP" -eq 1 ] || trap teardown EXIT
 
 # sqlite3 comes from odin's systemPackages (machines/odin/backups.nix).
