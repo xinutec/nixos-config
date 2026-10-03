@@ -41,13 +41,10 @@ services:
       retries: 5
 
   redis:
-    # Deviation from prod: prod uses bitnami/redis:7.4.1-debian-12-r3,
-    # but bitnami pulled that tag from Docker Hub in 2024 so fresh
-    # pulls fail. The official redis:7.4.1-alpine image loads the same
-    # RDB file format, which is what the drill actually needs to
-    # verify (can we read the restored dump.rdb?). Keeping the minor
-    # version matched (7.4.1).
-    image: redis:7.4.1-alpine
+    # The image production runs (kubes nextcloud/k8s/redis.yaml), held here at
+    # production's digest like the others. It used to differ while production
+    # ran bitnami's image; since 2026-10-03 both are the official one.
+    image: redis:8.2-alpine
     container_name: drill-redis
     restart: unless-stopped
     volumes:
