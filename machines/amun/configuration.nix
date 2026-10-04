@@ -14,10 +14,9 @@ in {
     ./md-healthcheck.nix
     ./vpn-nodes.nix
     ../../k3s-dns.nix
-    # The front door's certificates, issued ahead of the cutover from
-    # ingress-nginx while it still serves; frontdoor.nix replaces this import at
-    # the cutover, with network.nix's edge.
-    ../../frontdoor-certs.nix
+    # The host front door (network.nix edge "frontdoor"), replacing ingress-nginx,
+    # which upstream archived in March 2026.
+    ../../frontdoor.nix
   ];
 
   environment.systemPackages = with pkgs; [

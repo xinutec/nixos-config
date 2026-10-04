@@ -26,7 +26,7 @@
     amun = {
       name = "amun";
       site = "ovh";
-      edge = "ingress-nginx";
+      edge = "frontdoor";
       ipv4 = "94.23.247.133";
       ipv6 = "2001:41d0:2:7a85::1";
       vpn = "10.100.0.1";
