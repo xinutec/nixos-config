@@ -19,6 +19,11 @@ in {
     ../../frontdoor.nix
   ];
 
+  # mailu's front serves SMTP and IMAP with this Secret and reads nothing else,
+  # so each renewal of mail.xinutec.org is written into it (frontdoor-certs.nix).
+  # cert-manager renewed it until 2026-10-04.
+  frontdoor.delegations."mail.xinutec.org" = { namespace = "mailu-mailserver"; secret = "mailu-certificates"; };
+
   environment.systemPackages = with pkgs; [
     kubectl
     kubernetes-helm
