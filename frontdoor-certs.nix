@@ -81,6 +81,25 @@ in
     # `CLOUDFLARE_DNS_API_TOKEN=…`, scoped Zone:DNS:Edit.
     age.secrets."acme-cloudflare".file = ./agenix/acme-cloudflare.age;
 
+    # The same sync once when a delegation is switched on, and on every boot, as
+    # well as at each renewal (`postRun` above): a renewal comes only within 30
+    # days of expiry, and the Secret's previous renewer (cert-manager on amun)
+    # may have left a certificate that expires first.
+    systemd.services = lib.mapAttrs'
+      (host: d: lib.nameValuePair "frontdoor-delegate-${lib.replaceStrings [ "." ] [ "-" ] host}" {
+        description = "Write ${host}'s certificate into the ${d.namespace}/${d.secret} Secret";
+        wantedBy = [ "multi-user.target" ];
+        wants = [ "acme-finished-${host}.target" ];
+        after = [ "acme-finished-${host}.target" "k3s.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          WorkingDirectory = "/var/lib/acme/${host}";
+        };
+        script = secretSync d;
+      })
+      config.frontdoor.delegations;
+
     security.acme = {
       acceptTerms = true;
       defaults.email = "pip88nl@gmail.com";
