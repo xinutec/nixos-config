@@ -11,13 +11,17 @@ in {
     ../../plan-fleetwatch.nix
     # Importing this is the CUTOVER (#1294), and it does not work alone: nginx
     # receives nothing until the ingress-nginx LoadBalancer Service is deleted.
-    ./frontdoor.nix
+    ../../frontdoor.nix
     ../../k3s-dns.nix
   ];
 
   # All observe-only. `picade` is here because its absence hid six days of broken
   # convergence (#1233) — an advisory plan still exits 0 when nothing is readable.
   services.planFleetwatch.plans = [ "firewall" "picade" "frontdoor" "images" ];
+
+  # inspircd mounts irc.xinutec.net's certificate as this Secret and reads
+  # nothing else, so each renewal is written into it (frontdoor-certs.nix).
+  frontdoor.delegations."irc.xinutec.net" = { namespace = "ircd"; secret = "irc-tls"; };
 
   environment.systemPackages = with pkgs; [
     kubectl

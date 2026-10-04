@@ -8,7 +8,11 @@
 #     nginx=$(grep -ho '/nix/store/[a-z0-9]*-nginx-[0-9.]*/bin/nginx' result/etc/systemd/system/nginx.service | head -1)
 #     "$nginx" -t -c "$conf"
 #
-# ../../frontdoor.json is a COPY of kubes/dhall/frontdoor.json; `plan-run
+# Any node whose network.nix edge is "frontdoor" imports this: isis since #1294,
+# amun since 2026-10-04 (ingress-nginx was archived upstream). Its certificates
+# are frontdoor-certs.nix's.
+#
+# ./frontdoor.json is a COPY of kubes/dhall/frontdoor.json; `plan-run
 # frontdoor-check` stops it going stale.
 #
 # ⚠ Every proxy_pass goes through a variable because nginx resolves a literal
@@ -16,14 +20,14 @@
 { config, lib, pkgs, ... }:
 
 let
-  net = import ../../network.nix;
+  node = config.node;
 
-  # Fixed by the service CIDR, and already nameserver #1 in isis's resolv.conf.
+  # Fixed by k3s's default service CIDR, the same on both clusters.
   coreDnsIP = "10.43.0.10";
 
-  cluster = "isis.xinutec.org";
+  cluster = "${node.name}.xinutec.org";
 
-  table = builtins.fromJSON (builtins.readFile ../../frontdoor.json);
+  table = builtins.fromJSON (builtins.readFile ./frontdoor.json);
 
   mine = builtins.filter (e: builtins.elem cluster e.clusters) table;
 
@@ -37,12 +41,13 @@ let
   # A VpnOnly host listens on the tunnel address and NOWHERE else — a DNS record
   # is not a boundary, a socket that never listens is.
   #
-  # ⚠ No IPv6: `net.nodes.isis.ipv6` records what OVH allocated, nothing assigns
-  # it, and nginx fails the WHOLE config on an address the host does not hold.
+  # ⚠ No IPv6: `node.ipv6` records what OVH allocated, nothing assigns it (on
+  # isis or amun), and nginx fails the WHOLE config on an address the host does
+  # not hold.
   listenFor = host:
     if vpnOnly host
-    then [ net.nodes.isis.vpn ]
-    else [ net.nodes.isis.ipv4 net.nodes.isis.vpn ];
+    then [ node.vpn ]
+    else [ node.ipv4 node.vpn ];
 
   # ONE name reused in every location, not one per route: locations are mutually
   # exclusive within a request, and a name per route overflows nginx's
@@ -101,40 +106,12 @@ let
     };
   };
 
-  # DNS-01 for every name. VpnOnly names have no choice, and the public ones are
-  # deliberately the same: depending on :80 to issue the certificates :443 needs
-  # would break renewal exactly when :80 changes hands.
-  #
-  # ⚠ `irc-tls` has NO other renewer — inspircd mounts the Kubernetes Secret and
-  # does not read /var/lib/acme, so this `postRun` IS the renewal and its absence
-  # is silent. `postRun` rather than a timer because it is `ExecStartPost` of the
-  # acme unit: same run, same directory, and only when a renewal happened.
-  #
-  # Not a hostPath mount of the certificate instead: granting the pod's group
-  # read access would hand the IRC server EVERY certificate here, the vault's
-  # included, and the repoint would cost a rollout — a visible reconnect for
-  # everyone on the server.
-  #
-  # `apply`, not `create`: it updates an existing Secret and a renewal can retry.
-  ircdSecretSync = ''
-    ${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml \
-      -n ircd create secret tls irc-tls \
-      --cert=fullchain.pem --key=key.pem \
-      --dry-run=client -o yaml \
-    | ${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml apply -f -
-  '';
+  publicAddrs = [ node.ipv4 node.ipv6 ];
 
-  certFor = host: {
-    name = host;
-    value = {
-      dnsProvider = "cloudflare";
-      environmentFile = config.age.secrets."acme-cloudflare".path;
-      group = "nginx";
-    } // lib.optionalAttrs (host == "irc.xinutec.net") {
-      postRun = ircdSecretSync;
-    };
-  };
-  publicAddrs = [ net.nodes.isis.ipv4 net.nodes.isis.ipv6 ];
+  # One htpasswd per basicAuth Secret this node's rows name.
+  authFiles = lib.unique (map
+    (e: "${basicAuthDir}/${lib.replaceStrings [ "/" ] [ "-" ] (e.basicAuth or "")}.htpasswd")
+    (builtins.filter (e: (e.basicAuth or null) != null) mine));
 
   # The one mistake here that would be SILENT: a VpnOnly host also listening on
   # the public address serves perfectly, it is just reachable by anyone who knows
@@ -143,10 +120,18 @@ let
     (h: vpnOnly h && lib.any (a: builtins.elem a publicAddrs) (listenFor h))
     hosts;
 in
-assert lib.assertMsg (leaked == [ ])
-  "frontdoor: these VpnOnly hosts would listen on a public address: ${toString leaked}";
 {
+  imports = [ ./frontdoor-certs.nix ];
+
+  frontdoor.certGroup = "nginx";
+
+  # In `assertions`, not an `assert` around the module: it reads `config.node`,
+  # and a module whose shape depends on config is an infinite recursion.
   assertions = [
+    {
+      assertion = leaked == [ ];
+      message = "frontdoor: these VpnOnly hosts would listen on a public address: ${toString leaked}";
+    }
     {
       assertion = config.node.edge == "frontdoor";
       message = "frontdoor.nix is imported on ${config.node.name}, whose network.nix edge is not \"frontdoor\"";
@@ -169,26 +154,14 @@ assert lib.assertMsg (leaked == [ ])
     virtualHosts = builtins.listToAttrs (map vhostFor hosts);
   };
 
-  # `CLOUDFLARE_DNS_API_TOKEN=…`, scoped Zone:DNS:Edit.
-  age.secrets."acme-cloudflare".file = ../../agenix/acme-cloudflare.age;
-
-  security.acme = {
-    acceptTerms = true;
-    defaults.email = "pip88nl@gmail.com";
-    certs = builtins.listToAttrs (map certFor hosts);
-  };
-
   # The htpasswd files are provisioned out of band; their PERMISSIONS are not.
   # nginx workers read them at request time and they land `root:root 0640` from
   # whatever wrote them, unreadable by nginx.
   #
   # ⚠ `z`, never `f`: `f` would replace a provisioned credential with an empty
   # file, and an empty htpasswd refuses every request.
-  systemd.tmpfiles.rules = [
-    "d ${basicAuthDir} 0750 root nginx -"
-    "z ${basicAuthDir}/web-basic-auth.htpasswd 0640 root nginx -"
-    "z ${basicAuthDir}/web-slides-auth.htpasswd 0640 root nginx -"
-  ];
+  systemd.tmpfiles.rules = [ "d ${basicAuthDir} 0750 root nginx -" ]
+    ++ map (f: "z ${f} 0640 root nginx -") authFiles;
 
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 }
