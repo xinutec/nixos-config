@@ -116,6 +116,7 @@
       vpn = "10.100.0.17";
       publicKey = "7/GsjP+EQ8+NwvdGLsOnqvu6OlfQ73DfPLGPfq441GQ=";
       intermittent = true; # not ours to carry, so a gap is not ours to act on
+      isolated = true;
     };
 
     # iPhone (the user). Never leaves the house, so a gap is a real fault — see

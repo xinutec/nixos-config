@@ -46,7 +46,7 @@ let
   # k3s's.
   withFamily = f: rules: map (r: r // { family = f; }) rules;
 
-  declaredFirewall = withFamily "inet" declaredFirewall4
+  declaredFirewall = withFamily "inet" (declaredFirewall4 ++ isolatedDeclared)
     ++ withFamily "inet6" declaredFirewall6;
 
   # The v6 rules exist only on a one-way node; elsewhere the chain is empty and
@@ -172,6 +172,30 @@ let
     iptables -w -A ${oneWayChain} -j DROP
     iptables -w -I INPUT 1 -i wg0 -j ${oneWayChain}
   '');
+
+  # `isolated` peers, enforced on the master (options.nix). Inserted first in
+  # both chains, so no accept ahead of them can let a new connection through.
+  isolatedPeers = lib.optionals (config.node.name == net.nodes.master.name)
+    (builtins.filter (n: n.isolated or false) (builtins.attrValues net.nodes));
+
+  isolatedMatch = peer:
+    "-s ${peer.vpn}/32 -i wg0 -m conntrack --ctstate NEW -j DROP";
+
+  isolatedChains = [ "INPUT" "FORWARD" ];
+
+  isolatedDeclared = lib.concatMap (peer: map (chain: {
+    inherit chain;
+    spec = "-A ${chain} ${isolatedMatch peer}";
+    why = "${peer.name} may start nothing on the VPN";
+  }) isolatedChains) isolatedPeers;
+
+  isolatedTeardown = lib.concatMapStrings (peer: lib.concatMapStrings (chain: ''
+    iptables -w -D ${chain} ${isolatedMatch peer} 2>/dev/null || true
+  '') isolatedChains) isolatedPeers;
+
+  isolatedRules = isolatedTeardown + lib.concatMapStrings (peer: lib.concatMapStrings (chain: ''
+    iptables -w -I ${chain} 1 ${isolatedMatch peer}
+  '') isolatedChains) isolatedPeers;
 
 in {
   imports = [
@@ -321,8 +345,8 @@ in {
         iptables -A nixos-fw -p udp --source ${net.cluster} --dport ${
           toString net.k8sApiPort
         } -j nixos-fw-accept
-      '' + oneWayRules + oneWayRules6;
-      extraStopCommands = oneWayTeardown + oneWayTeardown6;
+      '' + oneWayRules + oneWayRules6 + isolatedRules;
+      extraStopCommands = oneWayTeardown + oneWayTeardown6 + isolatedTeardown;
     };
   };
 

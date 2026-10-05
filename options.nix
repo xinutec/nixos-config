@@ -81,6 +81,18 @@ let
         '';
       };
 
+      isolated = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          The VPN may reach the node, but the node may start nothing on the VPN:
+          oneWay the other way round, for a peer in someone else's hands. Every
+          peer's traffic passes the master, so the master enforces it, dropping
+          NEW connections from the node's address in INPUT (toward itself) and
+          FORWARD (toward every other peer). Replies still pass.
+        '';
+      };
+
       intermittent = mkOption {
         type = types.bool;
         default = false;
