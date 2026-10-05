@@ -111,6 +111,12 @@
       publicKey = "b8BIWhtElkAFcXZ1f/mvLoXak6zus8Q2UGAP1YF+8AY=";
       intermittent = false; # a gap here is lost audio
     };
+    oneplus6t-2 = {
+      name = "oneplus6t-2";
+      vpn = "10.100.0.17";
+      publicKey = "7/GsjP+EQ8+NwvdGLsOnqvu6OlfQ73DfPLGPfq441GQ=";
+      intermittent = true; # not ours to carry, so a gap is not ours to act on
+    };
 
     # iPhone (the user). Never leaves the house, so a gap is a real fault — see
     # #1597, and do not silence it by flipping this back to intermittent.
