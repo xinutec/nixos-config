@@ -16,7 +16,10 @@ let
   hosts = lib.unique (map (e: e.host)
     (builtins.filter (e: builtins.elem cluster e.clusters) table));
 
-  kubectl = "${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml";
+  # Its own cache dir: these units have no HOME, so kubectl made `.kube` in the
+  # working directory, the certificate's, and lego's `chmod -R` there then
+  # failed every renewal (2026-10-05).
+  kubectl = "${pkgs.k3s}/bin/kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml --cache-dir /var/cache/frontdoor-kubectl";
 
   # ⚠ A delegated certificate has NO other renewer: the workload mounts the
   # Kubernetes Secret and does not read /var/lib/acme, so this `postRun` IS the
