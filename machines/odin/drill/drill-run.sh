@@ -21,7 +21,7 @@
 #
 # Read it as "the plan is driving", not as "skip the preflight". The check-in is
 # the part where the difference bites: this script's ping means "Nextcloud
-# restored", the plan's means "the whole drill passed, nocodb included".
+# restored", the plan's means "the whole drill passed".
 #
 # It is NOT the flag to use by hand. Invoked without it, this script still does
 # its own preflight and its own ping, because a human running it directly has
@@ -221,12 +221,10 @@ echo "=== drill-run PASSED $(date -u +%FT%TZ) ==="
 #
 # ⚠ NOT UNDER --restore-only, and this is the one place the flag guards
 # something other than the preflight. `plans::drill` has its own advisory
-# `NotifyMonitor` goal, sent after `done:drill-nocodb` — so the plan's ping means
-# "the whole drill passed", where this one means "Nextcloud restored". Leaving
-# both in would not merely double the ping: the earlier one reports success
-# while nocodb has not been drilled yet, so a nocodb failure would be invisible
-# to the switch. That is the state before the cutover, and cutting over is what
-# makes it fixable, so it is fixed here.
+# `NotifyMonitor` goal, sent last — so the plan's ping means "the whole drill
+# passed", where this one means "Nextcloud restored". Leaving both in would not
+# merely double the ping: the earlier one would report success before the plan's
+# later goals had run, and a failure in them would be invisible to the switch.
 #
 # Kept for the by-hand path, which has no plan behind it, on the same argument
 # the preflight is kept for.

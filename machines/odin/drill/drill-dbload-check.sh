@@ -27,8 +27,7 @@
 # and five have ever had a restore performed; this proves the WEAKER claim
 # `Loadable` — the dump imports into a matching server — for any of them in about
 # five minutes, where drilling one is hours (#1162). It does NOT prove the app
-# comes up against the result; that is `Drilled`, and only Nextcloud and nocodb
-# have it.
+# comes up against the result; that is `Drilled`, and only Nextcloud has it.
 #
 # Every one of these dumps is `--all-databases` from ONE code path
 # (`plan/runner/src/script.rs::sql`), so they all load identically and the dump

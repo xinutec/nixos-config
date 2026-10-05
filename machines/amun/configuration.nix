@@ -28,7 +28,7 @@ in {
     kubectl
     kubernetes-helm
     # ⚠ In the closure, not fetched at backup time: odin's nightly staging ssh's in
-    # and runs `sqlite3 ... ".backup"` on nocodb's DB. `nix-shell -p` would make the
+    # and runs `sqlite3 ... ".backup"` on mailu's admin DB. `nix-shell -p` would make the
     # backup depend on the binary cache — least likely to be reachable when you need
     # the backup to have run — and nix GC re-evicts it, so it never settles.
     sqlite

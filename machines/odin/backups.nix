@@ -4,9 +4,8 @@
 { config, pkgs, planRun, planSchedule, ... }:
 
 {
-  # restic for ad-hoc inspection; sqlite for drill-nocodb.sh, which reads the
-  # RESTORED database to prove it carried data rather than initialising empty.
-  environment.systemPackages = [ pkgs.restic pkgs.sqlite ];
+  # restic for ad-hoc inspection.
+  environment.systemPackages = [ pkgs.restic ];
 
   # Shipped to amun over SSH stdin, so nothing need be installed there.
   environment.etc."backup-preview.py".source = ./backup_preview.py;
@@ -223,8 +222,6 @@
       TimeoutStartSec = "8h";
     };
     # By store path, pinned to the binary this generation was tested with.
-    # ⚠ Ordering gates: a failed Nextcloud restore blocks before nocodb is reached,
-    # so that week's nocodb drill does not happen. Accepted deliberately.
     script = ''
       ${planRun}/bin/plan-run drill \
         --host odin --prod-host isis \
