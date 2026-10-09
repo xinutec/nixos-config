@@ -203,6 +203,7 @@ in {
     ./hardware-configuration.nix
     ./options.nix
     ./grafana-alloy.nix
+    ./vpn-dns.nix
     "${agenix}/modules/age.nix"
     <home-manager/nixos>
   ];
