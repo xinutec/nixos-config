@@ -185,9 +185,11 @@
     publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGB7SpLmQnKQZIiYgigWvyk3Gr5kRJ6LXlVASgnunC/";
   };
 
-  # Restore drill: seed from staging → compose up → occ integrity checks →
-  # teardown (machines/odin/drill/). Daily, though a restore is wanted weekly:
-  # most days converge in minutes, and the 20-hour goals get a daily chance.
+  # Restore drill: declared in xinutec-infra's plan/tables/drill_rows.dhall and
+  # run by plan-run: seed from staging, start the stack on production's images,
+  # ask production's questions, tear down. Daily, though a restore is wanted
+  # weekly: most days converge in minutes, and the 20-hour goals get a daily
+  # chance.
   systemd.timers.drill-weekly = {
     wantedBy = [ "timers.target" ];
     timerConfig = planSchedule.timerFor "drill-weekly" // {
@@ -195,10 +197,12 @@
     };
   };
   systemd.services.drill-weekly = {
-    # ⚠ The plan's scripts run over ssh and see root's login environment, but
-    # `ExecStopPost` runs LOCALLY — so docker and util-linux must be here. Getting
-    # it wrong fails only in the cleanup path, where nobody is watching.
-    path = with pkgs; [ openssh curl docker util-linux ];
+    # ⚠ The drill runs its commands HERE, in this unit, not over ssh: docker,
+    # mount/umount/mountpoint (util-linux), curl for readiness, zstd for the
+    # dump, restic for a full drill, bash for each step. The checks still ask
+    # odin's own containers over ssh. A missing binary fails the drill at the
+    # step that needs it, so every one is listed.
+    path = with pkgs; [ bash openssh curl docker util-linux zstd restic ];
 
     # The backup wins: the drill overlays a staging tree that `plan-run backup`
     # rewrites, so what is at risk is the drill's verdict, not the data (#1486).
@@ -210,15 +214,17 @@
 
       # ⚠ However this unit dies, the overlay must come off, or `Conflicts=` makes
       # it worse: systemd kills the drill and the mirror rewrites a tree still
-      # mounted as its lower layer. `stop`, not `teardown` — a dying unit is no
-      # reason to delete the scratch. `-` so it cannot mask the original failure.
-      ExecStopPost = "-${pkgs.bash}/bin/bash /etc/nixos/machines/odin/drill/drill-smoke.sh stop";
-      # The drill's directory is in plan-settings.nix — the live /etc/nixos
-      # checkout, so a drill exercises the CURRENT scripts.
+      # mounted as its lower layer. `drill-stop` stops the stack and unmounts,
+      # deleting nothing — a dying unit is no reason to delete the scratch. `-`
+      # so it cannot mask the original failure.
+      ExecStopPost = "-${planRun}/bin/plan-run drill-stop --settings /etc/plan/settings.json";
+      # The compose file is read from the live /etc/nixos checkout (the drill
+      # directory in plan-settings.nix).
       #
-      # ⚠ Must stay ABOVE `RunDrill`'s own ceiling in plan/runner/src/act.rs: the
-      # lower of two ceilings wins, and this one killing first turns a named plan
-      # timeout into an unexplained systemd kill.
+      # ⚠ Must stay ABOVE the drill's own ceilings in plan/runner/src/drill.rs
+      # (a full drill's restore alone may take six hours): the lower of two
+      # ceilings wins, and this one killing first turns a named plan timeout
+      # into an unexplained systemd kill.
       TimeoutStartSec = "8h";
     };
     # By store path, pinned to the binary this generation was tested with.

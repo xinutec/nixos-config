@@ -2,26 +2,26 @@
 # Load the staged Nextcloud dump into a throwaway DB container and assert it
 # lands. ~5 minutes; no rsync, no restic, no compose stack.
 #
-# Why this exists, given drill-run.sh already compares image tags: the tag
-# comparison proves the drill's mariadb MATCHES production, which is not the
-# same as proving the dump LOADS. A matching version still fails on a truncated
-# or half-written dump, on a mysqldump written with flags the server rejects,
+# Why this exists, given the drill already runs production's image: running
+# the same mariadb as production is not the same as proving the dump LOADS. A
+# matching version still fails on a truncated or half-written dump, on a mysqldump written with flags the server rejects,
 # and on a prod-side schema feature the image does not implement. Those all
 # surface at exactly the same place — the import — and the import is the last
-# thing the drill reaches, after ~2.5h of rsync (fast) or ~4h of restic
-# restore (full).
+# thing a drill reaches, and a full drill reaches it after ~4h of restic
+# restore.
 #
 # That is what made 2026-07-26 expensive: 249 minutes of restore, then a
 # 10-second import died on `ERROR 1805 ... mysql.proc ... Expected 21, found 22`.
 # Running the import FIRST turns that class of failure from a wasted afternoon
 # into a five-minute answer.
 #
-# Reads:  the staged dump (read-only) and docker-compose.yml.
+# Reads:  the staged dump (read-only).
 # Writes: a scratch datadir under /var/tmp, removed on success and deliberately
 #         KEPT on failure so the container can be inspected.
 #
-# Standalone:  ./drill-dbload-check.sh [ARTIFACT]     (default: nextcloud)
-# In the drill: drill-run.sh calls it as stage 0b, before seeding.
+# Standalone:  DRILL_DB_IMAGE=<image> ./drill-dbload-check.sh [ARTIFACT]
+#              (default: nextcloud)
+# In the drill: the plan's RunDbloadCheck runs it before the restore.
 #
 # ⚠ WHAT AN ARTIFACT ARGUMENT BUYS, and what it does not. 37 artifacts are staged
 # and five have ever had a restore performed; this proves the WEAKER claim
@@ -66,7 +66,7 @@ readonly ARTIFACT
 readonly DATADIR=/var/tmp/drill-dbload-check
 readonly NAME=drill-dbload-check
 # Throwaway container, torn down at the end and never exposed off-host: this is
-# a constant, not a secret. Same reasoning as drill-seed-fast.sh.
+# a constant, not a secret.
 readonly PW=drill-root-pw
 
 log() { printf '[dbload-check] %s %s\n' "$(date -u +%H:%M:%S)" "$*"; }
@@ -98,13 +98,10 @@ on_exit() {
 }
 trap on_exit EXIT
 
-# Same provenance as drill-seed-fast.sh: read the tag, never repeat it here. A
-# literal would be invisible to drill-run.sh's version-sync preflight.
-# `|| true` so the explicit check below reports the missing tag, rather than
-# `set -e` aborting the assignment with no explanation.
-db_image=$(grep 'image:.*mariadb:' "$DRILL_DIR/docker-compose.yml" | awk '{print $2}') || true
-[ -n "$db_image" ] || { echo "BUG: no mariadb image in docker-compose.yml" >&2; exit 99; }
-readonly db_image
+# Production's database image, by digest, handed over by `plan-run` (the drill
+# plan's RunDbloadCheck reads it from the running container). Never written
+# here: a literal is a copy of production that falls behind it.
+readonly db_image="${DRILL_DB_IMAGE:?the production mariadb image, set by plan-run}"
 
 [ -f "$DUMP" ] || {
   echo "MISSING: $DUMP — has the backup staged $ARTIFACT?" >&2; exit 1
@@ -231,8 +228,8 @@ if [ "${schemas:-0}" -lt 1 ] || [ "${tables:-0}" -lt 1 ] || [ "${rows:-0}" -lt 1
 fi
 
 # Nextcloud keeps its ORIGINAL, stronger assertion on top of the generic one.
-# `drill-run.sh` calls this as stage 0b and has relied on it since 2026-07-26;
-# generalising a check is no reason to weaken the one case already covered.
+# The drill plan runs this before the restore and relies on it; generalising
+# a check is no reason to weaken the one case already covered.
 if [ "$ARTIFACT" = nextcloud ]; then
   nc_tables=$(q "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = \"nextcloud\";") || true
   nc_users=$(q "SELECT COUNT(*) FROM nextcloud.oc_users;") || true

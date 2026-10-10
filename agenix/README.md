@@ -33,7 +33,7 @@ fixed path. The NixOS modules reference those paths.
 | `acme-cloudflare.age` | isis + amun + admin | Cloudflare DNS-01 token, `frontdoor-certs.nix` |
 | `hc-ping-md.age` | amun + admin | RAID heartbeat check ID, `machines/amun/md-healthcheck.nix` |
 | `hc-ping-backup.age` | odin + admin | backup check ID, `machines/odin/backups.nix` |
-| `hc-ping-drill.age` | odin + admin | restore-drill check ID, `machines/odin/drill/drill-run.sh` |
+| `hc-ping-drill.age` | odin + admin | restore-drill check ID, pinged by `plan-run drill` once every goal holds |
 | `hc-ping-integrity.age` | odin + admin | integrity check ID, `machines/odin/backups.nix` → `plan-settings.nix` |
 
 ### The two escrowed Mac restic passwords are GONE
