@@ -1,0 +1,38 @@
+# recall restore drill on odin. The drill is declared in xinutec-infra's
+# plan/tables/drill_rows.dhall; xinutec-infra's drill/README.md has the rest.
+#
+# One recalld on production's image, by digest, filled by `plan-run` as the
+# drill starts; without the variable compose refuses to start. The archive
+# under /data is the drill's seed: the staged audio as an overlay, the two
+# staged databases copied into it.
+#
+# Listens on 127.0.0.1:8444 only. No sync token, so the /sync routes are not
+# mounted; no sign-in settings. The read token is a THROWAWAY DRILL VALUE.
+
+name: recall-drill
+
+services:
+
+  recall:
+    image: ${DRILL_IMAGE_RECALL:?production's recall, filled by plan-run}
+    container_name: drill-recall
+    restart: "no"
+    # As production's pod: uid and gid 1000, read-only root, writes in /data
+    # and /tmp only.
+    user: "1000:1000"
+    read_only: true
+    command:
+      - recalld
+      - --root
+      - /data
+      - --bind
+      - 0.0.0.0:8000
+    environment:
+      RECALLD_READ_TOKEN: drill-read-token
+    tmpfs:
+      - /tmp
+      - /app/logs
+    volumes:
+      - /var/lib/drill/volumes/recall:/data
+    ports:
+      - "127.0.0.1:8444:8000"
