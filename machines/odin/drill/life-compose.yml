@@ -1,0 +1,62 @@
+# life restore drill on odin. The drill is declared in xinutec-infra's
+# plan/tables/drill_rows.dhall (`appRestore`); xinutec-infra's drill/README.md
+# has the rest.
+#
+# Production's MariaDB and life images, by digest, filled by `plan-run` as the
+# drill starts; without the variables compose refuses to start. The database
+# directory is the drill's seed: life's staged dump, loaded by a throwaway
+# server. The dump carries production's accounts, so the server runs the
+# drill's init file at start, setting root's password to the drill's constant.
+#
+# life connects, migrates, then listens, so its /healthz answering on
+# 127.0.0.1:8448 means the restored database opened and migrated on
+# production's build. Its sign-in settings must be present to start and are
+# not used by it; every credential below is a THROWAWAY DRILL VALUE.
+
+name: life-drill
+
+networks:
+  drill:
+    driver: bridge
+
+services:
+
+  db:
+    image: ${DRILL_IMAGE_DB:?production's mariadb, filled by plan-run}
+    container_name: drill-life-db
+    restart: "no"
+    command: ["--init-file=/drill-init/drill.sql"]
+    volumes:
+      - /var/lib/drill/volumes/life-mysql:/var/lib/mysql
+      - /var/lib/drill/volumes/life-init:/drill-init:ro
+    networks:
+      - drill
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent || exit 1"]
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  life:
+    image: ${DRILL_IMAGE_APP:?production's life, filled by plan-run}
+    container_name: drill-life
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    # As production's pod: an unprivileged user and a read-only root.
+    user: "65532:65532"
+    read_only: true
+    environment:
+      DATABASE_URL: mysql://root:drill-root-pw@db:3306/life
+      BIND_ADDR: 0.0.0.0:8080
+      SESSION_SECRET: drill-session-secret-drill-session-secret
+      NC_BASE_URL: http://127.0.0.1:1
+      NC_CLIENT_ID: drill
+      NC_CLIENT_SECRET: drill
+      NC_REDIRECT_URI: http://127.0.0.1:8448/auth/callback
+    ports:
+      - "127.0.0.1:8448:8080"
+    networks:
+      - drill
