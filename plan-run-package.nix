@@ -24,7 +24,7 @@ rec {
     # to start, an older runner ignores new frontdoor.json fields and reports
     # healthy on evidence that cannot show it, and one older than fbc135a reads
     # declared-firewall.json's v6 rules as IPv4. New capability here first.
-    rev = "012b2127191154e45a9228d13649f4a3cbbcc7b7";
+    rev = "c0601e92b3525d70a306caac974ef4f0faaee5b6";
   };
 
   # NEEDS rustc >= 1.88 for let-chains: amun, held on 25.05 with 1.86, cannot
@@ -37,8 +37,9 @@ rec {
 
     # A copy of xinutec-infra's flake line, and it has to be: hosts build the
     # same source through their own channel nixpkgs. `ps` for cargo_sweep's
-    # build probe, rsync for the mirror tests, git for git_probes.
-    nativeCheckInputs = [ pkgs.rsync pkgs.procps pkgs.git ];
+    # build probe, rsync for the mirror tests, git for git_probes, sqlite for
+    # the snapshot script's tests.
+    nativeCheckInputs = [ pkgs.rsync pkgs.procps pkgs.git pkgs.sqlite ];
 
     # Held true by dev-lint's nix-rust-package-docheck-false.
     doCheck = true;
