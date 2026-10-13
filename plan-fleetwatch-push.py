@@ -250,6 +250,19 @@ def build_report(plan: str, checks: list[dict[str, object]], *, interval_s: int,
     }
 
 
+def write_last_report(path: Path, report: dict[str, object]) -> None:
+    """Leave the report beside the unit's state, whole or not at all.
+
+    `plan-run deploy-check` reads it before a switch and again after, to say
+    whether the change made a plan's verdict worse. Written before the push,
+    because what the judge said is a fact whether or not fleetwatch heard it;
+    renamed into place so a reader never sees half of one.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(report), encoding="utf-8")
+    tmp.replace(path)
+
+
 def post(url: str, token: str, report: dict[str, object]) -> int:
     req = urllib.request.Request(
         url,
@@ -292,6 +305,9 @@ def parser() -> argparse.ArgumentParser:
                     help="seconds between scheduled runs; fleetwatch uses it to "
                          "decide when this producer has gone silent")
     ap.add_argument("--dry-run", action="store_true", help="print the report instead of POSTing")
+    ap.add_argument("--last-report", type=Path, default=None, metavar="FILE",
+                    help="also write the report here, for deploy-check to compare "
+                         "a verdict before a switch with the one after")
     # Repeatable rather than one string to split: a value containing a space
     # would be silently torn in two by a split, and this is how a plan is told
     # which host it is about. argparse hands the list to the runner as argv, so
@@ -323,6 +339,12 @@ def main() -> int:
         collected_at=collected_at,
         report_id=ulid(),
     )
+
+    if args.last_report is not None:
+        try:
+            write_last_report(args.last_report, report)
+        except OSError as e:
+            print(f"could not keep the report at {args.last_report}: {e}", file=sys.stderr)
 
     if args.dry_run:
         print(json.dumps(report, indent=2))

@@ -53,6 +53,7 @@ let
             --token-file ${cfg.tokenFile} \
             --url ${cfg.url} \
             --interval ${toString cfg.intervalSeconds} \
+            --last-report /var/lib/fleetwatch/plan-${plan}.json \
             ${lib.concatMapStringsSep " " (a: "--arg=${lib.escapeShellArg a}") entry.args}
         '';
         StateDirectory = "fleetwatch";

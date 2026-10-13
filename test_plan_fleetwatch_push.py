@@ -310,3 +310,19 @@ def test_a_runner_too_old_to_report_pending_still_reports() -> None:
         "2 held, 0 could not be read, 0 did not hold"
     )
     assert checks["drill: verified"]["verdict"] == "pass"
+
+
+def test_the_last_report_is_kept_whole_and_replaces_the_one_before(tmp_path: Path) -> None:
+    import json
+
+    path = tmp_path / "plan-firewall.json"
+    path.write_text("half of an older one")
+    report = push.build_report(
+        "firewall", push.verdict_checks("firewall", 0, _converged(), ""),
+        interval_s=3600, duration_ms=1, collected_at="2026-10-13T12:00:00.000+00:00",
+        report_id="01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    )
+    push.write_last_report(path, report)
+    assert json.loads(path.read_text()) == report
+    assert not (tmp_path / "plan-firewall.json.tmp").exists()
+    assert [p.name for p in tmp_path.iterdir()] == ["plan-firewall.json"]
