@@ -31,6 +31,7 @@ which would report a partially-read plan as if it were the whole one — the sam
 distinction `picade_fleet.health` reads this object for.
 
   ./plan-fleetwatch-push.py --plan firewall --dry-run     # print, do not POST
+  ./plan-fleetwatch-push.py --plan firewall --reads       # the hosts its probes name
 """
 
 from __future__ import annotations
@@ -305,6 +306,9 @@ def parser() -> argparse.ArgumentParser:
                     help="seconds between scheduled runs; fleetwatch uses it to "
                          "decide when this producer has gone silent")
     ap.add_argument("--dry-run", action="store_true", help="print the report instead of POSTing")
+    ap.add_argument("--reads", action="store_true",
+                    help="print the hosts the plan's probes name (plan-run --reads) "
+                         "and exit; deploy-check asks each judge this")
     ap.add_argument("--last-report", type=Path, default=None, metavar="FILE",
                     help="also write the report here, for deploy-check to compare "
                          "a verdict before a switch with the one after")
@@ -321,6 +325,14 @@ def parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = parser().parse_args()
+
+    if args.reads:
+        # The judge's own command line, so the answer is about the plan this
+        # unit judges, with the arguments it judges it with.
+        return subprocess.run(
+            [args.plan_run, args.plan, "--settings", args.settings, *args.arg, "--reads"],
+            check=False,
+        ).returncode
 
     started = time.monotonic()
     collected_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds")

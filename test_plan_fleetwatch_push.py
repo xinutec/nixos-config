@@ -326,3 +326,28 @@ def test_the_last_report_is_kept_whole_and_replaces_the_one_before(tmp_path: Pat
     assert json.loads(path.read_text()) == report
     assert not (tmp_path / "plan-firewall.json.tmp").exists()
     assert [p.name for p in tmp_path.iterdir()] == ["plan-firewall.json"]
+
+
+def test_reads_asks_plan_run_with_the_judges_own_arguments(monkeypatch: Any) -> None:
+    """deploy-check asks each judge what hosts its plan reads, through the
+    judge's own command line, so the answer is about the plan as judged."""
+    seen: dict[str, Any] = {}
+
+    class _Proc:
+        returncode = 7
+
+    def _fake(argv: list[str], **kw: Any) -> _Proc:
+        seen["argv"] = argv
+        return _Proc()
+
+    monkeypatch.setattr(push.subprocess, "run", _fake)
+    monkeypatch.setattr(push.sys, "argv", [
+        "push", "--plan", "drill-report", "--plan-run", "/bin/plan-run",
+        "--settings", "/etc/plan/settings.json", "--arg=--host", "--arg=odin", "--reads",
+    ])
+
+    assert push.main() == 7
+    assert seen["argv"] == [
+        "/bin/plan-run", "drill-report", "--settings", "/etc/plan/settings.json",
+        "--host", "odin", "--reads",
+    ]
