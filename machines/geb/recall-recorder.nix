@@ -1,10 +1,6 @@
 # geb as a store-and-forward recorder (recall's docs/architecture.md, stage C3).
 #
-# geb's recorder, imported by ./configuration.nix. It and ./recall-mic.nix (the
-# streaming client) CANNOT run together — one ALSA capture device, one reader — so
-# swapping them is a flip with no shadow period, to be made with someone around to
-# hear it fail. recall-mic.nix is dead and no longer imported; it is kept until
-# this has survived real days, which is when a path dies in this repo.
+# geb's recorder, imported by ./configuration.nix.
 #
 # Why this shape:
 #   - Audio is written to LOCAL segments first (60 s, capture-stamped) and
