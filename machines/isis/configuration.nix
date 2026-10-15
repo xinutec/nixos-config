@@ -36,16 +36,31 @@ in {
 
   # KEEP THE IMAGE HOARD DOWN (#1311, #1329). This host boots from a spinning
   # disk and containerd's startup scales with image count — a few thousand images
-  # take minutes and read as a k3s deadlock. Nothing prunes it and `:latest` adds
-  # one per rebuild, so check `k3s crictl images -q | wc -l` before suspecting
-  # anything cleverer. If you must restart k3s, give it ~2 minutes, then
-  # `kubectl delete pod` signal/messages — a reused emptyDir crash-loops them.
+  # take minutes and read as a k3s deadlock. `:latest` adds one per rebuild; the
+  # kubelet removes an image no container has used for a week, and the `images`
+  # plan's bound is the alarm if that stops. Check `k3s crictl images -q | wc -l`
+  # before suspecting anything cleverer. If you must restart k3s, give it ~2
+  # minutes, then `kubectl delete pod` signal/messages — a reused emptyDir
+  # crash-loops them.
   services.k3s = {
     enable = true;
     role = "server";
     extraFlags =
       "--disable traefik --advertise-address ${config.node.vpn} --flannel-iface=wg0 --secrets-encryption ${config.xinutec.k3sDns.flag}";
   };
+
+  # A drop-in, not `extraKubeletConfig`: that option is the kubelet's base
+  # config, and k3s's own drop-in (00-k3s-defaults.conf, `imageMaximumGCAge: 0s`)
+  # overrides it. Drop-ins apply in name order, so 99- wins.
+  systemd.services.k3s.preStart = ''
+    install -D -m 0644 ${
+      pkgs.writeText "99-image-gc.conf" ''
+        apiVersion: kubelet.config.k8s.io/v1beta1
+        kind: KubeletConfiguration
+        imageMaximumGCAge: 168h
+      ''
+    } /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/99-image-gc.conf
+  '';
 
   # The agent console's way in: the Mac dials out and asks sshd to listen on this
   # host's VPN address. TLS terminates at the Mac, so this host carries only
