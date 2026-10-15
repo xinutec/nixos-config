@@ -14,9 +14,9 @@ itself treats as an active handshake). WireGuard only re-handshakes when there i
 traffic, so an idle-but-connected mobile peer reads as down — and that is exactly
 why each peer carries a LIVENESS CLASS:
 
-  - always-on (servers, the receiver Pi): down is a real fault -> FAIL, which
+  - always-on (servers, the receiver Pi, the picades): down is a real fault -> FAIL, which
     reaches the notification channel.
-  - intermittent (phones, laptops, picades): down is expected -- they come and go
+  - intermittent (phones, laptops): down is expected -- they come and go
     -- so it is informational, never an alert -> SKIP; up is still PASS.
 
 The class is `intermittent` in network.nix; a peer without it defaults to always-on,

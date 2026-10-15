@@ -47,12 +47,12 @@ def test_intermittent_up_still_passes() -> None:
 
 
 def test_intermittent_down_skips_not_fails() -> None:
-    """The whole point: a sleeping phone/laptop/picade is expected, not a problem."""
+    """The whole point: a sleeping phone or laptop is expected, not a problem."""
     assert verdict(True, NOW - 3600) == "skip"
 
 
 def test_intermittent_never_handshaked_skips() -> None:
-    """A picade that is simply switched off never handshakes — that is not a fault."""
+    """A laptop that stays switched off never handshakes — that is not a fault."""
     assert verdict(True, 0) == "skip"
 
 
