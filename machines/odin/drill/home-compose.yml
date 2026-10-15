@@ -1,0 +1,69 @@
+# home restore drill on odin. The drill is declared in xinutec-infra's
+# plan/tables/drill_rows.dhall (`appRestore`); xinutec-infra's drill/README.md
+# has the rest.
+#
+# Production's MariaDB and home images, by digest, filled by `plan-run` as the
+# drill starts; without the variables compose refuses to start. The database
+# directory is the drill's seed: home's staged dump, loaded by a throwaway
+# server. The dump carries production's accounts, so the server runs the
+# drill's init file at start, setting root's password to the drill's constant.
+#
+# home connects, then listens, so its /health answering on 127.0.0.1:8449
+# means the restored database opened on production's build. Its ingest token
+# and sign-in settings must be present to start and are not used by it; every
+# credential below is a THROWAWAY DRILL VALUE.
+
+name: home-drill
+
+networks:
+  drill:
+    driver: bridge
+
+services:
+
+  db:
+    image: ${DRILL_IMAGE_DB:?production's mariadb, filled by plan-run}
+    container_name: drill-home-db
+    restart: "no"
+    command: ["--init-file=/drill-init/drill.sql"]
+    volumes:
+      - /var/lib/drill/volumes/home-mysql:/var/lib/mysql
+      - /var/lib/drill/volumes/home-init:/drill-init:ro
+    networks:
+      - drill
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost --silent || exit 1"]
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  home:
+    image: ${DRILL_IMAGE_APP:?production's home, filled by plan-run}
+    container_name: drill-home
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    # As production's pod: the image's node user, a read-only root, the same
+    # command.
+    user: "1000:1000"
+    read_only: true
+    command: ["node", "dist/server.js"]
+    environment:
+      PORT: "3000"
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: drill-root-pw
+      DB_NAME: home
+      INGEST_TOKEN: drill-ingest-token-drill-ingest-token
+      SESSION_SECRET: drill-session-secret-drill-session-secret
+      NC_BASE_URL: http://127.0.0.1:1
+      NC_CLIENT_ID: drill
+      NC_CLIENT_SECRET: drill
+      NC_REDIRECT_URI: http://127.0.0.1:8449/auth/callback
+    ports:
+      - "127.0.0.1:8449:3000"
+    networks:
+      - drill
