@@ -105,6 +105,13 @@
       intermittent = true;
     };
     # OnePlus 6T, a recall recorder.
+    oneplus6t-0 = {
+      name = "oneplus6t-0";
+      vpn = "10.100.0.18";
+      publicKey = "kQ0q251V/4AdUeMZ+NJUFiR9XwuwA/hzdm4uvDgi+zY=";
+      intermittent = false; # a gap here is lost audio
+    };
+    # OnePlus 6T, a recall recorder.
     oneplus6t-1 = {
       name = "oneplus6t-1";
       vpn = "10.100.0.8";
