@@ -103,6 +103,21 @@ def test_a_blocked_run_verified_nothing_and_must_not_read_as_clean() -> None:
     assert "established nothing" in str(got["firewall: verified"]["observed"])
 
 
+def test_a_stand_down_reads_nothing_and_says_why_rather_than_warning() -> None:
+    # A precondition that does not hold is the plan's own "nothing to judge
+    # now" (drill-report while a drill runs), and an unreadable one blocks
+    # rather than standing down. So unlike a block, zero counts here are the
+    # plan's declared answer, and a warn would stop a deploy that landed
+    # during a drill. Both spellings: `--simulate` and the run differ.
+    for outcome in ("stood-down", "stood down"):
+        obj = _converged(outcome=outcome, detail="no-drill-running does not hold, "
+                         "so there is nothing to do", held=0, unread=0, adrift=0)
+        got = _by_label(push.verdict_checks("drill-report", 0, obj, ""))
+        assert got["drill-report: outcome"]["verdict"] == "pass"
+        assert got["drill-report: verified"]["verdict"] == "pass", outcome
+        assert "no-drill-running" in str(got["drill-report: verified"]["observed"])
+
+
 def test_a_report_with_no_counts_fails_rather_than_reading_them_as_zero() -> None:
     # "0 could not be read" is the strongest claim this producer makes. A runner
     # whose report changed shape must not be able to make it by omission — that

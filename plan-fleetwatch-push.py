@@ -176,6 +176,19 @@ def verdict_checks(plan: str, code: int, obj: dict[str, object] | None,
         })
         return checks
 
+    if held + unread + adrift == 0 and code == 0 and outcome in ("stood-down", "stood down"):
+        # A stand-down is the plan's own "nothing to judge now", from a
+        # precondition that was READ and does not hold (an unreadable one
+        # blocks instead). Zero counts are its answer, not a gap, and a warn
+        # here stopped deploys that landed while a drill ran.
+        checks.append({
+            "section": plan,
+            "label": f"{plan}: verified",
+            "verdict": "pass",
+            "observed": f"stood down before reading: {detail}" if detail else "stood down",
+        })
+        return checks
+
     if held + unread + adrift == 0:
         # A run that BLOCKED short-circuits before it counts anything, so all
         # three are zero — and "0 could not be read" then reads as a clean bill
