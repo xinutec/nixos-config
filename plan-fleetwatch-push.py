@@ -12,8 +12,10 @@ the anti-pattern this fleet keeps designing out: fleetwatch does not collect
 systemd unit state, so a unit that fails is a red nobody sees. A push puts the
 verdict where the other producers already put theirs.
 
-**It is deliberately plan-agnostic.** The envelope, the check shape and the
-POST are the same for every plan; what differs is the plan name. So `integrity`
+**It is deliberately plan-agnostic, and it grades nothing.** The two checks
+are the runner's own (`plan-run <plan> --simulate --fleetwatch`, graded once in
+plan-core's `fleetwatch.rs`), so a verdict cannot depend on which pusher a host
+runs; the envelope and the POST are the same for every plan. So `integrity`
 (#52), `backup`, `offsite` and `drill` can each get a timer without a second
 copy of this file. The wire format mirrors `machines/amun/vpn-nodes-push.py`,
 `picade_fleet.fleetwatch` and `mac-mini/fleetwatch_push.py` so all four
@@ -70,30 +72,28 @@ def ulid() -> str:
 
 def run_plan(
     plan_run: str, plan: str, settings: str, extra: list[str] | None = None
-) -> tuple[int, dict[str, object] | None, str]:
-    """`plan-run <plan> --settings … --simulate --json [extra…]`, as (exit, object, stderr).
+) -> tuple[int, list[dict[str, object]] | None, str]:
+    """`plan-run <plan> --settings … --simulate --fleetwatch [extra…]`, as
+    (exit, checks, stderr).
 
     `extra` carries the arguments a plan REQUIRES and this collector cannot
-    guess: `drill` needs `--host`/`--prod-host`, `deploy` needs four. Without
-    them those plans exit 3 — "a defect in the plan" — and this would report a
-    red every hour for ever, which is why the module's own comment claiming they
-    were each one more line here was wrong.
+    guess: `drill` needs `--host`/`--prod-host`. Without them those plans exit
+    3 — "a defect in the plan" — and this would report a red every hour for
+    ever.
 
     ⚠ `--apply` is not reachable through it. `extra` is appended AFTER
     `--simulate`, and `plan-run` refuses `--apply --simulate` together rather
     than resolving them by precedence, so a settings file that smuggled the flag
     in makes the run fail loudly instead of converging something unattended.
-    That refusal is the runner's, not this script's, and it is what keeps this
-    module's observe-only property from depending on the module.
+    That refusal is the runner's, not this script's.
 
-    stdout carries exactly one object by construction — the runner sends its
-    progress narration to stderr under `--json` precisely so a collector need
-    not strip anything. The object is None when the run produced no parseable
-    stdout, which is a real state (a defect exit, code 3) and not the same as a
-    plan that ran and found nothing.
+    stdout carries exactly one JSON array by construction — the runner sends
+    its narration to stderr under `--fleetwatch`. The checks are None when the
+    run produced no parseable array, which is a real state (a defect exit,
+    code 3) and not the same as a plan that ran and found nothing.
     """
     proc = subprocess.run(
-        [plan_run, plan, "--settings", settings, "--simulate", "--json", *(extra or [])],
+        [plan_run, plan, "--settings", settings, "--simulate", "--fleetwatch", *(extra or [])],
         capture_output=True,
         text=True,
         timeout=600,
@@ -103,25 +103,24 @@ def run_plan(
         obj = json.loads(proc.stdout.strip() or "null")
     except json.JSONDecodeError:
         obj = None
-    return proc.returncode, obj if isinstance(obj, dict) else None, proc.stderr
+    checks = (
+        [c for c in obj if isinstance(c, dict)]
+        if isinstance(obj, list) and all(isinstance(c, dict) for c in obj)
+        else None
+    )
+    return proc.returncode, checks, proc.stderr
 
 
-def verdict_checks(plan: str, code: int, obj: dict[str, object] | None,
+def verdict_checks(plan: str, code: int, checks: list[dict[str, object]] | None,
                    stderr: str) -> list[dict[str, object]]:
-    """The plan's report → fleetwatch checks.
+    """The runner's checks, or one red check when it produced none.
 
-    TWO checks, and the second is not decoration. `outcome` says whether the
-    plan is satisfied; `verified` says how much of it was actually READ. A run
-    that converged because every probe was unreadable is not a run that found
-    the world in order, and reporting only the first would restate #734 one
-    layer up — this time with nobody at a terminal to notice.
-
-    Labels are qualified by plan (`firewall: outcome`), because fleetwatch
-    matches mutes on (source, collector, label) and ignores section: a bare
-    `outcome` would be shared by every plan on the host, so muting one would
-    silence them all.
+    Tool breakage is reported as a red check, not as silence: a producer that
+    dies quietly looks exactly like a fleet with nothing to say. The label is
+    the outcome's, so a dead runner and a blocked plan share one line on the
+    board rather than two.
     """
-    if obj is None:
+    if checks is None:
         return [{
             "section": plan,
             "label": f"{plan}: outcome",
@@ -129,124 +128,7 @@ def verdict_checks(plan: str, code: int, obj: dict[str, object] | None,
             "observed": f"plan-run produced no report (exit {code})",
             "detail": stderr[-2000:] or "no stderr",
         }]
-
-    outcome = str(obj.get("outcome", "?"))
-    detail = str(obj.get("detail", ""))
-    # 0 converged or stood down; 1 blocked; 2 work pending; 3 a defect. Pending
-    # is a warn rather than a fail: on a read-only plan it means the world has
-    # drifted and the run correctly declined to change it.
-    status = {0: "pass", 1: "fail", 2: "warn", 3: "fail"}.get(code, "fail")
-    fact = str(obj.get("fact", ""))
-    # ⚠ A WARN whose text says "all goals hold" reads like a broken dashboard.
-    # The verdict comes from the exit code and the words come from the report,
-    # and under `--simulate` those describe different moments: `outcome` and
-    # `detail` are about the END of the predicted trajectory, while exit 2 means
-    # steps were predicted to get there. Saying how many is what makes the amber
-    # mean something — for `drill` it is "the drill has not run", which is the
-    # whole reason it is reported at all.
-    predicted = obj.get("predicted")
-    pending = len(predicted) if isinstance(predicted, list) else 0
-    said = f"{outcome}: {detail}" if detail else outcome
-    checks: list[dict[str, object]] = [{
-        "section": plan,
-        "label": f"{plan}: outcome",
-        "verdict": status,
-        "observed": f"{pending} step(s) pending — {said}" if pending else said,
-    }]
-    if fact:
-        # WHICH goal, not just that one failed. The firewall plan's two rows are
-        # different alarms — a declared rule missing is usually a deploy, a rule
-        # nobody declared is the #727 shape — and a verdict that named neither
-        # would send someone to read both.
-        checks[0]["detail"] = f"fact: {fact}"
-
-    held, unread, adrift = (_count(obj, k) for k in ("held", "unread", "adrift"))
-    if held is None or unread is None or adrift is None:
-        # NOT a default of zero. "0 could not be read" is the strongest claim
-        # this producer makes, and a runner whose report changed shape must not
-        # be able to make it by omission — that is #734 with the evidence
-        # removed rather than merely unstated.
-        checks.append({
-            "section": plan,
-            "label": f"{plan}: verified",
-            "verdict": "fail",
-            "observed": "the report carried no goal counts",
-            "detail": f"held={obj.get('held')!r} unread={obj.get('unread')!r} "
-                      f"adrift={obj.get('adrift')!r}",
-        })
-        return checks
-
-    if held + unread + adrift == 0 and code == 0 and outcome in ("stood-down", "stood down"):
-        # A stand-down is the plan's own "nothing to judge now", from a
-        # precondition that was READ and does not hold (an unreadable one
-        # blocks instead). Zero counts are its answer, not a gap, and a warn
-        # here stopped deploys that landed while a drill ran.
-        checks.append({
-            "section": plan,
-            "label": f"{plan}: verified",
-            "verdict": "pass",
-            "observed": f"stood down before reading: {detail}" if detail else "stood down",
-        })
-        return checks
-
-    if held + unread + adrift == 0:
-        # A run that BLOCKED short-circuits before it counts anything, so all
-        # three are zero — and "0 could not be read" then reads as a clean bill
-        # of health for a run that established nothing at all. Found by
-        # ablation on isis 2026-08-12: with iptables off the unit's PATH the
-        # outcome check failed correctly and this one still said `pass`.
-        checks.append({
-            "section": plan,
-            "label": f"{plan}: verified",
-            "verdict": "warn",
-            "observed": "the run established nothing about this plan",
-            "detail": "no goal was resolved either way; see the outcome check",
-        })
-        return checks
-
-    # ⚠ `pending` is read TOLERANTLY, unlike the three above. It was added on
-    # 2026-08-17 and a host still running an older `plan-run` does not emit it —
-    # a hard requirement here would take the collector down until every pin
-    # moved, which is a reporting outage to fix a reporting inaccuracy. Absent
-    # means "this runner cannot tell me", and the sentence simply omits it.
-    #
-    # It does NOT enter the verdict. Outstanding work is already what the
-    # `outcome` check reports, and saying it twice would make one drifted plan
-    # look like two problems. This check answers "how much could be READ", which
-    # is unread + adrift and nothing else.
-    # ⚠ Named `outstanding` and not `pending`, because the outcome check above
-    # already has a `pending` and it counts something else: predicted STEPS.
-    # These are outstanding GOALS. They coincide for drill — three goals, three
-    # steps — which is exactly the kind of accident that makes two names for two
-    # things look like one.
-    outstanding = _count(obj, "pending")
-    counted = f"{held} held"
-    if outstanding:
-        counted += f", {outstanding} pending"
-    counted += f", {unread} could not be read, {adrift} did not hold"
-    checks.append({
-        "section": plan,
-        "label": f"{plan}: verified",
-        "verdict": "pass" if unread == 0 and adrift == 0 else "warn",
-        "observed": counted,
-        "value": float(unread + adrift),
-        "unit": "goals",
-    })
     return checks
-
-
-def _count(obj: dict[str, object], key: str) -> int | None:
-    """One of the runner's three goal counts, or None if it is not there.
-
-    The object came off a JSON boundary, so `object` is the truth about the
-    field's type and narrowing it IS the check. `bool` is excluded explicitly
-    because it is a subclass of `int` in Python, and `True` reported as a count
-    of 1 would be a number nobody wrote.
-    """
-    value = obj.get(key)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return None
-    return value
 
 
 def build_report(plan: str, checks: list[dict[str, object]], *, interval_s: int,

@@ -24,7 +24,7 @@ rec {
     # to start, an older runner ignores new frontdoor.json fields and reports
     # healthy on evidence that cannot show it, and one older than fbc135a reads
     # declared-firewall.json's v6 rules as IPv4. New capability here first.
-    rev = "27725c2e8374e93b44524c63c2e8398fec7361a1";
+    rev = "301d8be4ab24a709d90efa75d57a12c7e78e85df";
   };
 
   # NEEDS rustc >= 1.88 for let-chains: amun, held on 25.05 with 1.86, cannot

@@ -1,8 +1,8 @@
-"""What the plan → fleetwatch translation must say, and must not.
+"""What the pusher must do around the runner's checks, and must not.
 
-The push itself is one `urlopen`; what is worth pinning is the mapping, because
-every way it can be wrong is a way the fleet reports something untrue about
-itself and nobody is watching a terminal to catch it.
+The checks themselves are graded in plan-core (`core/tests/fleetwatch.rs`
+holds those cases); what is pinned here is the boundary: the command, its
+read-only flag, a dead runner, the envelope and the kept report.
 """
 
 from __future__ import annotations
@@ -19,130 +19,23 @@ push = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(push)
 
 
-def _converged(**over: Any) -> dict[str, Any]:
-    obj: dict[str, Any] = {
-        "outcome": "converged",
-        "fact": "",
-        "detail": "all firewall goals hold",
-        "looked": [],
-        "held": 2,
-        "unread": 0,
-        "adrift": 0,
-    }
-    obj.update(over)
-    return obj
-
-
-def _by_label(checks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    return {str(c["label"]): c for c in checks}
-
-
-def test_a_converged_plan_is_two_passing_checks() -> None:
-    checks = push.verdict_checks("firewall", 0, _converged(), "")
-    got = _by_label(checks)
-    assert set(got) == {"firewall: outcome", "firewall: verified"}
-    assert got["firewall: outcome"]["verdict"] == "pass"
-    assert got["firewall: verified"]["verdict"] == "pass"
-
-
-def test_labels_are_qualified_by_plan() -> None:
-    # fleetwatch matches mutes on (source, collector, label) and ignores
-    # section, so a bare `outcome` would be one identity shared by every plan on
-    # the host — muting the noisy one would silence the rest.
-    checks = push.verdict_checks("integrity", 0, _converged(), "")
-    for c in checks:
-        assert str(c["label"]).startswith("integrity: ")
-
-
-def test_blocked_fails_and_names_the_goal() -> None:
-    # A verdict that said only "blocked" would send someone to read both rows.
-    # The firewall plan's two are DIFFERENT alarms.
-    obj = _converged(outcome="blocked", fact="firewall:nothing-undeclared",
-                     detail="no automatic remedy", held=0)
-    checks = push.verdict_checks("firewall", 1, obj, "")
-    outcome = _by_label(checks)["firewall: outcome"]
-    assert outcome["verdict"] == "fail"
-    assert "firewall:nothing-undeclared" in str(outcome["detail"])
-
-
-def test_pending_work_warns_rather_than_fails() -> None:
-    # Exit 2 on a read-only run is the world having drifted and the run
-    # correctly declining to change it — real, but not the same as blocked.
-    checks = push.verdict_checks("backup", 2, _converged(outcome="pending"), "")
-    assert _by_label(checks)["backup: outcome"]["verdict"] == "warn"
-
-
-def test_a_plan_that_could_not_be_read_does_not_report_as_holding() -> None:
-    # The #734 shape, one layer up: a run whose probes all failed converges
-    # vacuously. `outcome` passing is not the whole truth, and `verified` is
-    # what stops that being the only thing said.
-    obj = _converged(held=0, unread=2)
-    checks = push.verdict_checks("firewall", 0, obj, "")
-    got = _by_label(checks)
-    assert got["firewall: outcome"]["verdict"] == "pass"
-    assert got["firewall: verified"]["verdict"] == "warn"
-    assert "2 could not be read" in str(got["firewall: verified"]["observed"])
-
-
-def test_a_goal_that_did_not_hold_also_warns_verified() -> None:
-    checks = push.verdict_checks("firewall", 0, _converged(held=1, adrift=1), "")
-    assert _by_label(checks)["firewall: verified"]["verdict"] == "warn"
-
-
-def test_a_blocked_run_verified_nothing_and_must_not_read_as_clean() -> None:
-    # Blocking short-circuits before any goal is counted, so all three are zero
-    # and "0 could not be read" would otherwise be a clean bill of health for a
-    # run that established nothing. Found by ABLATION on isis 2026-08-12 — with
-    # iptables off the unit's PATH the outcome check failed correctly and this
-    # one still said pass.
-    obj = _converged(outcome="blocked", fact="firewall:declared-applied",
-                     detail="cannot judge", held=0, unread=0, adrift=0)
-    got = _by_label(push.verdict_checks("firewall", 1, obj, ""))
-    assert got["firewall: outcome"]["verdict"] == "fail"
-    assert got["firewall: verified"]["verdict"] == "warn"
-    assert "established nothing" in str(got["firewall: verified"]["observed"])
-
-
-def test_a_stand_down_reads_nothing_and_says_why_rather_than_warning() -> None:
-    # A precondition that does not hold is the plan's own "nothing to judge
-    # now" (drill-report while a drill runs), and an unreadable one blocks
-    # rather than standing down. So unlike a block, zero counts here are the
-    # plan's declared answer, and a warn would stop a deploy that landed
-    # during a drill. Both spellings: `--simulate` and the run differ.
-    for outcome in ("stood-down", "stood down"):
-        obj = _converged(outcome=outcome, detail="no-drill-running does not hold, "
-                         "so there is nothing to do", held=0, unread=0, adrift=0)
-        got = _by_label(push.verdict_checks("drill-report", 0, obj, ""))
-        assert got["drill-report: outcome"]["verdict"] == "pass"
-        assert got["drill-report: verified"]["verdict"] == "pass", outcome
-        assert "no-drill-running" in str(got["drill-report: verified"]["observed"])
-
-
-def test_a_report_with_no_counts_fails_rather_than_reading_them_as_zero() -> None:
-    # "0 could not be read" is the strongest claim this producer makes. A runner
-    # whose report changed shape must not be able to make it by omission — that
-    # is #734 with the evidence deleted rather than merely unstated.
-    obj = _converged()
-    del obj["unread"]
-    got = _by_label(push.verdict_checks("firewall", 0, obj, ""))
-    assert got["firewall: verified"]["verdict"] == "fail"
-    assert "no goal counts" in str(got["firewall: verified"]["observed"])
-
-
-def test_a_boolean_is_not_a_count() -> None:
-    # bool is a subclass of int in Python, so `True` would otherwise sail
-    # through as a count of 1 that nobody wrote.
-    got = _by_label(push.verdict_checks("firewall", 0, _converged(unread=True), ""))
-    assert got["firewall: verified"]["verdict"] == "fail"
-
-
 def test_a_broken_tool_is_red_not_silent() -> None:
     # A producer that dies quietly looks exactly like a fleet with nothing to
     # say, which is the failure this whole file exists to prevent.
     checks = push.verdict_checks("firewall", 3, None, "thread 'main' panicked")
     assert len(checks) == 1
     assert checks[0]["verdict"] == "fail"
+    assert checks[0]["label"] == "firewall: outcome"
     assert "panicked" in str(checks[0]["detail"])
+
+
+def test_the_runners_checks_pass_through_untouched() -> None:
+    # Grading is the core's; a pusher that edited a check would be a second
+    # judge, which is what this replaced.
+    theirs: list[dict[str, object]] = [
+        {"section": "firewall", "label": "firewall: outcome", "verdict": "warn", "observed": "x"},
+    ]
+    assert push.verdict_checks("firewall", 2, theirs, "") == theirs
 
 
 def test_the_envelope_never_carries_a_source() -> None:
@@ -175,7 +68,7 @@ def test_extra_arguments_reach_plan_run_after_simulate(monkeypatch: Any) -> None
 
     class _Proc:
         returncode = 0
-        stdout = "{}"
+        stdout = "[]"
         stderr = ""
 
     def _fake(argv: list[str], **kw: Any) -> _Proc:
@@ -188,7 +81,7 @@ def test_extra_arguments_reach_plan_run_after_simulate(monkeypatch: Any) -> None
 
     assert seen["argv"] == [
         "/bin/plan-run", "drill", "--settings", "/etc/plan/settings.json",
-        "--simulate", "--json", "--host", "odin", "--prod-host", "isis",
+        "--simulate", "--fleetwatch", "--host", "odin", "--prod-host", "isis",
     ]
 
 
@@ -204,7 +97,7 @@ def test_extra_arguments_cannot_displace_simulate(monkeypatch: Any) -> None:
 
     class _Proc:
         returncode = 0
-        stdout = "{}"
+        stdout = "[]"
         stderr = ""
 
     def _fake(argv: list[str], **kw: Any) -> _Proc:
@@ -225,7 +118,7 @@ def test_no_extra_arguments_is_the_ordinary_case(monkeypatch: Any) -> None:
 
     class _Proc:
         returncode = 0
-        stdout = "{}"
+        stdout = "[]"
         stderr = ""
 
     def _fake(argv: list[str], **kw: Any) -> _Proc:
@@ -234,7 +127,7 @@ def test_no_extra_arguments_is_the_ordinary_case(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(push.subprocess, "run", _fake)
     push.run_plan("/bin/plan-run", "firewall", "/s.json")
-    assert seen["argv"][-1] == "--json"
+    assert seen["argv"][-1] == "--fleetwatch"
 
 
 def test_an_extra_argument_that_looks_like_a_flag_parses() -> None:
@@ -258,82 +151,14 @@ def test_no_extra_arguments_parses_to_an_empty_list() -> None:
     assert push.parser().parse_args(["--plan", "firewall"]).arg == []
 
 
-def test_a_warn_says_how_many_steps_are_pending() -> None:
-    """⚠ "warn: all goals hold" reads like a broken dashboard.
-
-    Under `--simulate` the verdict comes from the exit code and the words come
-    from the report, and those describe different moments: `outcome`/`detail`
-    are about the END of the predicted trajectory, exit 2 means steps were
-    predicted to get there. The count is what makes the amber mean something.
-    """
-    obj = _converged(detail="all drill goals hold", predicted=[{}, {}, {}])
-    checks = _by_label(push.verdict_checks("drill", 2, obj, ""))
-    assert checks["drill: outcome"]["verdict"] == "warn"
-    assert checks["drill: outcome"]["observed"] == (
-        "3 step(s) pending — converged: all drill goals hold"
-    )
-
-
-def test_a_converged_run_with_nothing_pending_does_not_say_zero() -> None:
-    """`0 step(s) pending` on a green check is noise; the ordinary case stays
-    the plain sentence it was."""
-    checks = _by_label(push.verdict_checks("firewall", 0, _converged(predicted=[]), ""))
-    assert checks["firewall: outcome"]["observed"] == "converged: all firewall goals hold"
-
-
-def test_a_report_with_no_predicted_field_still_reads() -> None:
-    """An older runner, or a shape change: absence must not crash the collector
-    or invent a count."""
-    obj = _converged()
-    obj.pop("predicted", None)
-    checks = _by_label(push.verdict_checks("firewall", 0, obj, ""))
-    assert "pending" not in str(checks["firewall: outcome"]["observed"])
-
-
-def test_pending_goals_are_named_so_the_counts_add_up() -> None:
-    """⚠ Without this, drill read "2 held, 0 could not be read, 0 did not hold"
-    — every number true, and a clean bill of health for a five-goal plan whose
-    three stamps were missing."""
-    obj = _converged(held=2, unread=0, adrift=0, pending=3)
-    checks = _by_label(push.verdict_checks("drill", 2, obj, ""))
-    assert checks["drill: verified"]["observed"] == (
-        "2 held, 3 pending, 0 could not be read, 0 did not hold"
-    )
-
-
-def test_pending_does_not_enter_the_verdict() -> None:
-    """Outstanding work is what the `outcome` check reports. Saying it twice
-    would make one drifted plan look like two problems, and this check answers
-    a different question: how much could be READ."""
-    checks = _by_label(push.verdict_checks("drill", 2, _converged(pending=3), ""))
-    assert checks["drill: verified"]["verdict"] == "pass"
-    assert checks["drill: verified"]["value"] == 0.0
-
-
-def test_a_runner_too_old_to_report_pending_still_reports() -> None:
-    """⚠ Read tolerantly, unlike the other three counts.
-
-    `pending` arrived on 2026-08-17 and a host on an older pin does not emit it.
-    Requiring it would take the collector down until every pin moved — a
-    reporting outage to fix a reporting inaccuracy. Absent means "this runner
-    cannot tell me", and the sentence omits it.
-    """
-    obj = _converged(held=2)
-    obj.pop("pending", None)
-    checks = _by_label(push.verdict_checks("drill", 2, obj, ""))
-    assert checks["drill: verified"]["observed"] == (
-        "2 held, 0 could not be read, 0 did not hold"
-    )
-    assert checks["drill: verified"]["verdict"] == "pass"
-
-
 def test_the_last_report_is_kept_whole_and_replaces_the_one_before(tmp_path: Path) -> None:
     import json
 
     path = tmp_path / "plan-firewall.json"
     path.write_text("half of an older one")
     report = push.build_report(
-        "firewall", push.verdict_checks("firewall", 0, _converged(), ""),
+        "firewall",
+        [{"section": "firewall", "label": "firewall: outcome", "verdict": "pass", "observed": "converged"}],
         interval_s=3600, duration_ms=1, collected_at="2026-10-13T12:00:00.000+00:00",
         report_id="01ARZ3NDEKTSV4RRFFQ69G5FAV",
     )
