@@ -221,10 +221,10 @@
       # The compose file is read from the live /etc/nixos checkout (the drill
       # directory in plan-settings.nix).
       #
-      # ⚠ Must stay ABOVE the drill's own ceilings in plan/runner/src/drill.rs
-      # (a full drill's restore alone may take six hours): the lower of two
-      # ceilings wins, and this one killing first turns a named plan timeout
-      # into an unexplained systemd kill.
+      # ⚠ Must stay ABOVE the drill's own ceilings in plan/runner/src/drill.rs:
+      # the lower of two ceilings wins, and this one killing first turns a
+      # named plan timeout into an unexplained systemd kill. The full drill's
+      # restore is `plan-run drill-restore`, its own run, not this unit's.
       TimeoutStartSec = "8h";
     };
     # By store path, pinned to the binary this generation was tested with.
