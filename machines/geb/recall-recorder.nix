@@ -9,7 +9,7 @@
 #     recalld rollout now costs delivery latency, never audio — the streaming
 #     client discards while disconnected, by documented design.
 #   - The household's recording window rules: capture is off unless a person
-#     opened one. audiod's pause-mirror polls the control plane and maintains
+#     opened one. audiod's window-mirror polls the control plane and maintains
 #     the capture_window gate file the capture loop checks on every cycle. Isis
 #     unreachable = keep the last known window, which closes at its own end; a
 #     gate file that does not read is a fault, and records.
@@ -115,13 +115,13 @@ in
   # The window: poll the control plane, maintain the capture_window gate file
   # the capture loop checks. An unreachable control plane leaves the last
   # window standing.
-  systemd.services.recall-pause-mirror = {
+  systemd.services.recall-window-mirror = {
     description = "Mirror the household's recording window onto geb's recorder";
     wantedBy = [ "multi-user.target" ];
     after = [ "network-online.target" ];
     serviceConfig = hardening // {
       User = "recall-recorder";
-      ExecStart = "${audiod}/bin/audiod pause-mirror --root ${root} --url ${isisControl}";
+      ExecStart = "${audiod}/bin/audiod window-mirror --root ${root} --url ${isisControl}";
       Restart = "always";
       RestartSec = "10s";
     };
