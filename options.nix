@@ -90,6 +90,26 @@ let
           peer's traffic passes the master, so the master enforces it, dropping
           NEW connections from the node's address in INPUT (toward itself) and
           FORWARD (toward every other peer). Replies still pass.
+          For an exception, name it in `mayReach`.
+        '';
+      };
+
+      mayReach = mkOption {
+        type = types.listOf (types.submodule {
+          options = {
+            node = mkOption { type = types.str; };
+            port = mkOption { type = types.port; };
+          };
+        });
+        default = [ ];
+        example = [ { node = "isis"; port = 443; } ];
+        description = ''
+          The TCP services an `isolated` node may still open, each a peer's name
+          and a port; everything else stays dropped. A name, not an address, and
+          an unknown name is an eval error, as in `reachableFrom`.
+
+          Each becomes an accept on the master's FORWARD chain, inserted ahead of
+          the node's DROP. Only meaningful on an `isolated` node.
         '';
       };
 

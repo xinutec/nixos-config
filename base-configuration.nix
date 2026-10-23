@@ -27,7 +27,7 @@ let
   # which reads exactly like the exception having been granted.
   vpnOf = named:
     (net.nodes.${named} or (throw
-      "reachableFrom names ${named}, which is not a node in network.nix"
+      "${named} is named as a peer but is not a node in network.nix"
     )).vpn;
 
 
@@ -183,19 +183,37 @@ let
 
   isolatedChains = [ "INPUT" "FORWARD" ];
 
+  # An isolated peer's exceptions (`mayReach`), each one service on one peer.
+  mayReachMatch = peer: target:
+    "-s ${peer.vpn}/32 -d ${vpnOf target.node}/32 -i wg0 -p tcp -m tcp --dport ${
+      toString target.port
+    } -m conntrack --ctstate NEW -j ACCEPT";
+
+  mayReachOf = peer: map (target: mayReachMatch peer target) (peer.mayReach or [ ]);
+
   isolatedDeclared = lib.concatMap (peer: map (chain: {
     inherit chain;
     spec = "-A ${chain} ${isolatedMatch peer}";
     why = "${peer.name} may start nothing on the VPN";
-  }) isolatedChains) isolatedPeers;
+  }) isolatedChains) isolatedPeers
+  ++ lib.concatMap (peer: map (match: {
+    chain = "FORWARD";
+    spec = "-A FORWARD ${match}";
+    why = "${peer.name} may open this one service, isolated otherwise";
+  }) (mayReachOf peer)) isolatedPeers;
 
   isolatedTeardown = lib.concatMapStrings (peer: lib.concatMapStrings (chain: ''
     iptables -w -D ${chain} ${isolatedMatch peer} 2>/dev/null || true
-  '') isolatedChains) isolatedPeers;
+  '') isolatedChains + lib.concatMapStrings (match: ''
+    iptables -w -D FORWARD ${match} 2>/dev/null || true
+  '') (mayReachOf peer)) isolatedPeers;
 
+  # The accepts are inserted after the drops, so each lands above them.
   isolatedRules = isolatedTeardown + lib.concatMapStrings (peer: lib.concatMapStrings (chain: ''
     iptables -w -I ${chain} 1 ${isolatedMatch peer}
-  '') isolatedChains) isolatedPeers;
+  '') isolatedChains + lib.concatMapStrings (match: ''
+    iptables -w -I FORWARD 1 ${match}
+  '') (mayReachOf peer)) isolatedPeers;
 
 in {
   imports = [
