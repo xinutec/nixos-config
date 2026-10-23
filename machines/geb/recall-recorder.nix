@@ -8,10 +8,11 @@
 #     before anything counts as delivered. A network blip, a Mac outage, or a
 #     recalld rollout now costs delivery latency, never audio — the streaming
 #     client discards while disconnected, by documented design.
-#   - The household pause still rules: audiod's pause-mirror polls the control
-#     plane and maintains the same capture_paused_until file the capture loop
-#     honours on every cycle. Isis unreachable = keep the last known state
-#     (completeness outranks; a poller must never invent a pause).
+#   - The household's recording window rules: capture is off unless a person
+#     opened one. audiod's pause-mirror polls the control plane and maintains
+#     the capture_window gate file the capture loop checks on every cycle. Isis
+#     unreachable = keep the last known window, which closes at its own end; a
+#     gate file that does not read is a fault, and records.
 #   - The device path keeps geb's own proven shape: ffmpeg opens ALSA (the
 #     card-by-NAME lesson below still applies) and audiod only pumps bytes —
 #     the same our-code-out-of-the-device-path rule as before.
@@ -111,11 +112,11 @@ in
     timerConfig = { OnBootSec = "1m"; OnUnitActiveSec = "1m"; };
   };
 
-  # The pause: poll the control plane, maintain the same capture_paused_until
-  # file the capture loop already honours. Conservative by construction —
-  # unreachable control plane leaves the last state standing.
+  # The window: poll the control plane, maintain the capture_window gate file
+  # the capture loop checks. An unreachable control plane leaves the last
+  # window standing.
   systemd.services.recall-pause-mirror = {
-    description = "Mirror the household pause onto geb's recorder";
+    description = "Mirror the household's recording window onto geb's recorder";
     wantedBy = [ "multi-user.target" ];
     after = [ "network-online.target" ];
     serviceConfig = hardening // {
