@@ -67,9 +67,14 @@ in {
   # fetching them and copying them over its own uplink.
   nix.settings.builders-use-substitutes = true;
 
+  # Mounted on first use and dropped when idle: the server is across the VPN,
+  # and a hard mount held while a switch restarts wg0 can hang the new
+  # systemd's generators until PID 1 freezes. `nofail` keeps a missing VPN
+  # from blocking boot.
   fileSystems."/export/home" = {
     device = "${net.nodes.master.vpn}:/export/home";
     fsType = "nfs4";
+    options = [ "x-systemd.automount" "x-systemd.idle-timeout=600" "x-systemd.mount-timeout=30" "nofail" ];
   };
 
   virtualisation.oci-containers.containers = {
