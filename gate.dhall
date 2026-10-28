@@ -174,4 +174,5 @@ in  { name = "nixos-config"
       , G.devLint "../"
       , G.checkTable "../dev-lint"
       ]
+      # G.acting "../dev-lint"
     }

@@ -1,0 +1,76 @@
+{
+  "ceilings": {
+    "acts": 0,
+    "bootstrap": 2,
+    "by_design": 0,
+    "observer_checks": 0,
+    "observes": 7
+  },
+  "subjects": [
+    {
+      "class": "Test",
+      "path": "machines/amun/test_vpn_nodes.py",
+      "why": ""
+    },
+    {
+      "class": "Observes",
+      "path": "machines/amun/vpn-nodes-push.py",
+      "why": "reads `wg show` on the hub and pushes each peer's liveness to fleetwatch; it changes nothing, so by this table's axis it observes. A plan would own it only if a peer being down had a remedy here, and it has none"
+    },
+    {
+      "class": "Observes",
+      "path": "machines/odin/backup_preview.py",
+      "why": ""
+    },
+    {
+      "class": "Observes",
+      "path": "plan-fleetwatch-push.py",
+      "why": "runs a plan read-only (--simulate) and reports its verdict"
+    },
+    {
+      "class": "Observes",
+      "path": "scripts/eval_machines.py",
+      "why": ""
+    },
+    {
+      "class": "Observes",
+      "path": "scripts/firewall_order.py",
+      "why": ""
+    },
+    {
+      "class": "Observes",
+      "path": "scripts/render_clusters.py",
+      "why": ""
+    },
+    {
+      "class": "Bootstrap",
+      "path": "scripts/setup-hooks.sh",
+      "why": ""
+    },
+    {
+      "class": "Observes",
+      "path": "scripts/ssh_config_order.py",
+      "why": ""
+    },
+    {
+      "class": "Test",
+      "path": "scripts/test_firewall_order.py",
+      "why": ""
+    },
+    {
+      "class": "Test",
+      "path": "scripts/test_ssh_config_order.py",
+      "why": ""
+    },
+    {
+      "class": "Bootstrap",
+      "path": "setup.sh",
+      "why": ""
+    },
+    {
+      "class": "Test",
+      "path": "test_plan_fleetwatch_push.py",
+      "why": ""
+    }
+  ]
+}
