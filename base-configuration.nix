@@ -492,6 +492,12 @@ in {
     script = ''
       # No `set -e`: exit codes are handled explicitly so a non-ff merge
       # is a clean skip, not a unit failure.
+      # Nothing here creates the clone, and without one the fetch below fails
+      # and reads as "offline": shu and tefnut went two months that way.
+      if [ ! -e .git ]; then
+        echo "home-autosync: FAILED — $HOME is not a clone of xinutec/pippijn; set one up as on geb" >&2
+        exit 1
+      fi
       if ! git fetch --quiet origin; then
         echo "home-autosync: fetch failed (offline?), skipping this run"
         exit 0
