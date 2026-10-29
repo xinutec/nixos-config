@@ -4,7 +4,7 @@
 #
 # Fetched by revision, not vendored and not `ref = "main"`: hosts get rebuilt
 # for unrelated reasons, and a floating ref would silently swap the reconciler.
-# To bump: change `rev`, run xinutec-infra's mac-mini/plan_pins.py, rebuild.
+# To bump: change `rev`, check it with xinutec-infra's `plan-run pins`, rebuild.
 
 { pkgs }:
 
@@ -24,7 +24,7 @@ rec {
     # to start, an older runner ignores new frontdoor.json fields and reports
     # healthy on evidence that cannot show it, and one older than fbc135a reads
     # declared-firewall.json's v6 rules as IPv4. New capability here first.
-    rev = "309279cd83c63ac0b0b0ffbd9f10324ebb9eb2f0";
+    rev = "d95a0b0e62e8caac9f97e3164eb0880a95502aaf";
   };
 
   # NEEDS rustc >= 1.88 for let-chains: amun, held on 25.05 with 1.86, cannot
