@@ -24,7 +24,7 @@ so a node someone forgot to classify fails loud rather than being silently skipp
 
 Peer pubkey -> {name, intermittent} comes from network.nix (rendered to JSON by the
 NixOS module), so adding a peer there is the only edit ever needed; nothing hardcoded.
-The report envelope mirrors mac-mini/fleetwatch_push.py so both producers speak the
+The report envelope mirrors xinutec-infra's fleetwatch-push so both producers speak the
 same wire format. `source` is NOT sent — fleetwatch derives it from the bearer token.
 
 Run by systemd (fleetwatch-vpn-nodes.service/.timer) every 10 min; --dry-run prints

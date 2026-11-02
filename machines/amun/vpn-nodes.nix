@@ -3,7 +3,7 @@
 # amun is the star-topology hub, so `wg show wg0 latest-handshakes` is the
 # authoritative "which peer is up" table — read it locally every 10 min and POST a
 # verdict-shaped report to fleetwatch (isis, 10.100.0.2, reachable over the VPN).
-# The pusher (vpn-nodes-push.py) mirrors mac-mini/fleetwatch_push.py's wire format;
+# The pusher (vpn-nodes-push.py) mirrors xinutec-infra's fleetwatch-push's wire format;
 # `source` is derived server-side from the bearer token, so this writes as "amun".
 #
 # The pubkey -> {name, intermittent} map is rendered from network.nix here, so it

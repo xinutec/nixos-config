@@ -18,7 +18,7 @@ plan-core's `fleetwatch.rs`), so a verdict cannot depend on which pusher a host
 runs; the envelope and the POST are the same for every plan. So `integrity`
 (#52), `backup`, `offsite` and `drill` can each get a timer without a second
 copy of this file. The wire format mirrors `machines/amun/vpn-nodes-push.py`,
-`picade_fleet.fleetwatch` and `mac-mini/fleetwatch_push.py` so all four
+`picade_fleet.fleetwatch` and xinutec-infra's `fleetwatch-push` so all four
 producers speak one dialect.
 
 **`source` is never sent.** fleetwatch derives it from the bearer token, so a
