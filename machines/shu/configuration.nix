@@ -67,7 +67,7 @@ in
     powerOnBoot = true;
   };
 
-  # shu is in home_receivers.py's RECEIVERS, so its silence IS a fault — correct and
+  # shu is in plan-run home-receivers' RECEIVERS, so its silence IS a fault — correct and
   # deliberate. A rebuild turns that row red, which is a true statement about the house.
   age.secrets."home-ingest-token" = {
     file = ../../agenix/home-ingest-token.age;
