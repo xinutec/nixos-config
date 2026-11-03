@@ -132,9 +132,6 @@
 
   # The staging step shells out locally; kubectl is NOT needed, it runs over SSH.
   systemd.services.restic-backups-cluster = {
-    # A switch must not stop a running backup and wait on a new one; the next
-    # timer run takes the new generation. Likewise the check and the drill.
-    restartIfChanged = false;
     path = with pkgs; [ bash rsync openssh zstd curl ];
     serviceConfig = {
       # Hours on a first run — the Nextcloud PVC is ~200 GiB.
@@ -167,6 +164,9 @@
     };
   };
   systemd.services.restic-check-cluster = {
+    # A switch must not stop a running check and wait on a new one; the next
+    # timer run takes the new generation. The restic module already says so
+    # for the backup.
     restartIfChanged = false;
     # `restic` by NAME: plan-run builds an argv list and does not know where nix put it.
     path = with pkgs; [ restic curl ];
