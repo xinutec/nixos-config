@@ -132,6 +132,9 @@
 
   # The staging step shells out locally; kubectl is NOT needed, it runs over SSH.
   systemd.services.restic-backups-cluster = {
+    # A switch must not stop a running backup and wait on a new one; the next
+    # timer run takes the new generation. Likewise the check and the drill.
+    restartIfChanged = false;
     path = with pkgs; [ bash rsync openssh zstd curl ];
     serviceConfig = {
       # Hours on a first run — the Nextcloud PVC is ~200 GiB.
@@ -164,6 +167,7 @@
     };
   };
   systemd.services.restic-check-cluster = {
+    restartIfChanged = false;
     # `restic` by NAME: plan-run builds an argv list and does not know where nix put it.
     path = with pkgs; [ restic curl ];
     serviceConfig = {
@@ -197,6 +201,10 @@
     };
   };
   systemd.services.drill-weekly = {
+    # ⚠ Not restarted by a switch: the health load alone takes two hours here,
+    # so a restart kills a drill near its end and holds the switch until the
+    # new one finishes. The next timer run takes the new generation.
+    restartIfChanged = false;
     # ⚠ The drill runs its commands HERE, in this unit, not over ssh: docker,
     # mount/umount/mountpoint (util-linux), curl for readiness, zstd for the
     # dump, restic for a full drill, bash for each step. The checks still ask
