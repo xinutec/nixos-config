@@ -16,7 +16,7 @@ in  { ceilings =
       { acts = 0
       , bootstrap = 2
       , by_design = 0
-      , observes = 7
+      , observes = 6
       , observer_checks = 0
       }
     , subjects =
@@ -26,10 +26,6 @@ in  { ceilings =
               Class.Observes
               "reads `wg show` on the hub and pushes each peer's liveness to fleetwatch; it changes nothing, so by this table's axis it observes. A plan would own it only if a peer being down had a remedy here, and it has none"
           , subject "machines/odin/backup_preview.py" Class.Observes ""
-          , subject
-              "plan-fleetwatch-push.py"
-              Class.Observes
-              "runs a plan read-only (--simulate) and reports its verdict"
           , subject "scripts/eval_machines.py" Class.Observes ""
           , subject "scripts/firewall_order.py" Class.Observes ""
           , subject "scripts/render_clusters.py" Class.Observes ""
@@ -38,7 +34,6 @@ in  { ceilings =
           , subject "scripts/test_firewall_order.py" Class.Test ""
           , subject "scripts/test_ssh_config_order.py" Class.Test ""
           , subject "setup.sh" Class.Bootstrap ""
-          , subject "test_plan_fleetwatch_push.py" Class.Test ""
           ]
         : List A.Subject
     }

@@ -93,7 +93,6 @@ in  { name = "nixos-config"
               , "scripts/firewall_order.py"
               , "scripts/ssh_config_order.py"
               , "machines/odin/backup_preview.py"
-              , "plan-fleetwatch-push.py"
               , "scripts/render_clusters.py"
               ]
         , timeout_s = 600
@@ -145,7 +144,6 @@ in  { name = "nixos-config"
               , "machines"
               , "scripts/test_firewall_order.py"
               , "scripts/test_ssh_config_order.py"
-              , "test_plan_fleetwatch_push.py"
               ]
         , timeout_s = 600
         }

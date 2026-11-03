@@ -42,11 +42,12 @@ let
         Type = "oneshot";
         # Root because `iptables -S` needs CAP_NET_ADMIN; the plan has no effects.
         #
-        # ⚠ `--arg=VALUE` with the equals sign: the values are themselves flags
-        # (`--host`), and argparse reads a separate `-…` value as the next option.
-        # Repeated rather than joined so `escapeShellArg` keeps spaces intact.
+        # `fleetwatch-push plan` (xinutec-infra's plan/runner): the plan run
+        # read-only, the report kept for deploy-check and posted with this
+        # host's token. `--arg=VALUE`, repeated, one argument each, so
+        # `escapeShellArg` keeps spaces intact.
         ExecStart = ''
-          ${pkgs.python3}/bin/python3 ${./plan-fleetwatch-push.py} \
+          ${planRun}/bin/fleetwatch-push plan \
             --plan ${plan} \
             --plan-run ${planRun}/bin/plan-run \
             --settings /etc/plan/settings.json \

@@ -4,7 +4,7 @@
     "bootstrap": 2,
     "by_design": 0,
     "observer_checks": 0,
-    "observes": 7
+    "observes": 6
   },
   "subjects": [
     {
@@ -21,11 +21,6 @@
       "class": "Observes",
       "path": "machines/odin/backup_preview.py",
       "why": ""
-    },
-    {
-      "class": "Observes",
-      "path": "plan-fleetwatch-push.py",
-      "why": "runs a plan read-only (--simulate) and reports its verdict"
     },
     {
       "class": "Observes",
@@ -65,11 +60,6 @@
     {
       "class": "Bootstrap",
       "path": "setup.sh",
-      "why": ""
-    },
-    {
-      "class": "Test",
-      "path": "test_plan_fleetwatch_push.py",
       "why": ""
     }
   ]
