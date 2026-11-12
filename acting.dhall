@@ -30,7 +30,10 @@ in  { ceilings =
           , subject "scripts/firewall_order.py" Class.Observes ""
           , subject "scripts/render_clusters.py" Class.Observes ""
           , subject "scripts/setup-hooks.sh" Class.Bootstrap ""
-          , subject "scripts/ssh_config_order.py" Class.Observes ""
+          , subject
+              "scripts/ssh_config_order.py"
+              Class.Observes
+              "evaluates each machine's ssh_config and asserts its order; reads only"
           , subject "scripts/test_firewall_order.py" Class.Test ""
           , subject "scripts/test_ssh_config_order.py" Class.Test ""
           , subject "setup.sh" Class.Bootstrap ""

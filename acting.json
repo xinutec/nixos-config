@@ -45,7 +45,7 @@
     {
       "class": "Observes",
       "path": "scripts/ssh_config_order.py",
-      "why": ""
+      "why": "evaluates each machine's ssh_config and asserts its order; reads only"
     },
     {
       "class": "Test",
