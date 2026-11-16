@@ -252,6 +252,19 @@
     "why": ""
   },
   {
+    "clusters": [
+      "isis.xinutec.org"
+    ],
+    "exposure": "Public",
+    "host": "sinterklaas.xinutec.org",
+    "modelled": true,
+    "path": "/",
+    "port": 80,
+    "scheme": "http",
+    "upstream": "httpd-sinterklaas.web.svc.cluster.local",
+    "why": ""
+  },
+  {
     "basicAuth": "web/slides-auth",
     "clusters": [
       "isis.xinutec.org"
