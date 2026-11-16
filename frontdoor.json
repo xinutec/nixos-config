@@ -148,6 +148,19 @@
     "clusters": [
       "isis.xinutec.org"
     ],
+    "exposure": "Public",
+    "host": "sinterklaas.xinutec.org",
+    "modelled": true,
+    "path": "/",
+    "port": 80,
+    "scheme": "http",
+    "upstream": "sinterklaas-app.sinterklaas.svc.cluster.local",
+    "why": ""
+  },
+  {
+    "clusters": [
+      "isis.xinutec.org"
+    ],
     "exposure": "VpnOnly",
     "host": "tasks.xinutec.org",
     "modelled": true,
@@ -249,19 +262,6 @@
     "redirectTo": "leanux.org",
     "scheme": "http",
     "upstream": "",
-    "why": ""
-  },
-  {
-    "clusters": [
-      "isis.xinutec.org"
-    ],
-    "exposure": "Public",
-    "host": "sinterklaas.xinutec.org",
-    "modelled": true,
-    "path": "/",
-    "port": 80,
-    "scheme": "http",
-    "upstream": "httpd-sinterklaas.web.svc.cluster.local",
     "why": ""
   },
   {
