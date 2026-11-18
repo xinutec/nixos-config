@@ -95,6 +95,10 @@ let
       listenAddresses = listenFor host;
       forceSSL = true;
       useACMEHost = host;
+      # Off until nginx is at least 1.30.7: before it, HTTP/2 carries two
+      # unauthenticated remote code executions (CVE-2026-123633,
+      # CVE-2026-123007). amun's 25.05 never gets that release.
+      http2 = false;
       # HSTS (#1320), per SERVER: nginx `add_header` is a per-block OVERRIDE, so
       # an http-scope header is discarded the day any location adds one of its
       # own. `always` so error responses carry it too.
