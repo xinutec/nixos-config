@@ -305,7 +305,7 @@
     "port": 80,
     "scheme": "http",
     "upstream": "httpd-isis.web.svc.cluster.local",
-    "why": "the second Ingress on isis.xinutec.org, already declared unowned in sites/isis.dhall as share-auth.yaml: it and its bcrypt Secret are git-crypt'd because this repository is public. Site.unowned names the FILE; the front door needs the ROUTE."
+    "why": "the share's auth-gated path on isis.xinutec.org. Its bcrypt Secret is in share-auth.yaml, declared unowned in sites/isis.dhall and git-crypt'd because this repository is public. Site.unowned names the FILE; the front door needs the ROUTE."
   },
   {
     "clusters": [
@@ -318,6 +318,6 @@
     "port": 443,
     "scheme": "https",
     "upstream": "mailu-front.mailu-mailserver.svc.cluster.local",
-    "why": "mailu is deployed from its own chart and has never been in this model. Its Ingress names the backend port by NAME (https), which resolves to 443, and carries backend-protocol: HTTPS — the only upstream in the fleet that is not plain http."
+    "why": "mailu is deployed from its own chart and has never been in this model. Its front Service serves HTTPS on 443, the only upstream in the fleet that is not plain http."
   }
 ]

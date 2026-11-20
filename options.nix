@@ -139,13 +139,11 @@ let
       # Set exactly on k3s nodes; base-configuration asserts that, and
       # frontdoor.nix asserts it is "frontdoor" where it is imported.
       edge = mkOption {
-        type = types.nullOr (types.enum [ "frontdoor" "ingress-nginx" ]);
+        type = types.nullOr (types.enum [ "frontdoor" ]);
         default = null;
         description = ''
-          How a k3s node's cluster is reached from outside: the host nginx front
-          door (isis, #1294) or ingress-nginx pods (amun). The kubes model reads
-          it from clusters.dhall, because a NetworkPolicy admitting the
-          ingress-nginx namespace selects nothing where the edge is host traffic.
+          How a k3s node's cluster is reached from outside: the host nginx
+          front door, on every k3s node.
         '';
       };
     };

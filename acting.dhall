@@ -28,7 +28,6 @@ in  { ceilings =
           , subject "machines/odin/backup_preview.py" Class.Observes ""
           , subject "scripts/eval_machines.py" Class.Observes ""
           , subject "scripts/firewall_order.py" Class.Observes ""
-          , subject "scripts/render_clusters.py" Class.Observes ""
           , subject "scripts/setup-hooks.sh" Class.Bootstrap ""
           , subject
               "scripts/ssh_config_order.py"

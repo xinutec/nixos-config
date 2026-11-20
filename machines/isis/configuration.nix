@@ -9,8 +9,6 @@ in {
     ./picade-health.nix
     ./plan-picade.nix
     ../../plan-fleetwatch.nix
-    # Importing this is the CUTOVER (#1294), and it does not work alone: nginx
-    # receives nothing until the ingress-nginx LoadBalancer Service is deleted.
     ../../frontdoor.nix
     ../../k3s-dns.nix
   ];

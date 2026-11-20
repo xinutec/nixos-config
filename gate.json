@@ -23,23 +23,6 @@
         "path:./nix",
         "--no-warn-dirty",
         "--command",
-        "python3",
-        "scripts/render_clusters.py",
-        "--check"
-      ],
-      "artifacts": [],
-      "cwd": ".",
-      "env": {},
-      "name": "clusters.dhall matches network.nix",
-      "timeout_s": 300
-    },
-    {
-      "argv": [
-        "nix",
-        "develop",
-        "path:./nix",
-        "--no-warn-dirty",
-        "--command",
         "ruff",
         "check",
         "."
@@ -62,8 +45,7 @@
         "machines/amun/vpn-nodes-push.py",
         "scripts/firewall_order.py",
         "scripts/ssh_config_order.py",
-        "machines/odin/backup_preview.py",
-        "scripts/render_clusters.py"
+        "machines/odin/backup_preview.py"
       ],
       "artifacts": [],
       "cwd": ".",

@@ -33,11 +33,6 @@
       "why": ""
     },
     {
-      "class": "Observes",
-      "path": "scripts/render_clusters.py",
-      "why": ""
-    },
-    {
       "class": "Bootstrap",
       "path": "scripts/setup-hooks.sh",
       "why": ""

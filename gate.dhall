@@ -65,15 +65,6 @@ in  { name = "nixos-config"
         , argv = inNixShell [ "python3", "scripts/eval_machines.py" ]
         , timeout_s = 1800
         }
-      , {-  The kubes model reads each cluster's edge from a copy of
-            clusters.dhall, so a network.nix edit that is not re-rendered would
-            reach the model as the old fact (render_clusters.py).
-        -}
-        G.Check::{
-        , name = "clusters.dhall matches network.nix"
-        , argv = inNixShell [ "python3", "scripts/render_clusters.py", "--check" ]
-        , timeout_s = 300
-        }
       , G.Check::{
         , name = "ruff (operational Python)"
         , argv = inNixShell [ "ruff", "check", "." ]
@@ -93,7 +84,6 @@ in  { name = "nixos-config"
               , "scripts/firewall_order.py"
               , "scripts/ssh_config_order.py"
               , "machines/odin/backup_preview.py"
-              , "scripts/render_clusters.py"
               ]
         , timeout_s = 600
         }
