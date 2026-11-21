@@ -20,6 +20,14 @@
 { config, lib, pkgs, ... }:
 
 let
+  # HTTP/2 only on an nginx carrying the fix for its two unauthenticated remote
+  # code executions (CVE-2026-123633, CVE-2026-123007): 1.30.7 on the stable
+  # line, 1.31.9 on mainline. amun's 25.05 has 1.28, so it stays off there.
+  nginxVersion = config.services.nginx.package.version;
+  http2Fixed =
+    lib.versionAtLeast nginxVersion "1.31.9"
+    || (lib.versionAtLeast nginxVersion "1.30.7" && lib.versionOlder nginxVersion "1.31");
+
   node = config.node;
 
   # Fixed by k3s's default service CIDR, the same on both clusters.
@@ -95,10 +103,7 @@ let
       listenAddresses = listenFor host;
       forceSSL = true;
       useACMEHost = host;
-      # Off until nginx is at least 1.30.7: before it, HTTP/2 carries two
-      # unauthenticated remote code executions (CVE-2026-123633,
-      # CVE-2026-123007). amun's 25.05 never gets that release.
-      http2 = false;
+      http2 = http2Fixed;
       # HSTS (#1320), per SERVER: nginx `add_header` is a per-block OVERRIDE, so
       # an http-scope header is discarded the day any location adds one of its
       # own. `always` so error responses carry it too.
